@@ -1,220 +1,256 @@
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import pytest
+from conftest import make_prediction
 
-from t4perceval.dataclass import (
+from t4perceval import (
     BatchDetection3D,
     BatchPrediction3D,
-    BatchTracking3D,
+    BatchSemanticSegmentation2D,
+    BatchSemanticSegmentation3D,
     BatchTrajectory3D,
-    Header,
-    SemanticSegmentation2D,
-    SemanticSegmentation3D,
+    BatchTracking3D,
     TrajectoryMode3D,
 )
-from t4perceval.dataclass.archetype import BatchDetection3D as ArchetypeBatchDetection3D
+from t4perceval.archetype import BatchDetection3D as ArchetypeBatchDetection3D
+from t4perceval.archetype import BatchMatchResult
+from t4perceval.component import MatchStatus
 
 
-def detection_columns() -> dict[str, Any]:
-    return {
-        "header": Header(timestamp_ns=1_000, frame_id="map"),
-        "position": [[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]],
-        "quaternion": [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
-        "size": [[4.0, 2.0, 1.5], [1.0, 1.0, 2.0]],
-        "class_id": [1, 2],
-        "confidence": [0.9, 0.8],
-        "velocity": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-    }
+def modes(*confidences: float, time_offsets: list[int] | None = None) -> list[TrajectoryMode3D]:
+    offsets = time_offsets or [1, 2]
+    return [
+        TrajectoryMode3D(
+            confidence=confidence,
+            time_offset_ns=offsets,
+            position=[[float(index), 0.0, 0.0] for index in range(len(offsets))],
+        )
+        for confidence in confidences
+    ]
 
 
-def make_trajectories() -> BatchTrajectory3D:
-    return BatchTrajectory3D(
-        positions=np.arange(36, dtype=np.float64).reshape(2, 2, 3, 3),
-        confidences=[[0.6, 0.4], [1.0, 0.0]],
-        time_offsets_ns=[1, 3, 6],
-    )
+class TestPublicApi:
+    def test_the_archetype_module_exposes_the_canonical_types(self) -> None:
+        assert ArchetypeBatchDetection3D is BatchDetection3D
+
+    def test_the_batch_prefix_marks_every_multi_row_type(self) -> None:
+        for archetype in (
+            BatchDetection3D,
+            BatchTracking3D,
+            BatchPrediction3D,
+            BatchTrajectory3D,
+            BatchSemanticSegmentation2D,
+            BatchSemanticSegmentation3D,
+            BatchMatchResult,
+        ):
+            assert archetype.__name__.startswith("Batch")
 
 
-class TestObjectTasks:
-    def test_detection_validates_component_lengths(self) -> None:
-        with pytest.raises(ValueError, match="confidence has length 1, expected 2"):
-            BatchDetection3D(
-                header=Header(1_000, "map"),
+class TestTrajectoryMode:
+    def test_validates_confidence(self) -> None:
+        with pytest.raises(ValueError, match=r"within \[0, 1\]"):
+            TrajectoryMode3D(confidence=1.1, time_offset_ns=[1], position=[[0.0, 0.0, 0.0]])
+
+    def test_validates_state_alignment(self) -> None:
+        with pytest.raises(ValueError, match="position has length 1, expected 2"):
+            TrajectoryMode3D(confidence=1.0, time_offset_ns=[1, 2], position=[[0.0, 0.0, 0.0]])
+
+    def test_requires_a_strictly_increasing_time_axis(self) -> None:
+        with pytest.raises(ValueError, match="strictly increasing"):
+            TrajectoryMode3D(
+                confidence=1.0,
+                time_offset_ns=[2, 1],
+                position=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+            )
+
+    def test_requires_at_least_one_timestep(self) -> None:
+        with pytest.raises(ValueError, match="at least one timestep"):
+            TrajectoryMode3D(confidence=1.0, time_offset_ns=[], position=np.zeros((0, 3)))
+
+
+class TestBatchTrajectory:
+    def test_builds_a_dense_batch_from_modes(self) -> None:
+        trajectories = BatchTrajectory3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
+
+        assert len(trajectories) == 2
+        assert (trajectories.num_modes, trajectories.num_timesteps) == (2, 2)
+        assert trajectories.waypoints.values.shape == (2, 2, 2, 3)
+        assert trajectories.mode_confidence.values.tolist() == [[0.6, 0.4], [0.7, 0.3]]
+        assert trajectories.time_offset.values.tolist() == [[1, 2], [1, 2]]
+
+    def test_round_trips_back_to_modes(self) -> None:
+        trajectories = BatchTrajectory3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
+
+        restored = trajectories.to_modes(0)
+
+        assert [mode.confidence for mode in restored] == [0.6, 0.4]
+        assert restored[0].time_offset_ns.tolist() == [1, 2]
+
+    def test_requires_a_shared_time_axis(self) -> None:
+        with pytest.raises(ValueError, match="same time_offset_ns"):
+            BatchTrajectory3D.from_modes(
+                [modes(1.0), modes(1.0, time_offsets=[1, 3])],
+            )
+
+    def test_requires_a_uniform_mode_count(self) -> None:
+        with pytest.raises(ValueError, match="same number of trajectory modes"):
+            BatchTrajectory3D.from_modes([modes(0.5, 0.5), modes(1.0)])
+
+    def test_rejects_an_empty_object_list(self) -> None:
+        with pytest.raises(ValueError, match="at least one object"):
+            BatchTrajectory3D.from_modes([])
+
+    def test_rejects_an_object_without_modes(self) -> None:
+        with pytest.raises(ValueError, match="at least one trajectory mode"):
+            BatchTrajectory3D.from_modes([[]])
+
+    def test_empty_keeps_a_fixed_mode_and_time_shape(self) -> None:
+        empty = BatchTrajectory3D.empty(num_modes=3, num_timesteps=4)
+
+        assert len(empty) == 0
+        assert (empty.num_modes, empty.num_timesteps) == (3, 4)
+
+    def test_empty_rejects_a_degenerate_shape(self) -> None:
+        with pytest.raises(ValueError, match="must both be positive"):
+            BatchTrajectory3D.empty(num_modes=0, num_timesteps=4)
+
+    def test_reports_an_out_of_range_object(self) -> None:
+        trajectories = BatchTrajectory3D.from_modes([modes(1.0)])
+
+        with pytest.raises(IndexError, match="object index out of range"):
+            trajectories.to_modes(1)
+
+    def test_mode_confidences_are_not_forced_to_sum_to_one(self) -> None:
+        # Models frequently emit unnormalized scores; normalizing here would silently
+        # change the metric, so only the [0, 1] range is enforced.
+        trajectories = BatchTrajectory3D.from_modes([modes(0.9, 0.9)])
+
+        assert trajectories.mode_confidence.values.sum() == pytest.approx(1.8)
+
+
+class TestTrajectoryShapeAgreement:
+    def base(self, **overrides: object) -> dict[str, object]:
+        columns: dict[str, object] = {
+            "waypoints": np.zeros((1, 2, 3, 3)),
+            "mode_confidence": [[0.5, 0.5]],
+        }
+        columns.update(overrides)
+        return columns
+
+    def test_accepts_agreeing_masks(self) -> None:
+        trajectories = BatchTrajectory3D(
+            **self.base(
+                mode_valid=[[True, False]],
+                timestep_valid=np.ones((1, 2, 3), dtype=bool),
+                time_offset=[[1, 2, 3]],
+            ),
+        )
+
+        assert len(trajectories) == 1
+
+    def test_rejects_a_mode_count_mismatch(self) -> None:
+        with pytest.raises(ValueError, match="mode_confidence has 3 modes, expected 2"):
+            BatchTrajectory3D(**self.base(mode_confidence=[[0.3, 0.3, 0.4]]))
+
+    def test_rejects_a_mode_mask_mismatch(self) -> None:
+        with pytest.raises(ValueError, match=r"mode_valid has row shape \(3,\)"):
+            BatchTrajectory3D(**self.base(mode_valid=[[True, True, True]]))
+
+    def test_rejects_a_timestep_mask_mismatch(self) -> None:
+        with pytest.raises(ValueError, match=r"timestep_valid has row shape \(2, 4\)"):
+            BatchTrajectory3D(**self.base(timestep_valid=np.ones((1, 2, 4), dtype=bool)))
+
+    def test_rejects_a_time_axis_mismatch(self) -> None:
+        with pytest.raises(ValueError, match=r"time_offset has row shape \(2,\)"):
+            BatchTrajectory3D(**self.base(time_offset=[[1, 2]]))
+
+
+class TestPrediction:
+    def test_selects_dense_trajectories_along_with_the_boxes(self) -> None:
+        prediction = make_prediction([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]], [10, 11])
+
+        selected = prediction.select(np.array([1], dtype=np.int64))
+
+        assert isinstance(selected, BatchPrediction3D)
+        assert selected.instance_id.values.tolist() == [11]
+        assert selected.waypoints.values.shape == (1, 2, 3, 3)
+        assert selected.mode_confidence.values.shape == (1, 2)
+        assert selected.time_offset.values.tolist() == [[100, 200, 300]]
+
+    def test_validates_the_trajectory_row_count(self) -> None:
+        with pytest.raises(ValueError, match="waypoints has length 1, expected 2"):
+            BatchPrediction3D(
                 position=np.zeros((2, 3)),
                 quaternion=np.tile([0.0, 0.0, 0.0, 1.0], (2, 1)),
                 size=np.ones((2, 3)),
                 class_id=[1, 1],
-                confidence=[0.9],
+                confidence=[0.9, 0.9],
+                instance_id=[1, 2],
+                waypoints=np.zeros((1, 2, 3, 3)),
+                mode_confidence=[[0.5, 0.5]],
             )
 
-    def test_tracking_inherits_detection_and_keeps_columns_aligned(self) -> None:
-        tracking = BatchTracking3D(**detection_columns(), instance_id=[10, 11])
+    def test_reports_its_trajectory_shape(self) -> None:
+        prediction = make_prediction([[0.0, 0.0, 0.0]], [1], num_modes=4, num_timesteps=6)
 
-        selected = tracking.select(np.array([False, True]))
-
-        assert isinstance(tracking, BatchDetection3D)
-        assert isinstance(selected, BatchTracking3D)
-        assert len(selected) == 1
-        assert selected.instance_id.values.tolist() == [11]
-        assert selected.class_id.values.tolist() == [2]
-        np.testing.assert_array_equal(selected.position.values, [[1.0, 2.0, 3.0]])
-
-    def test_tracking_validates_instance_id_length(self) -> None:
-        with pytest.raises(ValueError, match="instance_id has length 1, expected 2"):
-            BatchTracking3D(**detection_columns(), instance_id=[10])
-
-    def test_archetype_import_is_the_canonical_type(self) -> None:
-        assert ArchetypeBatchDetection3D is BatchDetection3D
-
-
-class TestPrediction:
-    def test_builds_columnar_trajectories_from_modes(self) -> None:
-        objects = [
-            [
-                TrajectoryMode3D(
-                    confidence=0.6,
-                    time_offset_ns=[1, 2],
-                    position=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
-                ),
-                TrajectoryMode3D(
-                    confidence=0.4,
-                    time_offset_ns=[1, 2],
-                    position=[[0.0, 1.0, 0.0], [0.0, 2.0, 0.0]],
-                ),
-            ],
-            [
-                TrajectoryMode3D(
-                    confidence=0.7,
-                    time_offset_ns=[1, 2],
-                    position=[[2.0, 0.0, 0.0], [3.0, 0.0, 0.0]],
-                ),
-                TrajectoryMode3D(
-                    confidence=0.3,
-                    time_offset_ns=[1, 2],
-                    position=[[2.0, 1.0, 0.0], [3.0, 1.0, 0.0]],
-                ),
-            ],
-        ]
-
-        trajectories = BatchTrajectory3D.from_modes(objects)
-
-        assert len(trajectories) == 2
-        assert trajectories.positions.shape == (2, 2, 2, 3)
-        assert trajectories.confidences.tolist() == [[0.6, 0.4], [0.7, 0.3]]
-        assert trajectories.time_offsets_ns.tolist() == [1, 2]
-        restored = trajectories.to_modes(0)
-        assert [mode.confidence for mode in restored] == [0.6, 0.4]
-        np.testing.assert_array_equal(restored[0].position.values, objects[0][0].position.values)
-
-    def test_mode_validates_confidence_and_state_alignment(self) -> None:
-        with pytest.raises(ValueError, match=r"within \[0, 1\]"):
-            TrajectoryMode3D(
-                confidence=1.1,
-                time_offset_ns=[1],
-                position=[[0.0, 0.0, 0.0]],
-            )
-
-    def test_batch_validates_dense_shapes(self) -> None:
-        with pytest.raises(ValueError, match=r"shape \(N, M, T, 3\)"):
-            BatchTrajectory3D(
-                positions=np.zeros((2, 3, 3)),
-                confidences=np.ones((2, 3)),
-                time_offsets_ns=[1, 2, 3],
-            )
-
-        with pytest.raises(ValueError, match=r"expected \(2, 3\)"):
-            BatchTrajectory3D(
-                positions=np.zeros((2, 3, 4, 3)),
-                confidences=np.ones((2, 2)),
-                time_offsets_ns=[1, 2, 3, 4],
-            )
-
-    def test_from_modes_requires_a_shared_time_axis(self) -> None:
-        with pytest.raises(ValueError, match="same time_offset_ns"):
-            BatchTrajectory3D.from_modes(
-                [
-                    [
-                        TrajectoryMode3D(
-                            confidence=1.0,
-                            time_offset_ns=[1, 2],
-                            position=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
-                        )
-                    ],
-                    [
-                        TrajectoryMode3D(
-                            confidence=1.0,
-                            time_offset_ns=[1, 3],
-                            position=[[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
-                        )
-                    ],
-                ]
-            )
-
-        with pytest.raises(ValueError, match="position has length 1, expected 2"):
-            TrajectoryMode3D(
-                confidence=1.0,
-                time_offset_ns=[1, 2],
-                position=[[0.0, 0.0, 0.0]],
-            )
-
-    def test_inherits_tracking_and_selects_dense_trajectories(self) -> None:
-        trajectories = make_trajectories()
-        prediction = BatchPrediction3D(
-            **detection_columns(),
-            instance_id=[10, 11],
-            trajectories=trajectories,
-        )
-
-        selected = prediction.select(np.array([1], dtype=np.int64))
-
-        assert isinstance(prediction, BatchTracking3D)
-        assert isinstance(selected, BatchPrediction3D)
-        assert selected.instance_id.values.tolist() == [11]
-        assert selected.trajectories.positions.shape == (1, 2, 3, 3)
-        assert selected.trajectories.confidences.tolist() == [[1.0, 0.0]]
-        assert selected.trajectories.time_offsets_ns.tolist() == [1, 3, 6]
-        np.testing.assert_array_equal(
-            selected.trajectories.positions,
-            trajectories.positions[1:2],
-        )
-
-    def test_validates_trajectory_object_count(self) -> None:
-        trajectories = make_trajectories().select(np.array([0]))
-
-        with pytest.raises(ValueError, match="trajectories has 1 objects, expected 2"):
-            BatchPrediction3D(
-                **detection_columns(),
-                instance_id=[10, 11],
-                trajectories=trajectories,
-            )
-
-    def test_rejects_non_increasing_mode_timestamps(self) -> None:
-        with pytest.raises(ValueError, match="strictly increasing"):
-            BatchTrajectory3D(
-                positions=np.zeros((1, 1, 2, 3)),
-                confidences=[[1.0]],
-                time_offsets_ns=[1, 1],
-            )
+        assert (prediction.num_modes, prediction.num_timesteps) == (4, 6)
 
 
 class TestSemanticSegmentation:
-    def test_semantic_2d_validates_pixel_class_alignment(self) -> None:
-        segmentation = SemanticSegmentation2D(
-            header=Header(1_000, "camera"),
+    def test_a_class_per_pixel(self) -> None:
+        segmentation = BatchSemanticSegmentation2D(
             pixel=np.arange(6, dtype=np.int32),
             class_id=[0, 1, 1, 2, 2, 0],
         )
 
-        assert len(segmentation.pixel) == len(segmentation.class_id)
+        assert len(segmentation) == 6
+        assert segmentation.pixel.values.dtype == np.int32
         np.testing.assert_array_equal(segmentation.class_id.values.reshape(2, 3)[1], [2, 2, 0])
 
-    def test_semantic_3d_validates_point_class_alignment(self) -> None:
+    def test_a_class_per_point(self) -> None:
+        segmentation = BatchSemanticSegmentation3D(
+            point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+            class_id=[1, 2],
+        )
+
+        assert len(segmentation) == 2
+
+    def test_validates_point_class_alignment(self) -> None:
         with pytest.raises(ValueError, match="class_id has length 1, expected 2"):
-            SemanticSegmentation3D(
-                header=Header(1_000, "lidar"),
-                point=np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+            BatchSemanticSegmentation3D(
+                point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
                 class_id=[1],
+            )
+
+    def test_segmentation_supports_the_shared_selection_api(self) -> None:
+        segmentation = BatchSemanticSegmentation2D(pixel=[0, 1, 2], class_id=[0, 1, 2])
+
+        assert segmentation.select([2, 0]).class_id.values.tolist() == [2, 0]
+
+
+class TestMatchResult:
+    def test_counts_each_verdict(self) -> None:
+        result = BatchMatchResult(
+            est_index=[0, 1, -1],
+            gt_index=[0, -1, 2],
+            matching_score=[0.5, np.nan, np.nan],
+            match_status=[MatchStatus.TP, MatchStatus.FP, MatchStatus.FN],
+            threshold=[1.0, 1.0, 1.0],
+        )
+
+        assert (result.num_tp, result.num_fp, result.num_fn) == (1, 1, 1)
+        assert result.count(MatchStatus.TP) == 1
+
+    def test_empty_has_no_rows(self) -> None:
+        assert len(BatchMatchResult.empty()) == 0
+
+    def test_rejects_an_unknown_status(self) -> None:
+        with pytest.raises(ValueError, match="unknown values"):
+            BatchMatchResult(
+                est_index=[0],
+                gt_index=[0],
+                matching_score=[0.0],
+                match_status=[9],
+                threshold=[1.0],
             )
