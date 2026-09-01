@@ -1,73 +1,85 @@
 # TODO
 
+データモデルとシステム層の設計・実装は完了した。設計は [docs/design/](docs/design/) を参照。
+
 ## 前提
 
 - 複数行を保持する component / archetype には `Batch` を付ける。
-- `BatchTrajectory3D` は dense 形式を使用する。
-  - `positions`: `(N, M, T, 3)`
-  - `confidences`: `(N, M)`
-  - `time_offsets_ns`: `(T,)`
-- `select()` は独立したデータを生成し、遅延 view は別 API とする。
+- descriptor 名は archetype 非依存 (`POSITION` は Detection3D でも Tracking3D でも `"position"`)。
+- `Component.select()` / `Archetype.select()` / `Chunk.select()` は独立したデータを生成する。
+  遅延 view は `EntityView` が担う。
+- component 内部の NumPy 配列は read-only。
+- オブジェクト数 0 の batch は全 archetype で許可する。
 
-## P0: IO とデータロード
+## 完了
 
-- [ ] Arrow IO をテスト内の helper ではなく公開 API として実装する。
-  - [ ] `BatchDetection3D` / `BatchTracking3D` の `to_arrow()` と `from_arrow()` を定義する。
-  - [ ] `Header` の保存方法を schema metadata または明示列として決定する。
-  - [ ] nested vector を Arrow の fixed-size list として保存する。
-  - [ ] dtype、shape、nullability を schema で固定する。
-  - [ ] Parquet round-trip を検証する。
-- [ ] `pyarrow` を適切な依存グループへ明示的に追加する。
-  - 現在のテストは `pyarrow` を import するが、`pyproject.toml` に直接依存がない。
-- [ ] `t4_devkit.T4Devkit` を利用する dataloader を実装する。
+- [x] `core` の実装 — `EntityPath` / `ComponentDescriptor` / `ColumnarComponent` / `Archetype` /
+      `Timeline` / `Chunk` / `Store` / `EntityView` / `normalize_selection`
+- [x] archetype を継承から合成へ移行。`select()` は基底の 1 実装のみ
+- [x] `Header` を解体 (`TimePoint` + `Chunk.frame_id`)
+- [x] `BatchTrajectory3D` を component から archetype へ昇格し、列を分解
+- [x] `BatchModeValid` / `BatchTimestepValid` / `BatchNumPoints` / `BatchVisibility` /
+      `BatchRoi` / `BatchPixel` / `BatchMask` / matching 系 component を追加
+- [x] `LabelRegistry` / `InstanceRegistry` (category ↔ `BatchClassId` の対応規則)
+- [x] Arrow IO を公開 API として実装。nested vector は fixed-size list、
+      非行方向の情報は schema metadata。Parquet round-trip 検証済み
+- [x] `pyarrow` を直接依存へ追加
+- [x] System protocol / `SystemContext` / `Pipeline` (順序検証)
+- [x] フィルタ system 一式 — 共通基底 `MaskSystem` + 8 種
+      (`FilterByDistance` / `Region` / `Label` / `Confidence` / `Instance` / `Speed` /
+      `NumPoints` / `Visibility`)
+- [x] `CombineMasksSystem` (`mode="all"` / `"any"`)
+- [x] `masked_view()` — mask を通過した行の遅延 view
+- [x] `SystemContext.instances` と `InstanceRegistry.instance_id()` (intern しない参照)
+- [x] マッチング system 一式 — 共通基底 `MatchingSystem` + 6 モード
+      (`CenterDistance` / `CenterDistanceBEV` / `PlaneDistance` / `IoUBEV` / `IoU3D` / `IoURoi`)
+- [x] `t4perceval.geometry` — ベクトル化した箱の幾何 (footprint 頂点、BEV/3D IoU、
+      ROI IoU、plane distance)。`shapely` を直接依存へ追加
+- [x] クラスごとの閾値 — マッチングは `Thresholds(default, by_class=...)` (正解側のクラスで引く)。
+      フィルタは `CLASS_ID` を要求しない system もあるため、`CombineMasksSystem` による合成で表現する
+- [x] 設計ドキュメント (ja / en) — data_model / system / migration
+- [x] `README.md` に目的・データshape・使用例を記載
+- [x] `pyproject.toml` の description を更新
+
+## P0: dataloader
+
+- [ ] `t4_devkit.Tier4` を利用する dataloader を実装する。設計は
+      [data_model.md](docs/design/ja/data_model.md) の「dataloader 設計」を参照。
   - [ ] dataset root / revision を指定してロードできる。
   - [ ] scene、sample、sensor channel で絞り込める。
-  - [ ] `t4_devkit` の Box を `BatchDetection3D` / `BatchTracking3D` に変換する。
-  - [ ] category と `BatchClassId` の対応規則を定義する。
+  - [ ] `Box3D` / `Box2D` を `BatchDetection3D` / `BatchTracking3D` / `BatchPrediction3D` へ変換する。
+  - [ ] `Box3D.unix_time` (μs) を `TIMESTAMP` timeline (ns) へ変換する。
   - [ ] 空annotation、欠損velocity、無効sample dataを処理する。
-
-## P0: BatchTrajectory3D
-
-- [ ] `M` と `T` を常に固定するか、padding + mask を許可するか決定する。
-- [ ] 可変長を許可する場合は以下を追加する。
-  - [ ] `mode_valid`: `(N, M)`
-  - [ ] `timestep_valid`: `(N, M, T)`
-- [ ] objectごとの `confidences` の意味を確定する。
-  - 確率として扱う場合は、各objectで合計が1になることを検証する。
-- [ ] positions の有限値検証方針を決定する。
-- [ ] yaw、velocity、covarianceなど追加stateの必要性を決定する。
-- [ ] `from_modes()` の空batch生成 API を追加する。
-
-## P1: View とメモリ管理
-
-- [ ] `BatchDetection3DView`、`BatchTracking3DView`、`BatchPrediction3DView` を設計する。
-  - 元データと正規化済みobject indexを保持する遅延viewとする。
-  - viewへの `select()` はindexを合成する。
-  - `materialize()` でBatch型を生成する。
-- [ ] component内部のNumPy配列をread-onlyにするか決定する。
-- [ ] slice、boolean mask、integer indexでcopy/viewの挙動をテストする。
-
-## P1: Component と Archetype
-
-- [ ] `SemanticSegmentation2D/3D` の `pixel` / `point` を専用componentにする。
-- [ ] semantic segmentationにもselection APIが必要か決定する。
-- [ ] 2D tracking / prediction archetypeの必要性を確認する。
-- [ ] `Selection` が受理する入力を明確化する。
-  - 現在の型はsliceとNumPy配列だが、実行時にはlistも使用できる。
-- [ ] NaN / Inf、空batch、重複index、逆順indexの共通テストを追加する。
-
-## P1: テスト
-
+  - [ ] `t4_devkit` への依存を dataloader モジュールに閉じる。
 - [ ] 最小構成のT4 dataset fixtureを用意し、dataloaderを実データ形式で検証する。
-- [ ] Arrow / ParquetのファイルIOを`tmp_path`でround-trip検証する。
-- [ ] `BatchTrajectory3D.from_modes()` のmode数・時刻軸不一致を網羅する。
-- [ ] object数0のBatch型を許可するか決定し、全archetypeで統一する。
-- [ ] 公開importと旧型名が混在しないことをテストする。
 
-## P2: 品質とドキュメント
+## P1: 指標 system
 
-- [ ] `README.md` に目的、データshape、使用例を記載する。
-- [ ] `pyproject.toml` のdescriptionを正式な内容に変更する。
+- [ ] `MeanAveragePrecisionSystem` (mAP / APH)
+- [ ] `ClearSystem` (MOTA / MOTP / IDSwitch)
+- [ ] `HotaSystem`
+- [ ] `PathDisplacementSystem` (ADE / FDE)
+- [ ] `ClassificationSystem` (accuracy / precision / recall / F1)
+- [ ] `PassFailSystem` (critical object 判定を含む)
+- [ ] `/metrics/*` chunk のスキーマ (指標名 × クラス × 閾値をどう列にするか) を決める
+
+## P1: 座標変換
+
+- [ ] `Chunk.frame_id` を使う transform system を設計する。
+  - [ ] `HomogeneousMatrix` (`t4_devkit.dataclass`) 相当を component / static データとして持つか決める。
+  - [ ] 座標系を `EntityPath` 階層に埋める案 (rerun の `Transform3D` 流儀) を再検討する。
+
+## P2: 可視化
+
+- [ ] store へのクエリを入力とする可視化層を設計する。
+  - [ ] rerun を optional な出力 sink として使うか、matplotlib で自前実装するか決める。
+  - [ ] 元リポジトリの `perception_analyzer3d` / `eda_tool` / `field_analyzer` に相当する解析を、
+        store のクエリとして書き直せるか確認する。
+
+## P2: 品質
+
 - [ ] Ruffに加えてPyrightまたはMypyをCIで実行する。
 - [ ] Python 3.10以降のテストマトリクスを用意する。
-- [ ] Batch型へのrenameとdense trajectory形式をchangelogに記載する。
+- [ ] `Store` のクエリに chunk 単位のキャッシュが必要か、実データ規模で測ってから決める。
+- [ ] 大規模 scene での `Store.range()` の性能を測る (現状は partition ごとに小さな chunk を作って concat する)。
+- [ ] changelogを追加し、rerunベースのデータモデルへの移行を記載する。
