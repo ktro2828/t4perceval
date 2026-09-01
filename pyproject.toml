@@ -21,6 +21,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
+    "zensical",
 ]
 
 [tool.pytest.ini_options]

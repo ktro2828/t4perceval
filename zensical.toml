@@ -1,0 +1,43 @@
+[project]
+site_name = "t4perceval"
+site_description = "Component-oriented perception evaluation for the T4 dataset"
+repo_url = "https://github.com/ktro2828/t4perceval"
+repo_name = "ktro2828/t4perceval"
+docs_dir = "docs"
+nav = [
+    { "Overview" = "index.md" },
+    { "日本語" = [
+        { "データモデル" = "design/ja/data_model.md" },
+        { "システム設計" = "design/ja/system.md" },
+        { "移行ガイド" = "design/ja/migration.md" },
+    ] },
+    { "English" = [
+        { "Data model" = "design/en/data_model.md" },
+        { "System design" = "design/en/system.md" },
+        { "Migration guide" = "design/en/migration.md" },
+    ] },
+]
+
+[project.theme]
+features = [
+    "navigation.footer",
+    "navigation.sections",
+    "navigation.top",
+    "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
