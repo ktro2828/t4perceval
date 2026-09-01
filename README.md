@@ -151,6 +151,39 @@ print(mask.values)   # [ True False]
 write_parquet(scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "matching.parquet")
 ```
 
+## Benchmark
+
+The columnar matching path was compared with `autoware_perception_evaluation (a.k.a. perception_eval)` 1.3.6 on a
+synthetic 3D detection frame. The timed region includes the complete center-distance score matrix
+and one-to-one assignment, but excludes object generation and data loading. Estimation and ground
+truth contain the same number of single-class objects and use a 1.0 m matching threshold.
+
+Measurements were taken on an Intel Core i9-14900K with Python 3.10.12, pinned to one CPU. Each
+number is the median of 15 runs after a warm-up, with garbage collection disabled inside the timed
+region.
+
+| Objects (est / gt) | `perception_eval` | `t4perceval` | Speedup |
+| -----------------: | ----------------: | -----------: | ------: |
+|            10 / 10 |          8.925 ms |     0.300 ms |   29.7x |
+|            50 / 50 |         51.877 ms |     0.405 ms |  127.9x |
+|          100 / 100 |        126.025 ms |     0.590 ms |  213.6x |
+|          200 / 200 |        338.333 ms |     1.634 ms |  207.0x |
+
+Retained-memory usage was measured separately from the process RSS after constructing 100,000
+estimation and 100,000 ground-truth rows. Import-time memory was subtracted from each process.
+
+| Implementation    | RSS increase | Relative usage |
+| :---------------- | -----------: | -------------: |
+| `perception_eval` |    136.1 MiB |           6.9x |
+| `t4perceval`      |     19.8 MiB |           1.0x |
+
+The results are a matching-kernel benchmark, not an end-to-end T4 dataset benchmark. The two
+environments also used their supported dependency versions (NumPy 1.26.4 for the original package
+and NumPy 2.2.6 for `t4perceval`). In addition, assignment semantics differ: the original package
+uses greedy matching, while `t4perceval` uses a globally optimal linear-sum assignment. Treat the
+numbers as evidence for the effect of the columnar implementation rather than strict drop-in
+runtime equivalence.
+
 ## Development
 
 ```bash
