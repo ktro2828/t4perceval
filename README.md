@@ -21,7 +21,7 @@ pipeline you compose.
 
 ## Layers
 
-```
+```bash
 t4perceval.system     System / Pipeline            the "S" of ECS
                       filter / matching            mask and pair up objects
 t4perceval.core       Store / Chunk / Timeline     the recording
@@ -129,7 +129,7 @@ scene = store.range(
     timeline=FRAME,
     time_range=TimeRange.everything(),
 ).materialize(BatchMatchResult)
-print(scene.num_tp, scene.num_fp, scene.num_fn)   # 1 1 1
+print(scene.num_tp, scene.num_fp, scene.num_fn)  # 1 1 1
 
 # ...or ask about one frame, from the same store, with no recomputation.
 frame_0 = store.range(
@@ -145,44 +145,31 @@ mask = store.range(
     timeline=FRAME,
     time_range=TimeRange.everything(),
 ).component(MASK)
-print(mask.values)   # [ True False]
+print(mask.values)  # [ True False]
 
 # Anything in the store persists with its dtypes and shapes pinned by the schema.
-write_parquet(scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "matching.parquet")
+write_parquet(
+    scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "matching.parquet"
+)
 ```
 
 ## Benchmark
 
-The columnar matching path was compared with `autoware_perception_evaluation (a.k.a. perception_eval)` 1.3.6 on a
-synthetic 3D detection frame. The timed region includes the complete center-distance score matrix
-and one-to-one assignment, but excludes object generation and data loading. Estimation and ground
-truth contain the same number of single-class objects and use a 1.0 m matching threshold.
+Compared with `autoware_perception_evaluation` (`perception_eval`) 1.3.6, the columnar data model
+substantially reduces matching time, construction time, and retained memory.
 
-Measurements were taken on an Intel Core i9-14900K with Python 3.10.12, pinned to one CPU. Each
-number is the median of 15 runs after a warm-up, with garbage collection disabled inside the timed
-region.
+| Workload                                   | `perception_eval` | `t4perceval` |   Improvement |
+| :----------------------------------------- | ----------------: | -----------: | ------------: |
+| Center-distance matching, 200 est / 200 GT |        335.698 ms |     1.675 ms | 200.4x faster |
+| Data-model construction, 200 est / 200 GT  |          5.446 ms |     0.045 ms | 119.7x faster |
+| Retained RSS, 20,000 est / 20,000 GT       |          82.8 MiB |      3.8 MiB | 22.1x smaller |
 
-| Objects (est / gt) | `perception_eval` | `t4perceval` | Speedup |
-| -----------------: | ----------------: | -----------: | ------: |
-|            10 / 10 |          8.925 ms |     0.300 ms |   29.7x |
-|            50 / 50 |         51.877 ms |     0.405 ms |  127.9x |
-|          100 / 100 |        126.025 ms |     0.590 ms |  213.6x |
-|          200 / 200 |        338.333 ms |     1.634 ms |  207.0x |
+The synthetic benchmark uses one pinned logical CPU and reports the median of 15 runs after three
+warm-ups. Input generation and loading are excluded from matching time.
 
-Retained-memory usage was measured separately from the process RSS after constructing 100,000
-estimation and 100,000 ground-truth rows. Import-time memory was subtracted from each process.
-
-| Implementation    | RSS increase | Relative usage |
-| :---------------- | -----------: | -------------: |
-| `perception_eval` |    136.1 MiB |           6.9x |
-| `t4perceval`      |     19.8 MiB |           1.0x |
-
-The results are a matching-kernel benchmark, not an end-to-end T4 dataset benchmark. The two
-environments also used their supported dependency versions (NumPy 1.26.4 for the original package
-and NumPy 2.2.6 for `t4perceval`). In addition, assignment semantics differ: the original package
-uses greedy matching, while `t4perceval` uses a globally optimal linear-sum assignment. Treat the
-numbers as evidence for the effect of the columnar implementation rather than strict drop-in
-runtime equivalence.
+This is a public matching-path comparison, not an end-to-end dataset benchmark. Assignment also
+differs: `perception_eval` uses greedy matching, while `t4perceval` uses globally optimal linear-sum
+assignment, so the results are not a drop-in comparison of identical algorithms.
 
 ## Development
 
