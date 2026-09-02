@@ -57,10 +57,9 @@
 
 - [ ] `MeanAveragePrecisionSystem` (mAP / APH)
 - [ ] `ClearSystem` (MOTA / MOTP / IDSwitch)
-- [ ] `HotaSystem`
-- [ ] `PathDisplacementSystem` (ADE / FDE)
+- [ ] `PathDisplacementSystem` (ADE / FDE / MissRate)
 - [ ] `ClassificationSystem` (accuracy / precision / recall / F1)
-- [ ] `PassFailSystem` (critical object 判定を含む)
+- [ ] `HotaSystem` / `PassFailSystem` (critical object 判定を含む)は保留
 - [ ] `/metrics/*` chunk のスキーマ (指標名 × クラス × 閾値をどう列にするか) を決める
 
 ## P1: 座標変換
@@ -69,12 +68,17 @@
   - [ ] `HomogeneousMatrix` (`t4_devkit.dataclass`) 相当を component / static データとして持つか決める。
   - [ ] 座標系を `EntityPath` 階層に埋める案 (rerun の `Transform3D` 流儀) を再検討する。
 
+## P1: オフライン後解析
+
+- [ ] `Store`全体とその他評価メタデータを保存し、後解析・可視化できるようにする。
+  - [ ] [docs/design/en/offline_analysis.md](./docs/design/en/offline_analysis.md)を参照して実装方針を決める。
+  - [ ] `Store`の保存時のフォルダ・ファイル構成を決める。
+
 ## P2: 可視化
 
 - [ ] store へのクエリを入力とする可視化層を設計する。
-  - [ ] rerun を optional な出力 sink として使うか、matplotlib で自前実装するか決める。
-  - [ ] 元リポジトリの `perception_analyzer3d` / `eda_tool` / `field_analyzer` に相当する解析を、
-        store のクエリとして書き直せるか確認する。
+  - [ ] rerun を optional な出力 sink として使うか、matplotlib で自前実装するか決める。 ->> `t4_devkit.viewer.RerunViewer`を使う。
+  - [ ] [OPTIONAL] 元リポジトリの `perception_analyzer3d` / `eda_tool` / `field_analyzer` に相当する解析を、store のクエリとして書き直せるか確認する。
 
 ## P2: 品質
 

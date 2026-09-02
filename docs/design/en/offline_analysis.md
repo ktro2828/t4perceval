@@ -86,7 +86,7 @@ custom systems from serialized configuration should be a later feature.
 This is essential for showing object UUIDs in offline error analysis instead of only internal integer
 IDs.
 
-### 4. Offline analysis API
+### 4. [OPTIONAL] Offline analysis API
 
 Loading a `Store` alone is technically sufficient, but users should not have to manually coordinate
 several entity queries. Add a higher-level API, for example:
