@@ -7,12 +7,12 @@ import pytest
 
 from t4perceval import (
     FRAME,
-    BatchDetection3D,
-    BatchPrediction3D,
-    BatchTracking3D,
+    Detections3D,
     LabelRegistry,
+    Predictions3D,
     Store,
     TimePoint,
+    Trackings3D,
 )
 
 if TYPE_CHECKING:
@@ -21,16 +21,16 @@ if TYPE_CHECKING:
     from t4perceval.typing import ArrayLike
 
 
-def make_detection(
+def make_detections(
     positions: Sequence[Sequence[float]],
     class_ids: Sequence[int] | None = None,
     *,
     confidences: Sequence[float] | None = None,
     velocity: ArrayLike | None = None,
-) -> BatchDetection3D:
+) -> Detections3D:
     """Build a detection batch with sensible filler for everything not under test."""
     count = len(positions)
-    return BatchDetection3D(
+    return Detections3D(
         position=positions,
         quaternion=[[0.0, 0.0, 0.0, 1.0]] * count,
         size=[[1.0, 1.0, 1.0]] * count,
@@ -40,13 +40,13 @@ def make_detection(
     )
 
 
-def make_tracking(
+def make_trackings(
     positions: Sequence[Sequence[float]],
     instance_ids: Sequence[int],
     class_ids: Sequence[int] | None = None,
-) -> BatchTracking3D:
-    detection = make_detection(positions, class_ids)
-    return BatchTracking3D(
+) -> Trackings3D:
+    detection = make_detections(positions, class_ids)
+    return Trackings3D(
         position=detection.position,
         quaternion=detection.quaternion,
         size=detection.size,
@@ -56,16 +56,16 @@ def make_tracking(
     )
 
 
-def make_prediction(
+def make_predictions(
     positions: Sequence[Sequence[float]],
     instance_ids: Sequence[int],
     *,
     num_modes: int = 2,
     num_timesteps: int = 3,
-) -> BatchPrediction3D:
+) -> Predictions3D:
     count = len(positions)
-    tracking = make_tracking(positions, instance_ids)
-    return BatchPrediction3D(
+    tracking = make_trackings(positions, instance_ids)
+    return Predictions3D(
         position=tracking.position,
         quaternion=tracking.quaternion,
         size=tracking.size,
@@ -94,7 +94,7 @@ def make_metric_scene(
     for frame, gt_objects, est_objects in frames:
         store.log(
             ground_truth,
-            make_detection(
+            make_detections(
                 [[x, 0.0, 0.0] for x, _ in gt_objects],
                 labels.encode([name for _, name in gt_objects]),
                 confidences=[1.0] * len(gt_objects),
@@ -104,7 +104,7 @@ def make_metric_scene(
         )
         store.log(
             estimation,
-            make_detection(
+            make_detections(
                 [[x, 0.0, 0.0] for x, _, _ in est_objects],
                 labels.encode([name for _, name, _ in est_objects]),
                 confidences=[confidence for _, _, confidence in est_objects],
@@ -131,25 +131,25 @@ def scene_store() -> Store:
     store = Store()
     store.log(
         "/ground_truth/objects",
-        make_detection([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]], [0, 0]),
+        make_detections([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]], [0, 0]),
         at=TimePoint.at(frame=0, timestamp_ns=1_000),
         frame_id="base_link",
     )
     store.log(
         "/estimation/objects",
-        make_detection([[0.3, 0.0, 0.0], [50.0, 0.0, 0.0]], [0, 0]),
+        make_detections([[0.3, 0.0, 0.0], [50.0, 0.0, 0.0]], [0, 0]),
         at=TimePoint.at(frame=0, timestamp_ns=1_000),
         frame_id="base_link",
     )
     store.log(
         "/ground_truth/objects",
-        make_detection([[1.0, 1.0, 0.0]], [2]),
+        make_detections([[1.0, 1.0, 0.0]], [2]),
         at=TimePoint.at(frame=1, timestamp_ns=2_000),
         frame_id="base_link",
     )
     store.log(
         "/estimation/objects",
-        make_detection([[1.1, 1.0, 0.0], [2.0, 2.0, 0.0]], [2, 0]),
+        make_detections([[1.1, 1.0, 0.0], [2.0, 2.0, 0.0]], [2, 0]),
         at=TimePoint.at(frame=1, timestamp_ns=2_000),
         frame_id="base_link",
     )

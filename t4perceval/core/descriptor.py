@@ -17,8 +17,8 @@ class ComponentDescriptor:
     keys stay stable even when the archetype layer is reorganized.
 
     Examples:
-        >>> a = ComponentDescriptor("BatchDetection3D:position", archetype="BatchDetection3D")
-        >>> b = ComponentDescriptor("BatchDetection3D:position")
+        >>> a = ComponentDescriptor("Detections3D:position", archetype="Detections3D")
+        >>> b = ComponentDescriptor("Detections3D:position")
         >>> a == b and hash(a) == hash(b)
         True
     """
@@ -42,7 +42,7 @@ class ComponentDescriptor:
         """Build a descriptor named ``"<archetype>:<field_name>"``.
 
         Args:
-            archetype: Name of the owning archetype, e.g. ``"BatchDetection3D"``.
+            archetype: Name of the owning archetype, e.g. ``"Detections3D"``.
             field_name: Name of the archetype field, e.g. ``"position"``.
             component_type: Name of the component class, e.g. ``"BatchPosition3D"``.
         """

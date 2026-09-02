@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from t4perceval.typing import ArrayLike, NDArrayI64
 
-__all__ = ("BatchTrajectory3D", "TrajectoryMode3D", "validate_trajectory_shapes")
+__all__ = ("Trajectories3D", "TrajectoryMode3D", "validate_trajectory_shapes")
 
 
 def validate_trajectory_shapes(
@@ -107,7 +107,7 @@ class TrajectoryMode3D:
 
 
 @define(frozen=True, slots=True)
-class BatchTrajectory3D(Archetype):
+class Trajectories3D(Archetype):
     """Dense multi-modal future trajectories for ``N`` objects.
 
     ``M`` modes and ``T`` timesteps are fixed within one instance; shorter trajectories

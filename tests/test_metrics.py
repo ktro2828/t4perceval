@@ -9,7 +9,7 @@ import pytest
 
 from t4perceval import (
     FRAME,
-    BatchMetric,
+    MetricValues,
     Chunk,
     LabelRegistry,
     Store,
@@ -17,8 +17,8 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
-from t4perceval.archetype import BatchMatchResult
-from t4perceval.archetype import BatchMetric as ArchetypeBatchMetric
+from t4perceval.archetype import MatchResults
+from t4perceval.archetype import MetricValues as ArchetypeMetricValues
 from t4perceval.component import ALL_CLASSES, BatchMetricValue, MatchStatus
 from t4perceval.descriptors import CLASS_ID, METRIC_VALUE, SUPPORT, THRESHOLD
 from t4perceval.io import chunk_from_table, chunk_to_table, read_parquet, write_parquet
@@ -56,19 +56,19 @@ ALL_METRICS: tuple[type[MetricSystem], ...] = (
 @pytest.fixture
 def tracked_scene(labels: LabelRegistry) -> Store:
     """A two-frame scene whose entities carry every column any metric needs."""
-    from conftest import make_prediction
+    from conftest import make_predictions
 
     store = Store()
     for frame, gt_x, est_x in ((0, 0.0, 0.1), (1, 5.0, 5.1)):
         store.log(
             GT,
-            make_prediction([[gt_x, 0.0, 0.0]], [100]),
+            make_predictions([[gt_x, 0.0, 0.0]], [100]),
             at=TimePoint.at(frame=frame),
             frame_id="base_link",
         )
         store.log(
             EST,
-            make_prediction([[est_x, 0.0, 0.0]], [1]),
+            make_predictions([[est_x, 0.0, 0.0]], [1]),
             at=TimePoint.at(frame=frame),
             frame_id="base_link",
         )
@@ -79,7 +79,7 @@ def outputs(
     metric: MetricSystem,
     store: Store,
     labels: LabelRegistry,
-) -> list[BatchMetric]:
+) -> list[MetricValues]:
     match = CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0)
     Pipeline([match, metric]).run(
         SystemContext(store, FRAME, labels=labels),
@@ -87,7 +87,7 @@ def outputs(
     )
     return [
         store.range(target, timeline=FRAME, time_range=TimeRange.everything()).materialize(
-            BatchMetric,
+            MetricValues,
         )
         for target in metric.targets
     ]
@@ -151,18 +151,18 @@ class TestUniformSchema:
 
     def test_a_count_metric_survives_a_zero_support(self, labels: LabelRegistry) -> None:
         """A class seen only as false positives still gets its switch count."""
-        from conftest import make_tracking
+        from conftest import make_trackings
 
         store = Store()
         store.log(
             GT,
-            make_tracking([[0.0, 0.0, 0.0]], [100], labels.encode(["car"])),
+            make_trackings([[0.0, 0.0, 0.0]], [100], labels.encode(["car"])),
             at=TimePoint.at(frame=0),
             frame_id="base_link",
         )
         store.log(
             EST,
-            make_tracking(
+            make_trackings(
                 [[0.1, 0.0, 0.0], [500.0, 0.0, 0.0]],
                 [1, 2],
                 labels.encode(["car", "truck"]),
@@ -211,7 +211,7 @@ class TestUniformSchema:
                 target,
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
-            ).materialize(BatchMetric)
+            ).materialize(MetricValues)
             assert len(result) == len(labels)
             assert np.isnan(result.value.values).all()
 
@@ -233,7 +233,7 @@ class TestUniformSchema:
             )
         store.log(
             MATCHING,
-            BatchMatchResult(
+            MatchResults(
                 est_index=[0],
                 gt_index=[0],
                 matching_score=[0.1],
@@ -330,37 +330,37 @@ class TestPersistence:
 
         assert restored == chunk
         assert restored_labels == labels
-        assert BatchMetric.from_chunk(restored).of_class(0) == pytest.approx(1.0)
+        assert MetricValues.from_chunk(restored).of_class(0) == pytest.approx(1.0)
 
 
-class TestBatchMetric:
+class TestMetricValues:
     def test_the_archetype_module_exposes_the_canonical_type(self) -> None:
-        assert ArchetypeBatchMetric is BatchMetric
+        assert ArchetypeMetricValues is MetricValues
 
     def test_builds_from_rows(self) -> None:
-        metric = BatchMetric.from_rows([(0, 1.0, 0.5, 10), (ALL_CLASSES, float("nan"), 0.5, 10)])
+        metric = MetricValues.from_rows([(0, 1.0, 0.5, 10), (ALL_CLASSES, float("nan"), 0.5, 10)])
 
         assert len(metric) == 2
         assert metric.of_class(0) == pytest.approx(0.5)
         assert metric.aggregate == pytest.approx(0.5)
 
     def test_no_rows_is_allowed(self) -> None:
-        assert len(BatchMetric.empty()) == 0
+        assert len(MetricValues.empty()) == 0
 
     def test_reports_an_absent_class(self) -> None:
-        metric = BatchMetric.from_rows([(0, 1.0, 0.5, 10)])
+        metric = MetricValues.from_rows([(0, 1.0, 0.5, 10)])
 
         with pytest.raises(KeyError, match="found 0"):
             metric.of_class(9)
 
     def test_reports_a_class_with_several_thresholds(self) -> None:
-        metric = BatchMetric.from_rows([(0, 0.5, 0.4, 10), (0, 1.0, 0.6, 10)])
+        metric = MetricValues.from_rows([(0, 0.5, 0.4, 10), (0, 1.0, 0.6, 10)])
 
         with pytest.raises(KeyError, match="found 2"):
             metric.of_class(0)
 
     def test_reports_a_missing_aggregate(self) -> None:
-        metric = BatchMetric.from_rows([(0, 1.0, 0.5, 10)])
+        metric = MetricValues.from_rows([(0, 1.0, 0.5, 10)])
 
         with pytest.raises(KeyError, match="aggregate row"):
             metric.aggregate

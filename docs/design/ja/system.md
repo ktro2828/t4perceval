@@ -123,16 +123,16 @@ class FilterByConfidenceSystem(MaskSystem):
 
 ### 実装済みフィルタ
 
-| system | `REQUIRES` | パラメータ | 旧 config |
-| :--- | :--- | :--- | :--- |
-| `FilterByDistanceSystem` | `POSITION` | `min_distance` `max_distance` `bev` | `max_distance` / `min_distance` |
-| `FilterByRegionSystem` | `POSITION` | `min_xy` `max_xy` | `max_x_position` / `max_y_position` |
-| `FilterByLabelSystem` | `CLASS_ID` | `labels` `exclude` | `target_labels` / `ignore_attributes` |
-| `FilterByConfidenceSystem` | `CONFIDENCE` | `min_confidence` `max_confidence` | `confidence_threshold` |
-| `FilterByInstanceSystem` | `INSTANCE_ID` | `instances` `exclude` | `target_uuids` |
-| `FilterBySpeedSystem` | `VELOCITY` | `min_speed` `max_speed` | — |
-| `FilterByNumPointsSystem` | `NUM_POINTS` | `min_num_points` `max_num_points` | `min_point_numbers` |
-| `FilterByVisibilitySystem` | `VISIBILITY` | `min_visibility` | — |
+| system                     | `REQUIRES`    | パラメータ                          | 旧 config                             |
+| :------------------------- | :------------ | :---------------------------------- | :------------------------------------ |
+| `FilterByDistanceSystem`   | `POSITION`    | `min_distance` `max_distance` `bev` | `max_distance` / `min_distance`       |
+| `FilterByRegionSystem`     | `POSITION`    | `min_xy` `max_xy`                   | `max_x_position` / `max_y_position`   |
+| `FilterByLabelSystem`      | `CLASS_ID`    | `labels` `exclude`                  | `target_labels` / `ignore_attributes` |
+| `FilterByConfidenceSystem` | `CONFIDENCE`  | `min_confidence` `max_confidence`   | `confidence_threshold`                |
+| `FilterByInstanceSystem`   | `INSTANCE_ID` | `instances` `exclude`               | `target_uuids`                        |
+| `FilterBySpeedSystem`      | `VELOCITY`    | `min_speed` `max_speed`             | —                                     |
+| `FilterByNumPointsSystem`  | `NUM_POINTS`  | `min_num_points` `max_num_points`   | `min_point_numbers`                   |
+| `FilterByVisibilitySystem` | `VISIBILITY`  | `min_visibility`                    | —                                     |
 
 個別の注意点:
 
@@ -182,7 +182,7 @@ source の mask はすべて同じ行を記述していなければならない 
 ```python
 view = masked_view(store, "/estimation/objects", keep.target,
                    timeline=FRAME, time_range=TimeRange.everything())
-passed = view.materialize(BatchDetection3D)
+passed = view.materialize(Detections3D)
 ```
 
 返るのは遅延 view であり、元の chunk を参照したままなので列を要求するまでコピーは起きない。
@@ -230,14 +230,14 @@ frame ごとに `scipy.optimize.linear_sum_assignment` で**大域最適な 1 �
 
 ### 実装済みモード
 
-| system | `REQUIRES` | 良い方向 | 既定閾値 | target | 旧 config |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `CenterDistanceMatchingSystem` | `POSITION` `CLASS_ID` | 小 | 1.0 | `/matching/center_distance` | `center_distance_thresholds` |
-| `CenterDistanceBEVMatchingSystem` | `POSITION` `CLASS_ID` | 小 | 1.0 | `/matching/center_distance_bev` | `center_distance_bev_thresholds` |
-| `PlaneDistanceMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 小 | 2.0 | `/matching/plane_distance` | `plane_distance_thresholds` |
-| `IoUBEVMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 大 | 0.5 | `/matching/iou_bev` | `iou_2d_thresholds` (3D タスク) |
-| `IoU3DMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 大 | 0.5 | `/matching/iou_3d` | `iou_3d_thresholds` |
-| `IoURoiMatchingSystem` | `ROI` `CLASS_ID` | 大 | 0.5 | `/matching/iou_roi` | `iou_2d_thresholds` (2D タスク) |
+| system                            | `REQUIRES`                                | 良い方向 | 既定閾値 | target                          | 旧 config                        |
+| :-------------------------------- | :---------------------------------------- | :------- | :------- | :------------------------------ | :------------------------------- |
+| `CenterDistanceMatchingSystem`    | `POSITION` `CLASS_ID`                     | 小       | 1.0      | `/matching/center_distance`     | `center_distance_thresholds`     |
+| `CenterDistanceBEVMatchingSystem` | `POSITION` `CLASS_ID`                     | 小       | 1.0      | `/matching/center_distance_bev` | `center_distance_bev_thresholds` |
+| `PlaneDistanceMatchingSystem`     | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 小       | 2.0      | `/matching/plane_distance`      | `plane_distance_thresholds`      |
+| `IoUBEVMatchingSystem`            | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 大       | 0.5      | `/matching/iou_bev`             | `iou_2d_thresholds` (3D タスク)  |
+| `IoU3DMatchingSystem`             | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | 大       | 0.5      | `/matching/iou_3d`              | `iou_3d_thresholds`              |
+| `IoURoiMatchingSystem`            | `ROI` `CLASS_ID`                          | 大       | 0.5      | `/matching/iou_roi`             | `iou_2d_thresholds` (2D タスク)  |
 
 モードごとに target が違うので、同じ frame に対して複数モードを同時に走らせて比較できる。
 
@@ -284,14 +284,14 @@ CenterDistanceMatchingSystem.between(
 マッチャーが必要とするのは `(N, M)` のスコア行列なので、ペアごとに Python から呼ぶのではなく
 行列を直接組み立てる。
 
-| 関数 | 返り値 |
-| :--- | :--- |
-| `bev_corners(position, quaternion, size)` | `(N, 4, 2)` footprint 頂点 |
-| `bev_area(size)` / `volume(size)` | `(N,)` |
-| `pairwise_bev_iou(...)` / `pairwise_volume_iou(...)` | `(N, M)` |
-| `pairwise_roi_iou(est_roi, gt_roi)` | `(N, M)` 軸平行なので多角形クリップ不要 |
-| `pairwise_plane_distance(...)` | `(N, M)` |
-| `canonical_bev_corners(corners)` | 重心まわりに反時計回りへ並べ替え |
+| 関数                                                 | 返り値                                  |
+| :--------------------------------------------------- | :-------------------------------------- |
+| `bev_corners(position, quaternion, size)`            | `(N, 4, 2)` footprint 頂点              |
+| `bev_area(size)` / `volume(size)`                    | `(N,)`                                  |
+| `pairwise_bev_iou(...)` / `pairwise_volume_iou(...)` | `(N, M)`                                |
+| `pairwise_roi_iou(est_roi, gt_roi)`                  | `(N, M)` 軸平行なので多角形クリップ不要 |
+| `pairwise_plane_distance(...)`                       | `(N, M)`                                |
+| `canonical_bev_corners(corners)`                     | 重心まわりに反時計回りへ並べ替え        |
 
 ## 未実装 system の配置
 
@@ -324,18 +324,18 @@ Python で歩く必要はない。
 
 ### enum の解体
 
-| 旧 `evaluation_task` | 新しい表現                                             |
-| :------------------- | :----------------------------------------------------- |
-| `detection`          | `BatchDetection3D` の component + matching + mAP       |
-| `tracking`           | 上記 + `INSTANCE_ID` + CLEAR / HOTA                    |
-| `prediction`         | 上記 + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE     |
-| `detection2d`        | `BatchDetection2D` の component + IoU2D matching + mAP |
-| `tracking2d`         | 上記 + `INSTANCE_ID` + CLEAR                           |
-| `classification2d`   | `BatchClassification2D` の component + classification  |
+| 旧 `evaluation_task` | 新しい表現                                         |
+| :------------------- | :------------------------------------------------- |
+| `detection`          | `Detections3D` の component + matching + mAP       |
+| `tracking`           | 上記 + `INSTANCE_ID` + CLEAR / HOTA                |
+| `prediction`         | 上記 + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE |
+| `detection2d`        | `Detections2D` の component + IoU2D matching + mAP |
+| `tracking2d`         | 上記 + `INSTANCE_ID` + CLEAR                       |
+| `classification2d`   | `Classifications2D` の component + classification  |
 
 分岐が消えるのは、system が「必要な component があるか」だけを見るからである。
 tracking データを detection として評価したければ、tracking entity をそのまま detection 用の
-pipeline に通せばよい (`tracking.has(*BatchDetection3D.required_descriptors())` が True)。
+pipeline に通せばよい (`tracking.has(*Detections3D.required_descriptors())` が True)。
 
 ### config dict の解体
 

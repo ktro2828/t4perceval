@@ -1,8 +1,8 @@
 """Canonical component descriptors.
 
 A descriptor names a column by *what it means*, not by which archetype declared it: both
-:class:`~t4perceval.archetype.BatchDetection3D` and
-:class:`~t4perceval.archetype.BatchTracking3D` expose their 3D centre as
+:class:`~t4perceval.archetype.Detections3D` and
+:class:`~t4perceval.archetype.Trackings3D` expose their 3D center as
 :data:`POSITION`. That is what lets a system declare ``REQUIRES = (POSITION,)`` and run
 against any entity carrying a 3D position, instead of branching on an evaluation-task
 enum. The ``archetype`` field of a descriptor is a hint only and never affects identity.

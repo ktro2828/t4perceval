@@ -34,15 +34,15 @@ from t4perceval.descriptors import (
     WAYPOINTS,
 )
 
-__all__ = ("BatchPrediction3D",)
+__all__ = ("Predictions3D",)
 
 
 @define(frozen=True, slots=True)
-class BatchPrediction3D(Archetype):
+class Predictions3D(Archetype):
     """Tracked 3D boxes together with their predicted future trajectories.
 
     Composed from the box, instance and trajectory components rather than inheriting from
-    :class:`~t4perceval.archetype.BatchTracking3D`, so systems requiring only the box
+    :class:`~t4perceval.archetype.Trackings3D`, so systems requiring only the box
     components, only the instance id, or only the trajectory columns all apply directly.
     """
 

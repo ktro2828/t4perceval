@@ -4,32 +4,32 @@
 
 ## 型の対応
 
-| 旧 (`perception_eval`)                                     | 新 (`t4perceval`)                                                        | 備考                                                         |
-| :--------------------------------------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
-| `DynamicObject`                                            | `BatchDetection3D` / `BatchTracking3D` / `BatchPrediction3D` の 1 行     | 20+ フィールドの 1 クラスを、タスクごとの component 束に分解 |
-| `DynamicObject2D`                                          | `BatchDetection2D` / `BatchTracking2D` / `BatchClassification2D` の 1 行 | `roi` は `BatchRoi`                                          |
-| `Shape` / `ShapeType`                                      | `BatchSize3D`                                                            | footprint 計算は matching system 側へ                        |
-| `FrameGroundTruth`                                         | `/ground_truth/objects` の 1 partition                                   | `unix_time` → `TIMESTAMP` timeline                           |
-| `FrameGroundTruth.raw_data`                                | 別 entity path (`/sensor/<channel>`)                                     | 今回は未実装                                                 |
-| `Catalog` / `Scenario` / `Scene`                           | `Store` + timeline 上の `TimeRange`                                      | list のネストを廃止                                          |
-| `PerceptionFrameResult`                                    | `store.latest_at(...)` の結果 + `/matching/*` chunk                      | frame ごとの再計算が不要                                     |
-| `DynamicObjectWithPerceptionResult`                        | `BatchMatchResult`                                                       | 参照ではなく行 index。保存・再解析できる                     |
-| `MatchingMode` enum | マッチング system の種類 (`CenterDistance` / `CenterDistanceBEV` / `PlaneDistance` / `IoUBEV` / `IoU3D` / `IoURoi`) と `/matching/<mode>` の entity path | 6 モードすべて実装済み |
-| `MatchingMethod` (`CenterDistanceMatching` 等) | `BatchMatchingScore` 列 | 値の意味は entity path が持つ |
-| `EvaluationTask` enum                                      | 存在する component の集合 + `Pipeline` の構成                            | enum 分岐が消える                                            |
-| `PerceptionEvaluationConfig`                               | 各 system のパラメータ + `LabelRegistry`                                 |                                                              |
-| `evaluation_config_dict`                                   | system ごとの dataclass                                                  | 構築時に検証される                                           |
-| `center_distance_thresholds` 等の list of list | `Thresholds(default, by_class=...)` | クラス順を知らなくても対象が分かる |
-| `MetricsScoreConfig`                                       | 各 metric system のパラメータ                                            |                                                              |
-| `MetricsScore`                                             | `/metrics/*` chunk                                                       |                                                              |
-| `LabelConverter` / `label_prefix` / `merge_similar_labels` | `LabelRegistry` / `LabelRegistry.merged()`                               | マージがデータとして見える                                   |
-| `Visibility`                                               | `BatchVisibility` + `VisibilityLevel`                                    | 文字列 enum から順序つき整数へ                               |
-| `objects_filter` の各関数                                  | `Filter*System` 群                                                       | 行を落とさず `BatchMask` を出力                              |
-| `object_matching` の各関数 | `*MatchingSystem` 群 | 幾何は `t4perceval.geometry` にベクトル化して集約 |
-| `PassFailResult` / `CriticalObjectFilterConfig`            | `PassFailSystem` + critical 用フィルタ system                            |                                                              |
-| `PerceptionEvaluationManager`                              | `Pipeline` + `SystemContext`                                             |                                                              |
-| `perception_analyzer3d` / `visualization/`                 | store へのクエリ (後続で可視化層)                                        | 中間結果が残るので後付けできる                               |
-| `class_to_dict` + `json.dump`                              | `write_parquet` / `chunk_to_table`                                       | 型・shape が schema で固定される                             |
+| 旧 (`perception_eval`)                                     | 新 (`t4perceval`)                                                                                                                                        | 備考                                                         |
+| :--------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+| `DynamicObject`                                            | `Detections3D` / `Trackings3D` / `Predictions3D` の 1 行                                                                                                 | 20+ フィールドの 1 クラスを、タスクごとの component 束に分解 |
+| `DynamicObject2D`                                          | `Detections2D` / `Trackings2D` / `Classifications2D` の 1 行                                                                                             | `roi` は `BatchRoi`                                          |
+| `Shape` / `ShapeType`                                      | `BatchSize3D`                                                                                                                                            | footprint 計算は matching system 側へ                        |
+| `FrameGroundTruth`                                         | `/ground_truth/objects` の 1 partition                                                                                                                   | `unix_time` → `TIMESTAMP` timeline                           |
+| `FrameGroundTruth.raw_data`                                | 別 entity path (`/sensor/<channel>`)                                                                                                                     | 今回は未実装                                                 |
+| `Catalog` / `Scenario` / `Scene`                           | `Store` + timeline 上の `TimeRange`                                                                                                                      | list のネストを廃止                                          |
+| `PerceptionFrameResult`                                    | `store.latest_at(...)` の結果 + `/matching/*` chunk                                                                                                      | frame ごとの再計算が不要                                     |
+| `DynamicObjectWithPerceptionResult`                        | `MatchResults`                                                                                                                                           | 参照ではなく行 index。保存・再解析できる                     |
+| `MatchingMode` enum                                        | マッチング system の種類 (`CenterDistance` / `CenterDistanceBEV` / `PlaneDistance` / `IoUBEV` / `IoU3D` / `IoURoi`) と `/matching/<mode>` の entity path | 6 モードすべて実装済み                                       |
+| `MatchingMethod` (`CenterDistanceMatching` 等)             | `BatchMatchingScore` 列                                                                                                                                  | 値の意味は entity path が持つ                                |
+| `EvaluationTask` enum                                      | 存在する component の集合 + `Pipeline` の構成                                                                                                            | enum 分岐が消える                                            |
+| `PerceptionEvaluationConfig`                               | 各 system のパラメータ + `LabelRegistry`                                                                                                                 |                                                              |
+| `evaluation_config_dict`                                   | system ごとの dataclass                                                                                                                                  | 構築時に検証される                                           |
+| `center_distance_thresholds` 等の list of list             | `Thresholds(default, by_class=...)`                                                                                                                      | クラス順を知らなくても対象が分かる                           |
+| `MetricsScoreConfig`                                       | 各 metric system のパラメータ                                                                                                                            |                                                              |
+| `MetricsScore`                                             | `/metrics/*` chunk                                                                                                                                       |                                                              |
+| `LabelConverter` / `label_prefix` / `merge_similar_labels` | `LabelRegistry` / `LabelRegistry.merged()`                                                                                                               | マージがデータとして見える                                   |
+| `Visibility`                                               | `BatchVisibility` + `VisibilityLevel`                                                                                                                    | 文字列 enum から順序つき整数へ                               |
+| `objects_filter` の各関数                                  | `Filter*System` 群                                                                                                                                       | 行を落とさず `BatchMask` を出力                              |
+| `object_matching` の各関数                                 | `*MatchingSystem` 群                                                                                                                                     | 幾何は `t4perceval.geometry` にベクトル化して集約            |
+| `PassFailResult` / `CriticalObjectFilterConfig`            | `PassFailSystem` + critical 用フィルタ system                                                                                                            |                                                              |
+| `PerceptionEvaluationManager`                              | `Pipeline` + `SystemContext`                                                                                                                             |                                                              |
+| `perception_analyzer3d` / `visualization/`                 | store へのクエリ (後続で可視化層)                                                                                                                        | 中間結果が残るので後付けできる                               |
+| `class_to_dict` + `json.dump`                              | `write_parquet` / `chunk_to_table`                                                                                                                       | 型・shape が schema で固定される                             |
 
 ## 概念の対応
 
@@ -69,7 +69,7 @@ objects = [obj, ...]
 labels = LabelRegistry.from_names(["car", "bicycle", "pedestrian", "motorbike"])
 instances = InstanceRegistry()
 
-detections = BatchTracking3D(
+detections = Trackings3D(
     position=[[1.0, 2.0, 3.0], ...],
     quaternion=[[0.0, 0.0, 0.0, 1.0], ...],       # xyzw
     size=[[1.0, 4.0, 2.0], ...],                  # width, length, height
@@ -119,13 +119,13 @@ pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 # scene 全体
 scene = store.range(
     "/matching/center_distance", timeline=FRAME, time_range=TimeRange.everything(),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 scene.num_tp, scene.num_fp, scene.num_fn
 
 # frame 単位 — 再計算なしで同じ store から取れる
 frame_1 = store.range(
     "/matching/center_distance", timeline=FRAME, time_range=TimeRange.single(1),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 ```
 
 ### オブジェクトのフィルタ
@@ -154,7 +154,7 @@ store.range(region.target, timeline=FRAME, time_range=TimeRange.everything()).co
 # 通過した行だけを遅延 view で取る
 passed = masked_view(
     store, src, keep.target, timeline=FRAME, time_range=TimeRange.everything(),
-).materialize(BatchDetection3D)
+).materialize(Detections3D)
 ```
 
 ### 型判定
@@ -170,11 +170,11 @@ if isinstance(obj, DynamicObject) and obj.uuid is not None:
 if batch.has(INSTANCE_ID):
     ...
 # 「detection として扱えるか」
-if batch.has(*BatchDetection3D.required_descriptors()):
+if batch.has(*Detections3D.required_descriptors()):
     ...
 ```
 
-`isinstance(tracking, BatchDetection3D)` は **False** になる (継承をやめたため)。
+`isinstance(tracking, Detections3D)` は **False** になる (継承をやめたため)。
 これは意図した変更で、詳細は [data_model.md](data_model.md) の「継承をやめた理由」を参照。
 
 ### 結果の保存
@@ -193,7 +193,7 @@ chunk = store.range(
 write_parquet(chunk, "matching.parquet", labels=labels)
 
 chunk, labels = read_parquet("matching.parquet")
-result = BatchMatchResult.from_chunk(chunk)
+result = MatchResults.from_chunk(chunk)
 ```
 
 ## 廃止された API
@@ -204,6 +204,5 @@ result = BatchMatchResult.from_chunk(chunk)
 | `Header(timestamp_ns, frame_id)`                                    | `TimePoint` (時刻) + `Chunk.frame_id` (座標系)                                                   |
 | `BatchDetection3D → BatchTracking3D → BatchPrediction3D` の継承     | 各 archetype が component を明示的に宣言                                                         |
 | `BatchTrajectory3D` (3 配列を持つ component)                        | archetype に昇格。列は `BatchWaypoints3D` / `BatchModeConfidence` / `BatchTimeOffset` などに分解 |
-| `SemanticSegmentation2D` / `SemanticSegmentation3D`                 | `BatchSemanticSegmentation2D` / `BatchSemanticSegmentation3D` (`Batch` 接頭辞を統一)             |
 | `BatchTrajectory3D.positions` / `.confidences` / `.time_offsets_ns` | `.waypoints` / `.mode_confidence` / `.time_offset`                                               |
 | 各 component の `from_array()` / `as_array()`                       | 残置 (`ColumnarComponent` の基底実装)                                                            |

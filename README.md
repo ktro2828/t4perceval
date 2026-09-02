@@ -62,8 +62,8 @@ import numpy as np
 
 from t4perceval import (
     FRAME,
-    BatchDetection3D,
-    BatchMatchResult,
+    Detections3D,
+    MatchResults,
     InstanceRegistry,
     LabelRegistry,
     Store,
@@ -86,7 +86,7 @@ store = Store()
 # One frame of objects is one columnar batch, not a list of objects.
 store.log(
     "/ground_truth/objects",
-    BatchDetection3D(
+    Detections3D(
         position=[[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]],
         quaternion=[[0.0, 0.0, 0.0, 1.0]] * 2,
         size=[[1.9, 4.5, 1.6]] * 2,
@@ -98,7 +98,7 @@ store.log(
 )
 store.log(
     "/estimation/objects",
-    BatchDetection3D(
+    Detections3D(
         position=[[0.3, 0.0, 0.0], [50.0, 0.0, 0.0]],
         quaternion=[[0.0, 0.0, 0.0, 1.0]] * 2,
         size=[[1.9, 4.5, 1.6]] * 2,
@@ -128,7 +128,7 @@ scene = store.range(
     "/matching/center_distance",
     timeline=FRAME,
     time_range=TimeRange.everything(),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 print(scene.num_tp, scene.num_fp, scene.num_fn)  # 1 1 1
 
 # ...or ask about one frame, from the same store, with no recomputation.
@@ -136,7 +136,7 @@ frame_0 = store.range(
     "/matching/center_distance",
     timeline=FRAME,
     time_range=TimeRange.single(0),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 print(frame_0.num_tp, frame_0.num_fp, frame_0.num_fn)  # 1 1 1
 
 # The filter's verdict is queryable data, not a discarded intermediate.

@@ -4,20 +4,20 @@ Use plural, domain-oriented names for collection archetypes, but do not mechanic
 type whose current name starts with `Batch`.
 
 Rerun's public archetypes use names such as `Points3D`, `Boxes3D`, and `Scalars`; batching is implicit
-in the archetype. A single `Boxes3D` value can contain one or many boxes. This matches what
-`BatchDetection3D` does today.
+in the archetype. A single `Boxes3D` value can contain one or many boxes. This matches the behavior
+of `Detections3D`.
 
-## Recommended Archetype Names
+## Archetype Names
 
-| Current                       | Proposed                 |
+| Previous                      | Canonical                |
 | ----------------------------- | ------------------------ |
 | `BatchDetection3D`            | `Detections3D`           |
 | `BatchDetection2D`            | `Detections2D`           |
-| `BatchTracking3D`             | `TrackedObjects3D`       |
-| `BatchTracking2D`             | `TrackedObjects2D`       |
+| `BatchTracking3D`             | `Trackings3D`            |
+| `BatchTracking2D`             | `Trackings2D`            |
 | `BatchPrediction3D`           | `Predictions3D`          |
 | `BatchTrajectory3D`           | `Trajectories3D`         |
-| `BatchClassification2D`       | `ClassificationResults2D` |
+| `BatchClassification2D`       | `Classifications2D`      |
 | `BatchMatchResult`            | `MatchResults`           |
 | `BatchMetric`                 | `MetricValues`           |
 | `BatchSemanticSegmentation2D` | `SemanticSegmentation2D` |
@@ -27,9 +27,9 @@ Some archetype names should remain singular. A semantic segmentation describes o
 result even though it contains many pixels or points, similar to Rerun's singular `Image` and
 `SegmentationImage` archetypes. The naming rule should be semantic rather than purely grammatical.
 
-For tracking, `TrackedObjects3D` is preferable to `Trackings3D`. `Tracks3D` is shorter, but it could
-imply that each row contains a complete time-series track, whereas the current archetype contains
-tracked objects at one observation time.
+`Trackings3D` and `Classifications2D` intentionally favor concise process-result plurals, keeping the
+API visually parallel with `Detections3D` and `Predictions3D`. A tracking row still represents a
+tracked object at one observation time rather than a complete time-series track.
 
 ## Components Need a Different Rule
 
@@ -83,19 +83,11 @@ store.log(
 )
 ```
 
-## Migration Approach
+## Migration
 
-1. Rename the archetypes first.
-2. Keep deprecated aliases for one release:
-
-   ```python
-   BatchDetection3D = Detections3D
-   ```
-
-3. Update the documentation and the naming rule in `TODO.md`.
-4. Decide component naming separately.
-5. If components are renamed, retain serialized component-name aliases because Parquet metadata
-   records component class names.
+The archetype rename is a breaking API change; the previous names are not retained as aliases.
+Component naming remains a separate decision. If components are renamed later, serialized
+component-name aliases must be retained because Parquet metadata records component class names.
 
 The resulting rule is: **rename `BatchDetection3D` to `Detections3D`, but do not blindly convert every
 `Batch*` class into a plural.** Archetypes should describe collections semantically, while components

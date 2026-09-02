@@ -7,11 +7,11 @@ from t4perceval.component import BatchClassId, BatchConfidence, BatchInstanceId
 from t4perceval.core.archetype import Archetype
 from t4perceval.descriptors import CLASS_ID, CONFIDENCE, INSTANCE_ID
 
-__all__ = ("BatchClassification2D",)
+__all__ = ("Classifications2D",)
 
 
 @define(frozen=True, slots=True)
-class BatchClassification2D(Archetype):
+class Classifications2D(Archetype):
     """A class and a confidence per object, without any geometry."""
 
     class_id = component_field(CLASS_ID, BatchClassId)

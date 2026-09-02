@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from conftest import make_metric_scene
 
-from t4perceval import FRAME, BatchMetric, LabelRegistry, TimeRange
+from t4perceval import FRAME, MetricValues, LabelRegistry, TimeRange
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     IoUBEVMatchingSystem,
@@ -133,7 +133,7 @@ class TestExecution:
             "/metrics/map",
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         assert result.aggregate == pytest.approx(0.75)
 
     def test_heading_produces_both_means(self, labels: LabelRegistry) -> None:
@@ -150,7 +150,7 @@ class TestExecution:
                 target,
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
-            ).materialize(BatchMetric)
+            ).materialize(MetricValues)
             assert result.aggregate == pytest.approx(1.0)
 
     def test_each_threshold_gets_its_own_assignment(self, labels: LabelRegistry) -> None:
@@ -170,12 +170,12 @@ class TestExecution:
             "/metrics/ap/0",
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         loose = store.range(
             "/metrics/ap/1",
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
 
         assert tight.of_class(0) == pytest.approx(1.0)
         assert loose.of_class(0) == pytest.approx(1.0)

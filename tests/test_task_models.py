@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from conftest import make_prediction
+from conftest import make_predictions
 
 from t4perceval import (
-    BatchDetection3D,
-    BatchPrediction3D,
-    BatchSemanticSegmentation2D,
-    BatchSemanticSegmentation3D,
-    BatchTrajectory3D,
-    BatchTracking3D,
+    Detections3D,
+    Predictions3D,
+    SemanticSegmentation2D,
+    SemanticSegmentation3D,
+    Trajectories3D,
+    Trackings3D,
     TrajectoryMode3D,
 )
-from t4perceval.archetype import BatchDetection3D as ArchetypeBatchDetection3D
-from t4perceval.archetype import BatchMatchResult
+from t4perceval.archetype import Detections3D as ArchetypeDetections3D
+from t4perceval.archetype import MatchResults
 from t4perceval.component import MatchStatus
 
 
@@ -32,19 +32,20 @@ def modes(*confidences: float, time_offsets: list[int] | None = None) -> list[Tr
 
 class TestPublicApi:
     def test_the_archetype_module_exposes_the_canonical_types(self) -> None:
-        assert ArchetypeBatchDetection3D is BatchDetection3D
+        assert ArchetypeDetections3D is Detections3D
 
-    def test_the_batch_prefix_marks_every_multi_row_type(self) -> None:
-        for archetype in (
-            BatchDetection3D,
-            BatchTracking3D,
-            BatchPrediction3D,
-            BatchTrajectory3D,
-            BatchSemanticSegmentation2D,
-            BatchSemanticSegmentation3D,
-            BatchMatchResult,
-        ):
-            assert archetype.__name__.startswith("Batch")
+    def test_archetypes_use_semantic_names_instead_of_the_batch_prefix(self) -> None:
+        archetypes = (
+            Detections3D,
+            Trackings3D,
+            Predictions3D,
+            Trajectories3D,
+            SemanticSegmentation2D,
+            SemanticSegmentation3D,
+            MatchResults,
+        )
+
+        assert all(not archetype.__name__.startswith("Batch") for archetype in archetypes)
 
 
 class TestTrajectoryMode:
@@ -69,9 +70,9 @@ class TestTrajectoryMode:
             TrajectoryMode3D(confidence=1.0, time_offset_ns=[], position=np.zeros((0, 3)))
 
 
-class TestBatchTrajectory:
+class TestTrajectories3D:
     def test_builds_a_dense_batch_from_modes(self) -> None:
-        trajectories = BatchTrajectory3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
+        trajectories = Trajectories3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
 
         assert len(trajectories) == 2
         assert (trajectories.num_modes, trajectories.num_timesteps) == (2, 2)
@@ -80,7 +81,7 @@ class TestBatchTrajectory:
         assert trajectories.time_offset.values.tolist() == [[1, 2], [1, 2]]
 
     def test_round_trips_back_to_modes(self) -> None:
-        trajectories = BatchTrajectory3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
+        trajectories = Trajectories3D.from_modes([modes(0.6, 0.4), modes(0.7, 0.3)])
 
         restored = trajectories.to_modes(0)
 
@@ -89,34 +90,34 @@ class TestBatchTrajectory:
 
     def test_requires_a_shared_time_axis(self) -> None:
         with pytest.raises(ValueError, match="same time_offset_ns"):
-            BatchTrajectory3D.from_modes(
+            Trajectories3D.from_modes(
                 [modes(1.0), modes(1.0, time_offsets=[1, 3])],
             )
 
     def test_requires_a_uniform_mode_count(self) -> None:
         with pytest.raises(ValueError, match="same number of trajectory modes"):
-            BatchTrajectory3D.from_modes([modes(0.5, 0.5), modes(1.0)])
+            Trajectories3D.from_modes([modes(0.5, 0.5), modes(1.0)])
 
     def test_rejects_an_empty_object_list(self) -> None:
         with pytest.raises(ValueError, match="at least one object"):
-            BatchTrajectory3D.from_modes([])
+            Trajectories3D.from_modes([])
 
     def test_rejects_an_object_without_modes(self) -> None:
         with pytest.raises(ValueError, match="at least one trajectory mode"):
-            BatchTrajectory3D.from_modes([[]])
+            Trajectories3D.from_modes([[]])
 
     def test_empty_keeps_a_fixed_mode_and_time_shape(self) -> None:
-        empty = BatchTrajectory3D.empty(num_modes=3, num_timesteps=4)
+        empty = Trajectories3D.empty(num_modes=3, num_timesteps=4)
 
         assert len(empty) == 0
         assert (empty.num_modes, empty.num_timesteps) == (3, 4)
 
     def test_empty_rejects_a_degenerate_shape(self) -> None:
         with pytest.raises(ValueError, match="must both be positive"):
-            BatchTrajectory3D.empty(num_modes=0, num_timesteps=4)
+            Trajectories3D.empty(num_modes=0, num_timesteps=4)
 
     def test_reports_an_out_of_range_object(self) -> None:
-        trajectories = BatchTrajectory3D.from_modes([modes(1.0)])
+        trajectories = Trajectories3D.from_modes([modes(1.0)])
 
         with pytest.raises(IndexError, match="object index out of range"):
             trajectories.to_modes(1)
@@ -124,7 +125,7 @@ class TestBatchTrajectory:
     def test_mode_confidences_are_not_forced_to_sum_to_one(self) -> None:
         # Models frequently emit unnormalized scores; normalizing here would silently
         # change the metric, so only the [0, 1] range is enforced.
-        trajectories = BatchTrajectory3D.from_modes([modes(0.9, 0.9)])
+        trajectories = Trajectories3D.from_modes([modes(0.9, 0.9)])
 
         assert trajectories.mode_confidence.values.sum() == pytest.approx(1.8)
 
@@ -139,7 +140,7 @@ class TestTrajectoryShapeAgreement:
         return columns
 
     def test_accepts_agreeing_masks(self) -> None:
-        trajectories = BatchTrajectory3D(
+        trajectories = Trajectories3D(
             **self.base(
                 mode_valid=[[True, False]],
                 timestep_valid=np.ones((1, 2, 3), dtype=bool),
@@ -151,28 +152,28 @@ class TestTrajectoryShapeAgreement:
 
     def test_rejects_a_mode_count_mismatch(self) -> None:
         with pytest.raises(ValueError, match="mode_confidence has 3 modes, expected 2"):
-            BatchTrajectory3D(**self.base(mode_confidence=[[0.3, 0.3, 0.4]]))
+            Trajectories3D(**self.base(mode_confidence=[[0.3, 0.3, 0.4]]))
 
     def test_rejects_a_mode_mask_mismatch(self) -> None:
         with pytest.raises(ValueError, match=r"mode_valid has row shape \(3,\)"):
-            BatchTrajectory3D(**self.base(mode_valid=[[True, True, True]]))
+            Trajectories3D(**self.base(mode_valid=[[True, True, True]]))
 
     def test_rejects_a_timestep_mask_mismatch(self) -> None:
         with pytest.raises(ValueError, match=r"timestep_valid has row shape \(2, 4\)"):
-            BatchTrajectory3D(**self.base(timestep_valid=np.ones((1, 2, 4), dtype=bool)))
+            Trajectories3D(**self.base(timestep_valid=np.ones((1, 2, 4), dtype=bool)))
 
     def test_rejects_a_time_axis_mismatch(self) -> None:
         with pytest.raises(ValueError, match=r"time_offset has row shape \(2,\)"):
-            BatchTrajectory3D(**self.base(time_offset=[[1, 2]]))
+            Trajectories3D(**self.base(time_offset=[[1, 2]]))
 
 
 class TestPrediction:
     def test_selects_dense_trajectories_along_with_the_boxes(self) -> None:
-        prediction = make_prediction([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]], [10, 11])
+        prediction = make_predictions([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]], [10, 11])
 
         selected = prediction.select(np.array([1], dtype=np.int64))
 
-        assert isinstance(selected, BatchPrediction3D)
+        assert isinstance(selected, Predictions3D)
         assert selected.instance_id.values.tolist() == [11]
         assert selected.waypoints.values.shape == (1, 2, 3, 3)
         assert selected.mode_confidence.values.shape == (1, 2)
@@ -180,7 +181,7 @@ class TestPrediction:
 
     def test_validates_the_trajectory_row_count(self) -> None:
         with pytest.raises(ValueError, match="waypoints has length 1, expected 2"):
-            BatchPrediction3D(
+            Predictions3D(
                 position=np.zeros((2, 3)),
                 quaternion=np.tile([0.0, 0.0, 0.0, 1.0], (2, 1)),
                 size=np.ones((2, 3)),
@@ -192,14 +193,14 @@ class TestPrediction:
             )
 
     def test_reports_its_trajectory_shape(self) -> None:
-        prediction = make_prediction([[0.0, 0.0, 0.0]], [1], num_modes=4, num_timesteps=6)
+        prediction = make_predictions([[0.0, 0.0, 0.0]], [1], num_modes=4, num_timesteps=6)
 
         assert (prediction.num_modes, prediction.num_timesteps) == (4, 6)
 
 
 class TestSemanticSegmentation:
     def test_a_class_per_pixel(self) -> None:
-        segmentation = BatchSemanticSegmentation2D(
+        segmentation = SemanticSegmentation2D(
             pixel=np.arange(6, dtype=np.int32),
             class_id=[0, 1, 1, 2, 2, 0],
         )
@@ -209,7 +210,7 @@ class TestSemanticSegmentation:
         np.testing.assert_array_equal(segmentation.class_id.values.reshape(2, 3)[1], [2, 2, 0])
 
     def test_a_class_per_point(self) -> None:
-        segmentation = BatchSemanticSegmentation3D(
+        segmentation = SemanticSegmentation3D(
             point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
             class_id=[1, 2],
         )
@@ -218,20 +219,20 @@ class TestSemanticSegmentation:
 
     def test_validates_point_class_alignment(self) -> None:
         with pytest.raises(ValueError, match="class_id has length 1, expected 2"):
-            BatchSemanticSegmentation3D(
+            SemanticSegmentation3D(
                 point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
                 class_id=[1],
             )
 
     def test_segmentation_supports_the_shared_selection_api(self) -> None:
-        segmentation = BatchSemanticSegmentation2D(pixel=[0, 1, 2], class_id=[0, 1, 2])
+        segmentation = SemanticSegmentation2D(pixel=[0, 1, 2], class_id=[0, 1, 2])
 
         assert segmentation.select([2, 0]).class_id.values.tolist() == [2, 0]
 
 
 class TestMatchResult:
     def test_counts_each_verdict(self) -> None:
-        result = BatchMatchResult(
+        result = MatchResults(
             est_index=[0, 1, -1],
             gt_index=[0, -1, 2],
             matching_score=[0.5, np.nan, np.nan],
@@ -243,11 +244,11 @@ class TestMatchResult:
         assert result.count(MatchStatus.TP) == 1
 
     def test_empty_has_no_rows(self) -> None:
-        assert len(BatchMatchResult.empty()) == 0
+        assert len(MatchResults.empty()) == 0
 
     def test_rejects_an_unknown_status(self) -> None:
         with pytest.raises(ValueError, match="unknown values"):
-            BatchMatchResult(
+            MatchResults(
                 est_index=[0],
                 gt_index=[0],
                 matching_score=[0.0],

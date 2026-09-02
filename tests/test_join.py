@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from conftest import make_detection
+from conftest import make_detections
 
 from t4perceval import FRAME, TIMESTAMP, Chunk, Store, TimePoint, TimeRange
-from t4perceval.archetype import BatchMatchResult
+from t4perceval.archetype import MatchResults
 from t4perceval.component import MatchStatus
 from t4perceval.descriptors import CLASS_ID, CONFIDENCE, MATCH_STATUS, POSITION
 from t4perceval.system.join import MatchJoin
@@ -18,19 +18,15 @@ MATCHING = "/matching/center_distance"
 
 
 def objects(xs: list[float], classes: list[int] | None = None) -> object:
-    return make_detection(
+    return make_detections(
         [[x, 0.0, 0.0] for x in xs],
         classes if classes is not None else [0] * len(xs),
         confidences=[round(0.9 - 0.1 * index, 2) for index in range(len(xs))],
     )
 
 
-def matches(
-    est: list[int],
-    gt: list[int],
-    status: list[MatchStatus],
-) -> BatchMatchResult:
-    return BatchMatchResult(
+def matches(est: list[int], gt: list[int], status: list[MatchStatus]) -> MatchResults:
+    return MatchResults(
         est_index=est,
         gt_index=gt,
         matching_score=[0.1] * len(est),
@@ -229,9 +225,9 @@ class TestEdges:
 
     def test_a_frame_with_no_objects_still_joins(self) -> None:
         store = Store()
-        store.log(EST, make_detection([]), at=TimePoint.at(frame=0))
-        store.log(GT, make_detection([]), at=TimePoint.at(frame=0))
-        store.log(MATCHING, BatchMatchResult.empty(), at=TimePoint.at(frame=0))
+        store.log(EST, make_detections([]), at=TimePoint.at(frame=0))
+        store.log(GT, make_detections([]), at=TimePoint.at(frame=0))
+        store.log(MATCHING, MatchResults.empty(), at=TimePoint.at(frame=0))
 
         assert len(join_of(store)) == 0
 
@@ -247,13 +243,13 @@ class TestEdges:
             join.match_component(POSITION)
 
     def test_reports_a_missing_object_column(self) -> None:
-        from t4perceval.archetype import BatchClassification2D
+        from t4perceval.archetype import Classifications2D
         from t4perceval.descriptors import QUATERNION
 
         store = Store()
         store.log(
             EST,
-            BatchClassification2D(class_id=[0], confidence=[0.5]),
+            Classifications2D(class_id=[0], confidence=[0.5]),
             at=TimePoint.at(frame=0),
         )
         store.log(GT, objects([0.0]), at=TimePoint.at(frame=0))

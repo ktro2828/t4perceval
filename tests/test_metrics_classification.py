@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from conftest import make_metric_scene
 
-from t4perceval import FRAME, BatchMetric, LabelRegistry, Store, TimeRange
+from t4perceval import FRAME, MetricValues, LabelRegistry, Store, TimeRange
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     ClassificationSystem,
@@ -22,7 +22,7 @@ def classification(
     labels: LabelRegistry,
     ground_truth: list[tuple[float, str]],
     estimation: list[tuple[float, str, float]],
-) -> dict[str, BatchMetric]:
+) -> dict[str, MetricValues]:
     store = make_metric_scene(labels, [(0, ground_truth, estimation)])
     match = CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0)
     metric = ClassificationSystem.on(match.target, EST, GT)
@@ -35,7 +35,7 @@ def classification(
             target,
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         for target in metric.targets
     }
 
@@ -106,7 +106,7 @@ class TestValues:
             metric.targets[2],
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         assert recall.of_class(labels.class_id("car")) == pytest.approx(0.0)
 
     def test_classes_are_scored_independently(self, labels: LabelRegistry) -> None:
@@ -138,7 +138,7 @@ class TestValues:
             metric.targets[2],
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         assert recall.of_class(0) == pytest.approx(0.5), "one of two frames found its object"
 
 
@@ -177,5 +177,5 @@ class TestUndefined:
                 target,
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
-            ).materialize(BatchMetric)
+            ).materialize(MetricValues)
             assert np.isnan(row.value.values).all()

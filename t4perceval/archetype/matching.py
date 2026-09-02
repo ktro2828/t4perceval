@@ -19,11 +19,11 @@ from t4perceval.descriptors import EST_INDEX, GT_INDEX, MATCH_STATUS, MATCHING_S
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-__all__ = ("BatchMatchResult",)
+__all__ = ("MatchResults",)
 
 
 @define(frozen=True, slots=True)
-class BatchMatchResult(Archetype):
+class MatchResults(Archetype):
     """The outcome of matching an estimation stream against a ground-truth stream.
 
     One row per verdict. :attr:`est_index` and :attr:`gt_index` are row indices into the

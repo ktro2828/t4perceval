@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from conftest import make_detection
+from conftest import make_detections
 
-from t4perceval import FRAME, TIMESTAMP, BatchDetection3D, Store, TimePoint, TimeRange
+from t4perceval import FRAME, TIMESTAMP, Detections3D, Store, TimePoint, TimeRange
 from t4perceval.component import BatchConfidence, BatchTimeOffset
 from t4perceval.descriptors import CONFIDENCE, POSITION, TIME_OFFSET
 
@@ -31,7 +31,7 @@ class TestWriting:
 
     def test_an_unindexed_timeline_yields_no_times(self) -> None:
         store = Store()
-        store.log("/x", make_detection([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
 
         assert store.times("/x", TIMESTAMP).tolist() == []
 
@@ -62,8 +62,8 @@ class TestLatestAt:
 
     def test_the_most_recently_logged_chunk_wins_a_tie(self) -> None:
         store = Store()
-        store.log("/x", make_detection([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
-        store.log("/x", make_detection([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
 
         view = store.latest_at("/x", timeline=FRAME, at=0)
 
@@ -99,9 +99,9 @@ class TestRange:
 
     def test_orders_partitions_by_time_not_log_order(self) -> None:
         store = Store()
-        store.log("/x", make_detection([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=2))
-        store.log("/x", make_detection([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
-        store.log("/x", make_detection([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=1))
+        store.log("/x", make_detections([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=2))
+        store.log("/x", make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=1))
 
         view = store.range("/x", timeline=FRAME, time_range=TimeRange.everything())
 
@@ -124,7 +124,7 @@ class TestRange:
             time_range=TimeRange.everything(),
         )
 
-        detection = view.materialize(BatchDetection3D)
+        detection = view.materialize(Detections3D)
 
         assert len(detection) == 4
 
@@ -162,7 +162,7 @@ class TestStaticData:
 
     def test_a_static_archetype_can_be_logged_whole(self) -> None:
         store = Store()
-        store.log_static("/reference/objects", make_detection([[0.0, 0.0, 0.0]]))
+        store.log_static("/reference/objects", make_detections([[0.0, 0.0, 0.0]]))
 
         assert POSITION in store.static("/reference/objects")
         assert store.chunks("/reference/objects") == (), "static data is not temporal"

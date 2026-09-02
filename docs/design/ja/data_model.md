@@ -81,10 +81,10 @@ class ComponentDescriptor:
 ```
 
 **重要な設計判断**: descriptor 名は archetype 非依存にする。
-`BatchDetection3D` と `BatchTracking3D` は同じ 3D 中心を、どちらも `POSITION` (= `"position"`) として公開する。
+`Detections3D` と `Trackings3D` は同じ 3D 中心を、どちらも `POSITION` (= `"position"`) として公開する。
 
 ```python
-BatchDetection3D.descriptor_of("position") == BatchTracking3D.descriptor_of("position")  # True
+Detections3D.descriptor_of("position") == Trackings3D.descriptor_of("position")  # True
 ```
 
 これにより System は `REQUIRES = (POSITION,)` と宣言するだけで、
@@ -136,7 +136,7 @@ class BatchPosition3D(ColumnarComponent):
 
 ```python
 @define(frozen=True, slots=True)
-class BatchTracking3D(Archetype):
+class Trackings3D(Archetype):
     position    = component_field(POSITION,    BatchPosition3D)
     quaternion  = component_field(QUATERNION,  BatchQuaternion)
     size        = component_field(SIZE,        BatchSize3D)
@@ -152,13 +152,13 @@ class BatchTracking3D(Archetype):
 
 - `select()` が 3 箇所でほぼ同一実装として重複する
 - 「trajectory は持つが instance_id は持たない」といった組み合わせが表現できない
-- `isinstance(tracking, BatchDetection3D)` が「tracking は detection の一種」という嘘をつく
+- `isinstance(tracking, Detections3D)` が「tracking は detection の一種」という嘘をつく
 
-いまは `BatchTracking3D` が box 系 component を**明示的に再宣言**する。descriptor は同一なので:
+いまは `Trackings3D` が box 系 component を**明示的に再宣言**する。descriptor は同一なので:
 
 ```python
-tracking.has(*BatchDetection3D.required_descriptors())   # True
-isinstance(tracking, BatchDetection3D)                   # False
+tracking.has(*Detections3D.required_descriptors())   # True
+isinstance(tracking, Detections3D)                   # False
 ```
 
 `has()` は System が `REQUIRES` で問うのと同じ質問であり、`isinstance` の正しい置き換えである。
@@ -171,18 +171,18 @@ isinstance(tracking, BatchDetection3D)                   # False
 
 ### archetype 一覧
 
-| archetype                     | components                                                                                    |
-| :---------------------------- | :-------------------------------------------------------------------------------------------- |
-| `BatchDetection3D`            | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]      |
-| `BatchDetection2D`            | roi, class_id, confidence, [visibility]                                                       |
-| `BatchTracking3D`             | Detection3D の各列 + instance_id                                                              |
-| `BatchTracking2D`             | Detection2D の各列 + instance_id                                                              |
-| `BatchPrediction3D`           | Tracking3D の各列 + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
-| `BatchClassification2D`       | class_id, confidence, [instance_id]                                                           |
-| `BatchSemanticSegmentation2D` | pixel, class_id                                                                               |
-| `BatchSemanticSegmentation3D` | point, class_id                                                                               |
-| `BatchTrajectory3D`           | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                     |
-| `BatchMatchResult`            | est_index, gt_index, matching_score, match_status                                             |
+| archetype                | components                                                                                    |
+| :----------------------- | :-------------------------------------------------------------------------------------------- |
+| `Detections3D`           | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]      |
+| `Detections2D`           | roi, class_id, confidence, [visibility]                                                       |
+| `Trackings3D`            | Detection3D の各列 + instance_id                                                              |
+| `Trackings2D`            | Detection2D の各列 + instance_id                                                              |
+| `Predictions3D`          | Tracking3D の各列 + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
+| `Classifications2D`      | class_id, confidence, [instance_id]                                                           |
+| `SemanticSegmentation2D` | pixel, class_id                                                                               |
+| `SemanticSegmentation3D` | point, class_id                                                                               |
+| `Trajectories3D`         | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                     |
+| `MatchResults`           | est_index, gt_index, matching_score, match_status                                             |
 
 ### trajectory の設計判断
 
@@ -308,7 +308,7 @@ class EntityView:
 ```python
 view.select(slice(None, None, 2)).select([1])   # コピーなし
 view.component(POSITION)                        # ここで 1 列だけコピー
-view.materialize(BatchDetection3D)              # archetype として実体化
+view.materialize(Detections3D)              # archetype として実体化
 ```
 
 ### copy / view の契約
@@ -410,7 +410,7 @@ Tier4(data_root, version)
         └─ Box3D.future (Future: timestamps (T,), confidences (M,), waypoints (M,T,3))
                                ──→ BatchWaypoints3D / BatchModeConfidence / BatchTimeOffset
         │
-        └→ BatchDetection3D / BatchTracking3D / BatchPrediction3D
+        └→ Detections3D / Trackings3D / Predictions3D
               .to_chunk(entity_path, at=TimePoint.at(frame=i, timestamp_ns=box.unix_time * 1000),
                         frame_id=box.frame_id)
 ```

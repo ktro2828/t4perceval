@@ -27,11 +27,11 @@ from t4perceval.descriptors import (
     VISIBILITY,
 )
 
-__all__ = ("BatchDetection2D", "BatchDetection3D")
+__all__ = ("Detections2D", "Detections3D")
 
 
 @define(frozen=True, slots=True)
-class BatchDetection3D(Archetype):
+class Detections3D(Archetype):
     """3D bounding boxes with a class and a confidence."""
 
     position = component_field(POSITION, BatchPosition3D)
@@ -45,7 +45,7 @@ class BatchDetection3D(Archetype):
 
 
 @define(frozen=True, slots=True)
-class BatchDetection2D(Archetype):
+class Detections2D(Archetype):
     """2D regions of interest with a class and a confidence."""
 
     roi = component_field(ROI, BatchRoi)

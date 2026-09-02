@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from conftest import make_tracking
+from conftest import make_trackings
 
-from t4perceval import FRAME, BatchMetric, LabelRegistry, Store, TimePoint, TimeRange
+from t4perceval import FRAME, MetricValues, LabelRegistry, Store, TimePoint, TimeRange
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     ClearSystem,
@@ -34,7 +34,7 @@ def tracks(
     """Log ``(x, instance_id, class_name)`` triples at one frame."""
     store.log(
         path,
-        make_tracking(
+        make_trackings(
             [[x, 0.0, 0.0] for x, _, _ in objects],
             [instance for _, instance, _ in objects],
             labels.encode([name for _, _, name in objects]),
@@ -50,18 +50,18 @@ def clear_of(
     *,
     threshold: float = 1.0,
     matcher: type = CenterDistanceMatchingSystem,
-) -> dict[str, BatchMetric]:
+) -> dict[str, MetricValues]:
     match = matcher.between(EST, GT, threshold=threshold)
     clear = ClearSystem.on(match.target, EST, GT)
     ctx = SystemContext(store, FRAME, labels=labels)
     Pipeline([match, clear]).run(ctx, TimeRange.everything())
 
-    def read(target: EntityPath) -> BatchMetric:
+    def read(target: EntityPath) -> MetricValues:
         return store.range(
             target,
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
 
     return {target.name: read(target) for target in clear.targets}
 

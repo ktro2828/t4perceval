@@ -10,20 +10,20 @@ from typing import TYPE_CHECKING, Callable
 
 import numpy as np
 import pytest
-from conftest import make_detection, make_prediction, make_tracking
+from conftest import make_detections, make_predictions, make_trackings
 
 from t4perceval import (
     FRAME,
-    BatchClassification2D,
-    BatchDetection2D,
-    BatchDetection3D,
-    BatchMatchResult,
-    BatchPrediction3D,
-    BatchSemanticSegmentation2D,
-    BatchSemanticSegmentation3D,
-    BatchTracking2D,
-    BatchTracking3D,
-    BatchTrajectory3D,
+    Classifications2D,
+    Detections2D,
+    Detections3D,
+    MatchResults,
+    Predictions3D,
+    SemanticSegmentation2D,
+    SemanticSegmentation3D,
+    Trackings2D,
+    Trackings3D,
+    Trajectories3D,
     Store,
     TimePoint,
     TimeRange,
@@ -39,50 +39,50 @@ if TYPE_CHECKING:
 def empty_archetypes() -> dict[str, Callable[[], Archetype]]:
     """A zero-row instance of every archetype, keyed for readable test ids."""
     return {
-        "BatchDetection3D": lambda: make_detection([]),
-        "BatchDetection2D": lambda: BatchDetection2D(roi=[], class_id=[], confidence=[]),
-        "BatchTracking3D": lambda: make_tracking([], []),
-        "BatchTracking2D": lambda: BatchTracking2D(
+        "Detections3D": lambda: make_detections([]),
+        "Detections2D": lambda: Detections2D(roi=[], class_id=[], confidence=[]),
+        "Trackings3D": lambda: make_trackings([], []),
+        "Trackings2D": lambda: Trackings2D(
             roi=[], class_id=[], confidence=[], instance_id=[]
         ),
-        "BatchPrediction3D": lambda: make_prediction([], []),
-        "BatchClassification2D": lambda: BatchClassification2D(class_id=[], confidence=[]),
-        "BatchSemanticSegmentation2D": lambda: BatchSemanticSegmentation2D(pixel=[], class_id=[]),
-        "BatchSemanticSegmentation3D": lambda: BatchSemanticSegmentation3D(point=[], class_id=[]),
-        "BatchTrajectory3D": lambda: BatchTrajectory3D.empty(num_modes=2, num_timesteps=3),
-        "BatchMatchResult": BatchMatchResult.empty,
+        "Predictions3D": lambda: make_predictions([], []),
+        "Classifications2D": lambda: Classifications2D(class_id=[], confidence=[]),
+        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(pixel=[], class_id=[]),
+        "SemanticSegmentation3D": lambda: SemanticSegmentation3D(point=[], class_id=[]),
+        "Trajectories3D": lambda: Trajectories3D.empty(num_modes=2, num_timesteps=3),
+        "MatchResults": MatchResults.empty,
     }
 
 
 def populated_archetypes() -> dict[str, Callable[[], Archetype]]:
     """A three-row instance of every archetype that has a row-wise selection."""
     return {
-        "BatchDetection3D": lambda: make_detection(
+        "Detections3D": lambda: make_detections(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             [0, 1, 2],
         ),
-        "BatchDetection2D": lambda: BatchDetection2D(
+        "Detections2D": lambda: Detections2D(
             roi=[[0, 0, 1, 1], [1, 1, 2, 2], [2, 2, 3, 3]],
             class_id=[0, 1, 2],
             confidence=[0.1, 0.2, 0.3],
         ),
-        "BatchTracking3D": lambda: make_tracking(
+        "Trackings3D": lambda: make_trackings(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             [10, 11, 12],
         ),
-        "BatchPrediction3D": lambda: make_prediction(
+        "Predictions3D": lambda: make_predictions(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             [10, 11, 12],
         ),
-        "BatchClassification2D": lambda: BatchClassification2D(
+        "Classifications2D": lambda: Classifications2D(
             class_id=[0, 1, 2],
             confidence=[0.1, 0.2, 0.3],
         ),
-        "BatchSemanticSegmentation2D": lambda: BatchSemanticSegmentation2D(
+        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(
             pixel=[0, 1, 2],
             class_id=[0, 1, 2],
         ),
-        "BatchMatchResult": lambda: BatchMatchResult(
+        "MatchResults": lambda: MatchResults(
             est_index=[0, 1, -1],
             gt_index=[0, -1, 2],
             matching_score=[0.5, np.nan, np.nan],
@@ -144,7 +144,7 @@ class TestEmptyBatches:
 
     def test_an_empty_frame_flows_through_a_system(self) -> None:
         store = Store()
-        store.log("/estimation/objects", make_detection([]), at=TimePoint.at(frame=0))
+        store.log("/estimation/objects", make_detections([]), at=TimePoint.at(frame=0))
         ctx = SystemContext(store, FRAME)
 
         (chunk,) = FilterByDistanceSystem.on("/estimation/objects")(ctx, 0)
@@ -156,7 +156,7 @@ class TestEmptyBatches:
 
     def test_an_out_of_range_selection_on_an_empty_batch_is_rejected(self) -> None:
         with pytest.raises(IndexError, match="out of range for length 0"):
-            make_detection([]).select([0])
+            make_detections([]).select([0])
 
 
 class TestSelectionOrderAndDuplication:
@@ -198,7 +198,7 @@ class TestSelectionOrderAndDuplication:
             POPULATED[name]().select([3])
 
     def test_a_reversed_selection_within_one_partition_is_allowed_on_a_chunk(self) -> None:
-        chunk = make_detection(
+        chunk = make_detections(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
         ).to_chunk("/x", at=TimePoint.at(frame=0))
 
@@ -207,7 +207,7 @@ class TestSelectionOrderAndDuplication:
         assert selected.columns[chunk.descriptors[0]].values[0].tolist() == [1.0, 0.0, 0.0]
 
     def test_a_lazy_view_composes_duplication(self) -> None:
-        chunk = make_detection(
+        chunk = make_detections(
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
         ).to_chunk("/x", at=TimePoint.at(frame=0))
 
@@ -233,7 +233,7 @@ class TestNonFiniteValues:
         assert not np.isfinite(velocity.values[0, 0])
 
     def test_a_matching_score_uses_nan_as_its_sentinel(self) -> None:
-        result = BatchMatchResult(
+        result = MatchResults(
             est_index=[0],
             gt_index=[-1],
             matching_score=[np.nan],
@@ -244,14 +244,14 @@ class TestNonFiniteValues:
         assert np.isnan(result.matching_score.values[0])
 
     def test_nan_sentinels_compare_equal(self) -> None:
-        left = BatchMatchResult(
+        left = MatchResults(
             est_index=[0],
             gt_index=[-1],
             matching_score=[np.nan],
             match_status=[MatchStatus.FP],
             threshold=[1.0],
         )
-        right = BatchMatchResult(
+        right = MatchResults(
             est_index=[0],
             gt_index=[-1],
             matching_score=[np.nan],
@@ -262,7 +262,7 @@ class TestNonFiniteValues:
         assert left == right
 
     def test_nan_sentinels_survive_an_arrow_round_trip(self) -> None:
-        result = BatchMatchResult(
+        result = MatchResults(
             est_index=[0],
             gt_index=[-1],
             matching_score=[np.nan],
@@ -279,12 +279,12 @@ class TestNonFiniteValues:
         store = Store()
         store.log(
             "/ground_truth/objects",
-            make_detection([[0.0, 0.0, 0.0]], [0]),
+            make_detections([[0.0, 0.0, 0.0]], [0]),
             at=TimePoint.at(frame=0),
         )
         store.log(
             "/estimation/objects",
-            make_detection([[np.nan, 0.0, 0.0]], [0]),
+            make_detections([[np.nan, 0.0, 0.0]], [0]),
             at=TimePoint.at(frame=0),
         )
         system = CenterDistanceMatchingSystem.between(
@@ -293,7 +293,7 @@ class TestNonFiniteValues:
         )
 
         (chunk,) = system(SystemContext(store, FRAME), 0)
-        result = BatchMatchResult.from_chunk(chunk)
+        result = MatchResults.from_chunk(chunk)
 
         assert (result.num_tp, result.num_fp, result.num_fn) == (0, 1, 1)
 
@@ -301,7 +301,7 @@ class TestNonFiniteValues:
         store = Store()
         store.log(
             "/estimation/objects",
-            make_detection([[np.nan, 0.0, 0.0], [1.0, 0.0, 0.0]]),
+            make_detections([[np.nan, 0.0, 0.0], [1.0, 0.0, 0.0]]),
             at=TimePoint.at(frame=0),
         )
 
@@ -326,14 +326,14 @@ class TestStoreEdges:
 
     def test_a_single_frame_scene_still_ranges(self) -> None:
         store = Store()
-        store.log("/x", make_detection([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
 
         view = store.range("/x", timeline=FRAME, time_range=TimeRange.everything())
 
         assert len(view) == 1
         assert view.to_chunk().num_partitions == 1
 
-    @pytest.mark.parametrize("archetype", [BatchDetection3D, BatchTracking3D, BatchPrediction3D])
+    @pytest.mark.parametrize("archetype", [Detections3D, Trackings3D, Predictions3D])
     def test_materializing_the_wrong_archetype_is_reported(
         self,
         archetype: type,
@@ -341,7 +341,7 @@ class TestStoreEdges:
     ) -> None:
         view = scene_store.latest_at("/estimation/objects", timeline=FRAME, at=0)
 
-        if archetype is BatchDetection3D:
+        if archetype is Detections3D:
             assert len(view.materialize(archetype)) == 2
         else:
             with pytest.raises(ValueError, match="missing required component"):

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 from attrs import define, field
 
-from t4perceval.archetype.metric import BatchMetric
+from t4perceval.archetype.metric import MetricValues
 from t4perceval.component import ALL_CLASSES, MatchStatus
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimePoint, TimeRange
@@ -230,8 +230,8 @@ class MeanAveragePrecisionSystem(EntitySystem):
     does not erase the score. Point the same system at APH entities to get mAPH.
     """
 
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = BatchMetric.required_descriptors()
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = BatchMetric.required_descriptors()
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = MetricValues.required_descriptors()
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = MetricValues.required_descriptors()
 
     def __attrs_post_init__(self) -> None:
         if not self.sources:
@@ -307,7 +307,7 @@ class MeanAveragePrecisionSystem(EntitySystem):
 
         at_time = latest if latest is not None else int(max(time_range.start, 0))
         return (
-            BatchMetric.from_rows(rows).to_chunk(
+            MetricValues.from_rows(rows).to_chunk(
                 as_entity_path(self.target),
                 at=TimePoint(((ctx.timeline, at_time),)),
             ),

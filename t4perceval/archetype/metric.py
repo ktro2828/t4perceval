@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
-__all__ = ("BatchMetric",)
+__all__ = ("MetricValues",)
 
 
 @define(frozen=True, slots=True)
-class BatchMetric(Archetype):
+class MetricValues(Archetype):
     """One metric's values, broken down by class and threshold.
 
     Every metric shares this shape, and the metric's *name* is the entity path it is

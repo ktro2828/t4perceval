@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pytest
-from conftest import make_detection
+from conftest import make_detections
 
 from t4perceval import (
     FRAME,
-    BatchDetection3D,
-    BatchTracking3D,
+    Detections3D,
+    Trackings3D,
     Chunk,
     InstanceRegistry,
     LabelRegistry,
@@ -86,7 +86,7 @@ def rich_store(labels: LabelRegistry, instances: InstanceRegistry, uuids: list[s
     store = Store()
     store.log(
         SOURCE,
-        BatchTracking3D(
+        Trackings3D(
             position=[[1.0, 0.0, 0.0], [50.0, 0.0, 0.0], [0.0, 120.0, 0.0], [3.0, 4.0, 0.0]],
             quaternion=[[0.0, 0.0, 0.0, 1.0]] * 4,
             size=[[1.0, 1.0, 1.0]] * 4,
@@ -115,7 +115,7 @@ def rich_scene_store(labels: LabelRegistry) -> Store:
     for frame in (0, 1):
         store.log(
             SOURCE,
-            BatchTracking3D(
+            Trackings3D(
                 position=[[float(frame), 0.0, 0.0], [1.0 + frame, 0.0, 0.0]],
                 quaternion=[[0.0, 0.0, 0.0, 1.0]] * 2,
                 size=[[1.0, 1.0, 1.0]] * 2,
@@ -229,7 +229,7 @@ class TestFamilyProperties:
     @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
     def test_an_empty_frame_is_not_a_wiring_error(self, cls: type[MaskSystem]) -> None:
         store = Store()
-        store.log(SOURCE, make_detection([]), at=TimePoint.at(frame=0))
+        store.log(SOURCE, make_detections([]), at=TimePoint.at(frame=0))
 
         (chunk,) = cls.on(SOURCE)(SystemContext(store, FRAME), 0)
 
@@ -319,7 +319,7 @@ class TestFilterByDistance:
         store = Store()
         store.log(
             SOURCE,
-            make_detection([[3.0, 4.0, 0.0], [3.0, 4.0, 100.0]]),
+            make_detections([[3.0, 4.0, 0.0], [3.0, 4.0, 100.0]]),
             at=TimePoint.at(frame=0),
         )
         ctx = SystemContext(store, FRAME)
@@ -333,7 +333,7 @@ class TestFilterByDistance:
     def test_bounds_are_inclusive(self) -> None:
         store = Store()
         store.log(
-            SOURCE, make_detection([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]), at=TimePoint.at(frame=0)
+            SOURCE, make_detections([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]), at=TimePoint.at(frame=0)
         )
         ctx = SystemContext(store, FRAME)
 
@@ -370,7 +370,7 @@ class TestFilterByRegion:
         store = Store()
         store.log(
             SOURCE,
-            make_detection([[-50.0, 0.0, 0.0], [5.0, 0.0, 0.0]]),
+            make_detections([[-50.0, 0.0, 0.0], [5.0, 0.0, 0.0]]),
             at=TimePoint.at(frame=0),
         )
         ctx = SystemContext(store, FRAME)
@@ -385,7 +385,7 @@ class TestFilterByRegion:
         store = Store()
         store.log(
             SOURCE,
-            make_detection([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0]]),
+            make_detections([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0]]),
             at=TimePoint.at(frame=0),
         )
         system = FilterByRegionSystem.on(SOURCE, max_xy=(1.0, 100.0))
@@ -394,7 +394,7 @@ class TestFilterByRegion:
 
     def test_ignores_the_z_axis(self) -> None:
         store = Store()
-        store.log(SOURCE, make_detection([[0.0, 0.0, 999.0]]), at=TimePoint.at(frame=0))
+        store.log(SOURCE, make_detections([[0.0, 0.0, 999.0]]), at=TimePoint.at(frame=0))
         system = FilterByRegionSystem.on(SOURCE, max_xy=(1.0, 1.0))
 
         assert mask_of(system, SystemContext(store, FRAME)) == [True]
@@ -657,7 +657,7 @@ class TestCombineMasks:
     def test_reports_masks_describing_different_rows(self, rich_context: SystemContext) -> None:
         near, _ = self.masks(rich_context)
         other = "/other/objects"
-        rich_context.store.log(other, make_detection([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        rich_context.store.log(other, make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
         other_mask = FilterByDistanceSystem.on(other)
 
         Pipeline([near, other_mask]).run(rich_context, 0)
@@ -728,8 +728,8 @@ class TestMaskedView:
             time_range=TimeRange.everything(),
         )
 
-        assert len(view.materialize(BatchDetection3D)) == 2
-        assert len(view.materialize(BatchTracking3D)) == 2
+        assert len(view.materialize(Detections3D)) == 2
+        assert len(view.materialize(Trackings3D)) == 2
 
     def test_spans_several_frames(self, scene_store: Store) -> None:
         near = FilterByDistanceSystem.on(SOURCE, max_distance=40.0)
@@ -749,7 +749,7 @@ class TestMaskedView:
 
     def test_an_empty_source_yields_an_empty_view(self) -> None:
         store = Store()
-        store.log(SOURCE, make_detection([]), at=TimePoint.at(frame=0))
+        store.log(SOURCE, make_detections([]), at=TimePoint.at(frame=0))
         near = FilterByDistanceSystem.on(SOURCE)
         ctx = SystemContext(store, FRAME)
         Pipeline([near]).run(ctx, 0)
@@ -766,7 +766,7 @@ class TestMaskedView:
 
     def test_reports_a_mask_of_the_wrong_length(self, rich_context: SystemContext) -> None:
         other = "/other/objects"
-        rich_context.store.log(other, make_detection([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        rich_context.store.log(other, make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
         other_mask = FilterByDistanceSystem.on(other)
         Pipeline([other_mask]).run(rich_context, 0)
 
@@ -854,7 +854,7 @@ class TestApplyMask:
 
     def test_an_empty_source_stays_empty(self) -> None:
         store = Store()
-        store.log(SOURCE, make_detection([]), at=TimePoint.at(frame=0))
+        store.log(SOURCE, make_detections([]), at=TimePoint.at(frame=0))
         near, kept = self.pipeline(SOURCE)
 
         Pipeline([near, kept]).run(SystemContext(store, FRAME), 0)
@@ -875,7 +875,7 @@ class TestApplyMask:
 
 class TestPipelineIntegration:
     def test_filters_chain_into_a_matcher(self, scene_store: Store, labels: LabelRegistry) -> None:
-        from t4perceval.archetype import BatchMatchResult
+        from t4perceval.archetype import MatchResults
         from t4perceval.system import CenterDistanceMatchingSystem
 
         near = FilterByDistanceSystem.on(SOURCE, max_distance=40.0)
@@ -913,7 +913,7 @@ class TestPipelineIntegration:
             "/matching/center_distance",
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMatchResult)
+        ).materialize(MatchResults)
         assert (result.num_tp, result.num_fp, result.num_fn) == (2, 2, 1)
 
     def test_combining_before_the_filters_run_is_reported(self) -> None:

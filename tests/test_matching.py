@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from conftest import make_detection
+from conftest import make_detections
 
 from t4perceval import (
     FRAME,
-    BatchDetection2D,
-    BatchDetection3D,
-    BatchMatchResult,
+    Detections2D,
+    Detections3D,
+    MatchResults,
     LabelRegistry,
     Store,
     TimePoint,
@@ -64,9 +64,9 @@ def boxes(
     *,
     yaws: list[float] | None = None,
     sizes: list[list[float]] | None = None,
-) -> BatchDetection3D:
+) -> Detections3D:
     count = len(positions)
-    return BatchDetection3D(
+    return Detections3D(
         position=positions,
         quaternion=[yaw(angle) for angle in (yaws or [0.0] * count)],
         size=sizes or [[2.0, 4.0, 2.0]] * count,
@@ -79,9 +79,9 @@ def rois(
     values: list[list[int]],
     labels: LabelRegistry,
     names: list[str] | None = None,
-) -> BatchDetection2D:
+) -> Detections2D:
     count = len(values)
-    return BatchDetection2D(
+    return Detections2D(
         roi=values,
         class_id=labels.encode(names or ["car"] * count),
         confidence=[0.9] * count,
@@ -142,12 +142,12 @@ def result_of(
     system: MatchingSystem,
     ctx: SystemContext,
     at: object = 0,
-) -> BatchMatchResult:
+) -> MatchResults:
     (chunk,) = system(ctx, at)
-    return BatchMatchResult.from_chunk(chunk)
+    return MatchResults.from_chunk(chunk)
 
 
-def counts(result: BatchMatchResult) -> tuple[int, int, int]:
+def counts(result: MatchResults) -> tuple[int, int, int]:
     return result.num_tp, result.num_fp, result.num_fn
 
 
@@ -159,7 +159,7 @@ class TestFamilyProperties:
         system = mode.between(EST, GT)
 
         assert len(system.sources) == 2
-        assert system.PROVIDES == BatchMatchResult.required_descriptors()
+        assert system.PROVIDES == MatchResults.required_descriptors()
         assert CLASS_ID in system.REQUIRES
 
     @pytest.mark.parametrize("mode", ALL_MODES, ids=lambda m: m.__name__)
@@ -264,7 +264,7 @@ class TestFamilyProperties:
         for frame in (1, 2):
             for path in (GT, EST):
                 source = store.chunks(path)[0]
-                archetype = BatchDetection2D if mode is IoURoiMatchingSystem else BatchDetection3D
+                archetype = Detections2D if mode is IoURoiMatchingSystem else Detections3D
                 store.log(
                     path,
                     archetype.from_chunk(source),
@@ -285,13 +285,13 @@ class TestFamilyProperties:
         mode: type[MatchingSystem],
         labels: LabelRegistry,
     ) -> None:
-        from t4perceval.archetype import BatchClassification2D
+        from t4perceval.archetype import Classifications2D
 
         store = Store()
         for path in (GT, EST):
             store.log(
                 path,
-                BatchClassification2D(class_id=[0], confidence=[1.0]),
+                Classifications2D(class_id=[0], confidence=[1.0]),
                 at=TimePoint.at(frame=0),
             )
 
@@ -674,8 +674,8 @@ class TestFrameShapes:
 
     def test_an_empty_frame_produces_an_empty_partition(self, labels: LabelRegistry) -> None:
         store = Store()
-        store.log(EST, make_detection([]), at=TimePoint.at(frame=0))
-        store.log(GT, make_detection([]), at=TimePoint.at(frame=0))
+        store.log(EST, make_detections([]), at=TimePoint.at(frame=0))
+        store.log(GT, make_detections([]), at=TimePoint.at(frame=0))
 
         (chunk,) = CenterDistanceMatchingSystem.between(EST, GT)(
             SystemContext(store, FRAME, labels=labels),
@@ -700,7 +700,7 @@ class TestFrameShapes:
 
         assert chunk.num_partitions == 2
         assert chunk.index(FRAME).times.tolist() == [0, 1]
-        result = BatchMatchResult.from_chunk(chunk)
+        result = MatchResults.from_chunk(chunk)
         assert counts(result) == (0, 1, 1), "one FN in frame 0, one FP in frame 1"
 
 
@@ -814,7 +814,7 @@ class TestPipelineIntegration:
                 system.target,
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
-            ).materialize(BatchMatchResult)
+            ).materialize(MatchResults)
             assert counts(result) == (1, 0, 0), f"{type(system).__name__} disagreed"
 
     def test_a_filter_can_feed_a_matcher(self, labels: LabelRegistry) -> None:
@@ -847,7 +847,7 @@ class TestPipelineIntegration:
             matcher.target,
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMatchResult)
+        ).materialize(MatchResults)
         assert counts(result) == (1, 1, 0)
 
         # The mask still says which FP the filter would have removed.
@@ -883,4 +883,4 @@ class TestPipelineIntegration:
 
         assert restored == chunk
         assert restored_labels == labels
-        assert counts(BatchMatchResult.from_chunk(restored)) == (1, 0, 0)
+        assert counts(MatchResults.from_chunk(restored)) == (1, 0, 0)

@@ -4,7 +4,7 @@
 
 ## 前提
 
-- 複数行を保持する component / archetype には `Batch` を付ける。
+- 複数行を保持する component には `Batch` を付け、archetype には意味に基づく複数形の名前を付ける。
 - descriptor 名は archetype 非依存 (`POSITION` は Detection3D でも Tracking3D でも `"position"`)。
 - `Component.select()` / `Archetype.select()` / `Chunk.select()` は独立したデータを生成する。
   遅延 view は `EntityView` が担う。
@@ -17,7 +17,7 @@
       `Timeline` / `Chunk` / `Store` / `EntityView` / `normalize_selection`
 - [x] archetype を継承から合成へ移行。`select()` は基底の 1 実装のみ
 - [x] `Header` を解体 (`TimePoint` + `Chunk.frame_id`)
-- [x] `BatchTrajectory3D` を component から archetype へ昇格し、列を分解
+- [x] `Trajectories3D` を component から archetype へ昇格し、列を分解
 - [x] `BatchModeValid` / `BatchTimestepValid` / `BatchNumPoints` / `BatchVisibility` /
       `BatchRoi` / `BatchPixel` / `BatchMask` / matching 系 component を追加
 - [x] `LabelRegistry` / `InstanceRegistry` (category ↔ `BatchClassId` の対応規則)
@@ -47,7 +47,7 @@
       [data_model.md](docs/design/ja/data_model.md) の「dataloader 設計」を参照。
   - [ ] dataset root / revision を指定してロードできる。
   - [ ] scene、sample、sensor channel で絞り込める。
-  - [ ] `Box3D` / `Box2D` を `BatchDetection3D` / `BatchTracking3D` / `BatchPrediction3D` へ変換する。
+  - [ ] `Box3D` / `Box2D` を `Detections3D` / `Trackings3D` / `Predictions3D` へ変換する。
   - [ ] `Box3D.unix_time` (μs) を `TIMESTAMP` timeline (ns) へ変換する。
   - [ ] 空annotation、欠損velocity、無効sample dataを処理する。
   - [ ] `t4_devkit` への依存を dataloader モジュールに閉じる。

@@ -7,8 +7,8 @@ import pytest
 
 from t4perceval import (
     FRAME,
-    BatchMetric,
-    BatchPrediction3D,
+    MetricValues,
+    Predictions3D,
     LabelRegistry,
     Store,
     TimePoint,
@@ -34,9 +34,9 @@ def prediction(
     confidences: list[float],
     labels: LabelRegistry,
     name: str = "car",
-) -> BatchPrediction3D:
+) -> Predictions3D:
     """One object whose predicted futures are ``waypoints``, shaped ``(M, T, 3)``."""
-    return BatchPrediction3D(
+    return Predictions3D(
         position=[[x, 0.0, 0.0]],
         quaternion=[[0.0, 0.0, 0.0, 1.0]],
         size=[[2.0, 4.0, 2.0]],
@@ -56,7 +56,7 @@ def displacement(
     gt_waypoints: list[list[list[float]]] | None = None,
     est_x: float = 0.05,
     **params: object,
-) -> dict[str, BatchMetric]:
+) -> dict[str, MetricValues]:
     store = Store()
     store.log(
         GT,
@@ -82,7 +82,7 @@ def displacement(
             target,
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         for target in metric.targets
     }
 
@@ -291,7 +291,7 @@ class TestEdges:
             metric.targets[0],
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMetric)
+        ).materialize(MetricValues)
         assert np.isnan(ade.of_class(labels.class_id("car")))
 
     def test_an_empty_store_yields_undefined_rows(self, labels: LabelRegistry) -> None:
@@ -304,7 +304,7 @@ class TestEdges:
                 target,
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
-            ).materialize(BatchMetric)
+            ).materialize(MetricValues)
             assert np.isnan(row.value.values).all()
 
     def test_reports_a_row_for_every_registered_class(self, labels: LabelRegistry) -> None:

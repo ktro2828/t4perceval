@@ -1,7 +1,7 @@
 """Matching systems.
 
 Matching pairs an estimation stream against a ground-truth stream and records the verdict
-as a :class:`~t4perceval.archetype.BatchMatchResult` chunk. Because the verdict is data --
+as a :class:`~t4perceval.archetype.MatchResults` chunk. Because the verdict is data --
 row indices, a score, a TP/FP/FN status -- it can be stored, re-read and re-analysed,
 which is what ``DynamicObjectWithPerceptionResult`` could not do: it held live object
 references.
@@ -23,7 +23,7 @@ from attrs import Factory, define, field
 from scipy.optimize import linear_sum_assignment
 
 from t4perceval import geometry
-from t4perceval.archetype.matching import BatchMatchResult
+from t4perceval.archetype.matching import MatchResults
 from t4perceval.component import MatchStatus
 from t4perceval.core.chunk import concat_chunks
 from t4perceval.core.timeline import TimePoint, TimeRange
@@ -184,7 +184,7 @@ class MatchingSystem(EntitySystem):
         est_view: EntityView,
         gt_view: EntityView,
         ctx: SystemContext,
-    ) -> BatchMatchResult:
+    ) -> MatchResults:
         num_est = len(est_view)
         num_gt = len(gt_view)
 
@@ -255,9 +255,9 @@ class MatchingSystem(EntitySystem):
                 thresholds.append(float(gt_thresholds[gt_row]))
 
         if not est_rows:
-            return BatchMatchResult.empty()
+            return MatchResults.empty()
 
-        return BatchMatchResult(
+        return MatchResults(
             est_index=np.asarray(est_rows, dtype=np.int64),
             gt_index=np.asarray(gt_rows, dtype=np.int64),
             matching_score=np.asarray(scores, dtype=np.float64),

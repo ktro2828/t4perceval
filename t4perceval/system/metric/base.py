@@ -1,6 +1,6 @@
 """The shared shape of a metric system.
 
-Every metric writes a :class:`~t4perceval.archetype.BatchMetric`: the same four columns,
+Every metric writes a :class:`~t4perceval.archetype.MetricValues`: the same four columns,
 whatever the metric measures, with the metric's *name* carried by the entity path. That
 uniformity is the point -- a reader can export ``/metrics/ap`` and ``/metrics/mota`` the
 same way, and comparing two runs is one query instead of a traversal per metric family.
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 from attrs import define
 
-from t4perceval.archetype.metric import BatchMetric
+from t4perceval.archetype.metric import MetricValues
 from t4perceval.component import ALL_CLASSES
 from t4perceval.core.chunk import Chunk
 from t4perceval.core.timeline import TimePoint, TimeRange
@@ -62,7 +62,7 @@ class MetricSystem(EntitySystem):
     that feeds it.
     """
 
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = BatchMetric.required_descriptors()
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = MetricValues.required_descriptors()
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (
         EST_INDEX,
@@ -137,7 +137,7 @@ class MetricSystem(EntitySystem):
 
         at_time = self._reporting_time(join, time_range)
         return tuple(
-            BatchMetric.from_rows(rows).to_chunk(path, at=TimePoint(((ctx.timeline, at_time),)))
+            MetricValues.from_rows(rows).to_chunk(path, at=TimePoint(((ctx.timeline, at_time),)))
             for path, rows in self.compute(join, ctx).items()
         )
 

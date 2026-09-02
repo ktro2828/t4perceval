@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from conftest import make_detection, make_tracking
+from conftest import make_detections, make_trackings
 
 from t4perceval import (
     FRAME,
-    BatchDetection3D,
-    BatchTracking3D,
+    Detections3D,
+    Trackings3D,
     Chunk,
     EntityView,
     Store,
@@ -19,7 +19,7 @@ from t4perceval.descriptors import CONFIDENCE, INSTANCE_ID, POSITION, TIME_OFFSE
 
 
 def four_row_view() -> EntityView:
-    chunk = make_detection(
+    chunk = make_detections(
         [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]],
         [0, 1, 2, 3],
     ).to_chunk("/estimation/objects", at=TimePoint.at(frame=0), frame_id="base_link")
@@ -81,23 +81,23 @@ class TestMaterialize:
     def test_builds_the_requested_archetype(self) -> None:
         view = four_row_view().select([0, 1])
 
-        detection = view.materialize(BatchDetection3D)
+        detection = view.materialize(Detections3D)
 
-        assert isinstance(detection, BatchDetection3D)
+        assert isinstance(detection, Detections3D)
         assert len(detection) == 2
 
     def test_reports_a_missing_required_component(self) -> None:
         view = four_row_view()
 
         with pytest.raises(ValueError, match="missing required component"):
-            view.materialize(BatchTracking3D)
+            view.materialize(Trackings3D)
 
     def test_a_richer_archetype_materializes_as_a_narrower_one(self) -> None:
-        chunk = make_tracking([[0.0, 0.0, 0.0]], [7]).to_chunk("/x", at=TimePoint.at(frame=0))
+        chunk = make_trackings([[0.0, 0.0, 0.0]], [7]).to_chunk("/x", at=TimePoint.at(frame=0))
 
-        detection = EntityView.over(chunk).materialize(BatchDetection3D)
+        detection = EntityView.over(chunk).materialize(Detections3D)
 
-        assert isinstance(detection, BatchDetection3D)
+        assert isinstance(detection, Detections3D)
         assert len(detection) == 1
 
 
@@ -150,7 +150,7 @@ class TestTimeAndPartitions:
 
 class TestStaticColumns:
     def test_static_data_reaches_the_view(self) -> None:
-        chunk = make_detection([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]).to_chunk(
+        chunk = make_detections([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]).to_chunk(
             "/x",
             at=TimePoint.at(frame=0),
         )
@@ -160,7 +160,7 @@ class TestStaticColumns:
         assert view.component(TIME_OFFSET).values.tolist() == [[0, 100], [0, 100]]
 
     def test_broadcasting_follows_the_narrowed_length(self) -> None:
-        chunk = make_detection([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]).to_chunk(
+        chunk = make_detections([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]).to_chunk(
             "/x",
             at=TimePoint.at(frame=0),
         )

@@ -48,8 +48,8 @@ def as_component(value: Any, component_type: type[Component]) -> Component:
 class Archetype:
     """A coherent bundle of components describing one kind of thing.
 
-    Archetypes are composed, never subclassed: :class:`BatchTracking3D` re-declares the
-    box components of :class:`BatchDetection3D` and adds an instance id, rather than
+    Archetypes are composed, never subclassed: :class:`Trackings3D` re-declares the
+    box components of :class:`Detections3D` and adds an instance id, rather than
     inheriting from it. ``isinstance`` therefore stays a truthful claim, and "can this be
     treated as a detection?" is answered by :meth:`has`, which is the same question a
     system asks through its ``REQUIRES``.
@@ -138,7 +138,7 @@ class Archetype:
         This is the composition-friendly replacement for ``isinstance`` checks against a
         base archetype::
 
-            tracking.has(*BatchDetection3D.required_descriptors())
+            tracking.has(*Detections3D.required_descriptors())
         """
         present = self.as_components()
         return all(descriptor in present for descriptor in descriptors)

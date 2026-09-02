@@ -83,11 +83,11 @@ class ComponentDescriptor:
     component_type: str | None        # eq=False; the component class name
 ```
 
-**Key decision**: descriptor names are archetype-independent. `BatchDetection3D` and
-`BatchTracking3D` both expose their 3D centre as `POSITION` (that is, `"position"`).
+**Key decision**: descriptor names are archetype-independent. `Detections3D` and
+`Trackings3D` both expose their 3D centre as `POSITION` (that is, `"position"`).
 
 ```python
-BatchDetection3D.descriptor_of("position") == BatchTracking3D.descriptor_of("position")  # True
+Detections3D.descriptor_of("position") == Trackings3D.descriptor_of("position")  # True
 ```
 
 That is what lets a system declare `REQUIRES = (POSITION,)` and run against any entity carrying a 3D
@@ -140,7 +140,7 @@ package treats `isinstance` as a claim that must be true.
 
 ```python
 @define(frozen=True, slots=True)
-class BatchTracking3D(Archetype):
+class Trackings3D(Archetype):
     position    = component_field(POSITION,    BatchPosition3D)
     quaternion  = component_field(QUATERNION,  BatchQuaternion)
     size        = component_field(SIZE,        BatchSize3D)
@@ -157,14 +157,14 @@ runs opposite to ECS composition:
 
 - `select()` was duplicated as three near-identical bodies.
 - Combinations such as "has a trajectory but no instance id" could not be expressed.
-- `isinstance(tracking, BatchDetection3D)` asserted "a tracking _is a kind of_ detection", which is
+- `isinstance(tracking, Detections3D)` asserted "a tracking _is a kind of_ detection", which is
   not what the data means.
 
-Now `BatchTracking3D` re-declares the box components explicitly. The descriptors are identical, so:
+Now `Trackings3D` re-declares the box components explicitly. The descriptors are identical, so:
 
 ```python
-tracking.has(*BatchDetection3D.required_descriptors())   # True
-isinstance(tracking, BatchDetection3D)                   # False
+tracking.has(*Detections3D.required_descriptors())   # True
+isinstance(tracking, Detections3D)                   # False
 ```
 
 `has()` asks exactly the question a system asks through `REQUIRES`, and is the correct replacement for
@@ -180,16 +180,16 @@ the `isinstance` check.
 
 | Archetype                     | Components                                                                                       |
 | :---------------------------- | :----------------------------------------------------------------------------------------------- |
-| `BatchDetection3D`            | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]         |
-| `BatchDetection2D`            | roi, class_id, confidence, [visibility]                                                          |
-| `BatchTracking3D`             | Detection3D's columns + instance_id                                                              |
-| `BatchTracking2D`             | Detection2D's columns + instance_id                                                              |
-| `BatchPrediction3D`           | Tracking3D's columns + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
-| `BatchClassification2D`       | class_id, confidence, [instance_id]                                                              |
-| `BatchSemanticSegmentation2D` | pixel, class_id                                                                                  |
-| `BatchSemanticSegmentation3D` | point, class_id                                                                                  |
-| `BatchTrajectory3D`           | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                        |
-| `BatchMatchResult`            | est_index, gt_index, matching_score, match_status                                                |
+| `Detections3D`            | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]         |
+| `Detections2D`            | roi, class_id, confidence, [visibility]                                                          |
+| `Trackings3D`             | Detection3D's columns + instance_id                                                              |
+| `Trackings2D`             | Detection2D's columns + instance_id                                                              |
+| `Predictions3D`           | Tracking3D's columns + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
+| `Classifications2D`       | class_id, confidence, [instance_id]                                                              |
+| `SemanticSegmentation2D` | pixel, class_id                                                                                  |
+| `SemanticSegmentation3D` | point, class_id                                                                                  |
+| `Trajectories3D`           | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                        |
+| `MatchResults`            | est_index, gt_index, matching_score, match_status                                                |
 
 ### Trajectory decisions
 
@@ -320,7 +320,7 @@ class EntityView:
 ```python
 view.select(slice(None, None, 2)).select([1])   # no copy
 view.component(POSITION)                        # copies exactly one column
-view.materialize(BatchDetection3D)              # materializes as an archetype
+view.materialize(Detections3D)              # materializes as an archetype
 ```
 
 ### The copy/view contract
@@ -429,7 +429,7 @@ Tier4(data_root, version)
         └─ Box3D.future (Future: timestamps (T,), confidences (M,), waypoints (M,T,3))
                                ──→ BatchWaypoints3D / BatchModeConfidence / BatchTimeOffset
         │
-        └→ BatchDetection3D / BatchTracking3D / BatchPrediction3D
+        └→ Detections3D / Trackings3D / Predictions3D
               .to_chunk(entity_path, at=TimePoint.at(frame=i, timestamp_ns=box.unix_time * 1000),
                         frame_id=box.frame_id)
 ```

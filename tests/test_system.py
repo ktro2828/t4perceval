@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pytest
 
 from t4perceval import FRAME, LabelRegistry, Store, TimeRange
-from t4perceval.archetype import BatchMatchResult
+from t4perceval.archetype import MatchResults
 from t4perceval.descriptors import CLASS_ID, MASK, POSITION
 from t4perceval.io import read_parquet, write_parquet
 from t4perceval.system import (
@@ -186,7 +186,7 @@ class TestEndToEnd:
             "/matching/center_distance",
             timeline=FRAME,
             time_range=TimeRange.everything(),
-        ).materialize(BatchMatchResult)
+        ).materialize(MatchResults)
         assert (scene.num_tp, scene.num_fp, scene.num_fn) == (2, 2, 1)
 
         # The same store answers per-frame questions with no re-computation.
@@ -194,7 +194,7 @@ class TestEndToEnd:
             "/matching/center_distance",
             timeline=FRAME,
             time_range=TimeRange.single(1),
-        ).materialize(BatchMatchResult)
+        ).materialize(MatchResults)
         assert (frame_one.num_tp, frame_one.num_fp, frame_one.num_fn) == (1, 1, 0)
 
         # And the verdict survives a round-trip to disk.
@@ -209,7 +209,7 @@ class TestEndToEnd:
 
         assert restored == chunk
         assert restored_labels == labels
-        assert BatchMatchResult.from_chunk(restored).num_tp == 2
+        assert MatchResults.from_chunk(restored).num_tp == 2
 
     def test_the_task_is_the_pipeline_not_an_enum(self, scene_store: Store) -> None:
         """The same components serve a different task by composing different systems."""
@@ -242,7 +242,7 @@ class TestEndToEnd:
         def hits(path: str) -> int:
             return (
                 scene_store.range(path, timeline=FRAME, time_range=TimeRange.everything())
-                .materialize(BatchMatchResult)
+                .materialize(MatchResults)
                 .num_tp
             )
 

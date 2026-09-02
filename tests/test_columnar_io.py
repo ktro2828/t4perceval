@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pyarrow as pa
 import pytest
-from conftest import make_detection, make_prediction, make_tracking
+from conftest import make_detections, make_predictions, make_trackings
 
 from t4perceval import (
     FRAME,
     TIMESTAMP,
-    BatchDetection3D,
-    BatchPrediction3D,
-    BatchTracking3D,
+    Detections3D,
+    Predictions3D,
+    Trackings3D,
     Chunk,
     LabelRegistry,
     Store,
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 def tracking_chunk() -> Chunk:
-    return make_tracking(
+    return make_trackings(
         [[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]],
         [100, 101],
         [1, 2],
@@ -68,7 +68,7 @@ class TestArrowSchema:
         assert table.schema.field("quaternion").type == pa.list_(pa.float64(), 4)
 
     def test_nested_shapes_survive_as_nested_lists(self) -> None:
-        chunk = make_prediction([[0.0, 0.0, 0.0]], [1], num_modes=2, num_timesteps=4).to_chunk(
+        chunk = make_predictions([[0.0, 0.0, 0.0]], [1], num_modes=2, num_timesteps=4).to_chunk(
             "/x",
             at=TimePoint.at(frame=0),
         )
@@ -102,15 +102,16 @@ class TestArrowSchema:
         assert metadata["frame_id"] == "base_link"
         assert metadata["offsets"] == [0, 2]
         assert {index["name"] for index in metadata["indexes"]} == {"frame", "timestamp_ns"}
+        assert {column["archetype"] for column in metadata["columns"]} == {"Trackings3D"}
 
 
 class TestArrowRoundTrip:
     @pytest.mark.parametrize(
         ("archetype", "kind"),
         [
-            (make_detection([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]], [1, 2]), BatchDetection3D),
-            (make_tracking([[0.0, 0.0, 0.0]], [7], [1]), BatchTracking3D),
-            (make_prediction([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], [7, 8]), BatchPrediction3D),
+            (make_detections([[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]], [1, 2]), Detections3D),
+            (make_trackings([[0.0, 0.0, 0.0]], [7], [1]), Trackings3D),
+            (make_predictions([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], [7, 8]), Predictions3D),
         ],
     )
     def test_preserves_every_archetype(self, archetype: Archetype, kind: type) -> None:
@@ -178,7 +179,7 @@ class TestArrowRoundTrip:
         assert restored == chunk
 
     def test_preserves_an_empty_chunk(self) -> None:
-        chunk = make_detection([]).to_chunk("/x", at=TimePoint.at(frame=0))
+        chunk = make_detections([]).to_chunk("/x", at=TimePoint.at(frame=0))
 
         restored, _ = chunk_from_table(chunk_to_table(chunk))
 
@@ -203,10 +204,10 @@ class TestParquet:
 
         assert restored == chunk
         assert restored_labels == labels
-        assert BatchTracking3D.from_chunk(restored) == BatchTracking3D.from_chunk(chunk)
+        assert Trackings3D.from_chunk(restored) == Trackings3D.from_chunk(chunk)
 
     def test_round_trips_nested_shapes_through_a_file(self, tmp_path: Path) -> None:
-        chunk = make_prediction([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], [7, 8]).to_chunk(
+        chunk = make_predictions([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], [7, 8]).to_chunk(
             "/estimation/objects",
             at=TimePoint.at(frame=0),
         )

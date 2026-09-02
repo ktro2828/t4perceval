@@ -6,14 +6,14 @@ How `autoware_perception_evaluation` (`perception_eval`) maps onto `t4perceval`.
 
 | Old (`perception_eval`)                                    | New (`t4perceval`)                                                          | Notes                                                   |
 | :--------------------------------------------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------ |
-| `DynamicObject`                                            | one row of `BatchDetection3D` / `BatchTracking3D` / `BatchPrediction3D`     | a 20+ field class split into per-task component bundles |
-| `DynamicObject2D`                                          | one row of `BatchDetection2D` / `BatchTracking2D` / `BatchClassification2D` | `roi` becomes `BatchRoi`                                |
+| `DynamicObject`                                            | one row of `Detections3D` / `Trackings3D` / `Predictions3D`     | a 20+ field class split into per-task component bundles |
+| `DynamicObject2D`                                          | one row of `Detections2D` / `Trackings2D` / `Classifications2D` | `roi` becomes `BatchRoi`                                |
 | `Shape` / `ShapeType`                                      | `BatchSize3D`                                                               | footprint computation moves into the matching systems   |
 | `FrameGroundTruth`                                         | one partition of `/ground_truth/objects`                                    | `unix_time` → the `TIMESTAMP` timeline                  |
 | `FrameGroundTruth.raw_data`                                | a separate entity path (`/sensor/<channel>`)                                | not implemented yet                                     |
 | `Catalog` / `Scenario` / `Scene`                           | `Store` plus a `TimeRange` on a timeline                                    | the list nesting is gone                                |
 | `PerceptionFrameResult`                                    | `store.latest_at(...)` plus the `/matching/*` chunk                         | no per-frame recomputation                              |
-| `DynamicObjectWithPerceptionResult`                        | `BatchMatchResult`                                                          | row indices, not references; storable and re-analysable |
+| `DynamicObjectWithPerceptionResult`                        | `MatchResults`                                                          | row indices, not references; storable and re-analysable |
 | `MatchingMode` enum | the matching system's type (`CenterDistance`, `CenterDistanceBEV`, `PlaneDistance`, `IoUBEV`, `IoU3D`, `IoURoi`) plus the `/matching/<mode>` path | all six modes are implemented |
 | `MatchingMethod` (`CenterDistanceMatching`, …) | a `BatchMatchingScore` column | the entity path carries what the value means |
 | `EvaluationTask` enum                                      | the set of components present plus the `Pipeline`                           | the branching disappears                                |
@@ -69,7 +69,7 @@ objects = [obj, ...]
 labels = LabelRegistry.from_names(["car", "bicycle", "pedestrian", "motorbike"])
 instances = InstanceRegistry()
 
-detections = BatchTracking3D(
+detections = Trackings3D(
     position=[[1.0, 2.0, 3.0], ...],
     quaternion=[[0.0, 0.0, 0.0, 1.0], ...],       # xyzw
     size=[[1.0, 4.0, 2.0], ...],                  # width, length, height
@@ -119,13 +119,13 @@ pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 # The whole scene
 scene = store.range(
     "/matching/center_distance", timeline=FRAME, time_range=TimeRange.everything(),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 scene.num_tp, scene.num_fp, scene.num_fn
 
 # A single frame -- from the same store, with no recomputation
 frame_1 = store.range(
     "/matching/center_distance", timeline=FRAME, time_range=TimeRange.single(1),
-).materialize(BatchMatchResult)
+).materialize(MatchResults)
 ```
 
 ### Filtering objects
@@ -154,7 +154,7 @@ store.range(region.target, timeline=FRAME, time_range=TimeRange.everything()).co
 # And take only the rows that passed, as a lazy view
 passed = masked_view(
     store, src, keep.target, timeline=FRAME, time_range=TimeRange.everything(),
-).materialize(BatchDetection3D)
+).materialize(Detections3D)
 ```
 
 ### Type checks
@@ -170,11 +170,11 @@ if isinstance(obj, DynamicObject) and obj.uuid is not None:
 if batch.has(INSTANCE_ID):
     ...
 # "can this be treated as a detection?"
-if batch.has(*BatchDetection3D.required_descriptors()):
+if batch.has(*Detections3D.required_descriptors()):
     ...
 ```
 
-`isinstance(tracking, BatchDetection3D)` is now **False**, because the inheritance was dropped. That is
+`isinstance(tracking, Detections3D)` is now **False**, because the inheritance was dropped. That is
 intended; see "Why inheritance was dropped" in [data_model.md](data_model.md).
 
 ### Saving results
@@ -193,7 +193,7 @@ chunk = store.range(
 write_parquet(chunk, "matching.parquet", labels=labels)
 
 chunk, labels = read_parquet("matching.parquet")
-result = BatchMatchResult.from_chunk(chunk)
+result = MatchResults.from_chunk(chunk)
 ```
 
 ## Removed APIs
@@ -204,6 +204,5 @@ result = BatchMatchResult.from_chunk(chunk)
 | `Header(timestamp_ns, frame_id)`                                         | `TimePoint` (time) plus `Chunk.frame_id` (coordinate frame)                                                                 |
 | the `BatchDetection3D → BatchTracking3D → BatchPrediction3D` inheritance | each archetype declares its components explicitly                                                                           |
 | `BatchTrajectory3D` as a three-array component                           | promoted to an archetype; the columns split into `BatchWaypoints3D` / `BatchModeConfidence` / `BatchTimeOffset` and friends |
-| `SemanticSegmentation2D` / `SemanticSegmentation3D`                      | `BatchSemanticSegmentation2D` / `BatchSemanticSegmentation3D` (uniform `Batch` prefix)                                      |
 | `BatchTrajectory3D.positions` / `.confidences` / `.time_offsets_ns`      | `.waypoints` / `.mode_confidence` / `.time_offset`                                                                          |
 | per-component `from_array()` / `as_array()`                              | kept, as base implementations on `ColumnarComponent`                                                                        |

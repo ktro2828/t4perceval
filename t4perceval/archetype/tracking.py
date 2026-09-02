@@ -29,16 +29,16 @@ from t4perceval.descriptors import (
     VISIBILITY,
 )
 
-__all__ = ("BatchTracking2D", "BatchTracking3D")
+__all__ = ("Trackings2D", "Trackings3D")
 
-# NOTE: The box components below are re-declared, not inherited from `BatchDetection3D`.
+# NOTE: The box components below are re-declared, not inherited from `Detections3D`.
 # They resolve to the *same* descriptors, so
-# `tracking.has(*BatchDetection3D.required_descriptors())` is True and any system that
+# `tracking.has(*Detections3D.required_descriptors())` is True and any system that
 # requires a detection's components runs unchanged against a tracking archetype.
 
 
 @define(frozen=True, slots=True)
-class BatchTracking3D(Archetype):
+class Trackings3D(Archetype):
     """3D bounding boxes carrying a persistent instance identifier."""
 
     position = component_field(POSITION, BatchPosition3D)
@@ -53,7 +53,7 @@ class BatchTracking3D(Archetype):
 
 
 @define(frozen=True, slots=True)
-class BatchTracking2D(Archetype):
+class Trackings2D(Archetype):
     """2D regions of interest carrying a persistent instance identifier."""
 
     roi = component_field(ROI, BatchRoi)

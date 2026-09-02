@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
-from conftest import make_detection, make_metric_scene
+from conftest import make_detections, make_metric_scene
 
-from t4perceval import FRAME, BatchMetric, LabelRegistry, Store, TimePoint, TimeRange
+from t4perceval import FRAME, MetricValues, LabelRegistry, Store, TimePoint, TimeRange
 from t4perceval.component import ALL_CLASSES
 from t4perceval.system import (
     AveragePrecisionHeadingSystem,
@@ -30,11 +30,11 @@ def yaw(angle: float) -> list[float]:
     return [0.0, 0.0, np.sin(angle / 2.0), np.cos(angle / 2.0)]
 
 
-def run(store: Store, systems: list[System], labels: LabelRegistry, target: str) -> BatchMetric:
+def run(store: Store, systems: list[System], labels: LabelRegistry, target: str) -> MetricValues:
     ctx = SystemContext(store, FRAME, labels=labels)
     Pipeline(systems).run(ctx, TimeRange.everything())
     return store.range(target, timeline=FRAME, time_range=TimeRange.everything()).materialize(
-        BatchMetric,
+        MetricValues,
     )
 
 
@@ -215,7 +215,7 @@ class TestAveragePrecisionHeading:
         store = Store()
         store.log(
             GT,
-            make_detection(
+            make_detections(
                 [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]],
                 labels.encode(["car", "car"]),
                 confidences=[1.0, 1.0],
@@ -223,7 +223,7 @@ class TestAveragePrecisionHeading:
             at=TimePoint.at(frame=0),
             frame_id="base_link",
         )
-        rotated = make_detection(
+        rotated = make_detections(
             [[0.1, 0.0, 0.0], [10.1, 0.0, 0.0]],
             labels.encode(["car", "car"]),
             confidences=[0.95, 0.85],
@@ -285,7 +285,7 @@ class TestAveragePrecisionHeading:
 
 
 class TestMeanAveragePrecision:
-    def sweep(self, labels: LabelRegistry, store: Store) -> tuple[BatchMetric, list[str]]:
+    def sweep(self, labels: LabelRegistry, store: Store) -> tuple[MetricValues, list[str]]:
         systems: list[System] = []
         ap_targets: list[str] = []
         for index, threshold in enumerate((0.5, 1.0)):

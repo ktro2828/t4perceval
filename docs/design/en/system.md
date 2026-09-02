@@ -184,7 +184,7 @@ entity — and this is checked rather than assumed.
 ```python
 view = masked_view(store, "/estimation/objects", keep.target,
                    timeline=FRAME, time_range=TimeRange.everything())
-passed = view.materialize(BatchDetection3D)
+passed = view.materialize(Detections3D)
 ```
 
 The result is a lazy view still referring to the original chunk, so nothing is copied until a column
@@ -235,14 +235,14 @@ not the internal cost, and is `NaN` on an unmatched row.
 
 ### Implemented modes
 
-| System | `REQUIRES` | Better | Default | Target | Old config |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `CenterDistanceMatchingSystem` | `POSITION` `CLASS_ID` | lower | 1.0 | `/matching/center_distance` | `center_distance_thresholds` |
-| `CenterDistanceBEVMatchingSystem` | `POSITION` `CLASS_ID` | lower | 1.0 | `/matching/center_distance_bev` | `center_distance_bev_thresholds` |
-| `PlaneDistanceMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | lower | 2.0 | `/matching/plane_distance` | `plane_distance_thresholds` |
-| `IoUBEVMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | higher | 0.5 | `/matching/iou_bev` | `iou_2d_thresholds` (3D tasks) |
-| `IoU3DMatchingSystem` | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | higher | 0.5 | `/matching/iou_3d` | `iou_3d_thresholds` |
-| `IoURoiMatchingSystem` | `ROI` `CLASS_ID` | higher | 0.5 | `/matching/iou_roi` | `iou_2d_thresholds` (2D tasks) |
+| System                            | `REQUIRES`                                | Better | Default | Target                          | Old config                       |
+| :-------------------------------- | :---------------------------------------- | :----- | :------ | :------------------------------ | :------------------------------- |
+| `CenterDistanceMatchingSystem`    | `POSITION` `CLASS_ID`                     | lower  | 1.0     | `/matching/center_distance`     | `center_distance_thresholds`     |
+| `CenterDistanceBEVMatchingSystem` | `POSITION` `CLASS_ID`                     | lower  | 1.0     | `/matching/center_distance_bev` | `center_distance_bev_thresholds` |
+| `PlaneDistanceMatchingSystem`     | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | lower  | 2.0     | `/matching/plane_distance`      | `plane_distance_thresholds`      |
+| `IoUBEVMatchingSystem`            | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | higher | 0.5     | `/matching/iou_bev`             | `iou_2d_thresholds` (3D tasks)   |
+| `IoU3DMatchingSystem`             | `POSITION` `QUATERNION` `SIZE` `CLASS_ID` | higher | 0.5     | `/matching/iou_3d`              | `iou_3d_thresholds`              |
+| `IoURoiMatchingSystem`            | `ROI` `CLASS_ID`                          | higher | 0.5     | `/matching/iou_roi`             | `iou_2d_thresholds` (2D tasks)   |
 
 Each mode has its own target, so several can run over the same frame and be compared afterwards.
 
@@ -251,7 +251,7 @@ Per-mode notes:
 - **Why BEV centre distance is its own class.** A matching mode names the entity a metric later reads,
   so the 3D and BEV distances must not share a target. This differs from the filter layer's `bev`
   flag because a filter's mask is about the entity being filtered, not about the identity of a mode.
-- **`PlaneDistanceMatchingSystem`** compares the *nearest faces* of the two boxes: the root mean
+- **`PlaneDistanceMatchingSystem`** compares the _nearest faces_ of the two boxes: the root mean
   square of the gaps between their left and right corners on the face closest to the ego. An error
   only on the far side scores 0, so the mode measures what the sensor could actually see, which is a
   different property from centre distance. Positions must be in the frame the distance from the
@@ -287,17 +287,17 @@ like the per-class threshold had been applied.
 ### Geometry
 
 `t4perceval.geometry` holds the vectorized box geometry. Everything works on whole columns and on
-*pairs* of columns: a matcher needs an `(N, M)` score, so the pairwise helpers build that matrix
+_pairs_ of columns: a matcher needs an `(N, M)` score, so the pairwise helpers build that matrix
 directly rather than being called per pair from Python.
 
-| Function | Returns |
-| :--- | :--- |
-| `bev_corners(position, quaternion, size)` | `(N, 4, 2)` footprint corners |
-| `bev_area(size)` / `volume(size)` | `(N,)` |
-| `pairwise_bev_iou(...)` / `pairwise_volume_iou(...)` | `(N, M)` |
-| `pairwise_roi_iou(est_roi, gt_roi)` | `(N, M)`, axis-aligned so no polygon clipping |
-| `pairwise_plane_distance(...)` | `(N, M)` |
-| `canonical_bev_corners(corners)` | corners reordered counter-clockwise about the centroid |
+| Function                                             | Returns                                                |
+| :--------------------------------------------------- | :----------------------------------------------------- |
+| `bev_corners(position, quaternion, size)`            | `(N, 4, 2)` footprint corners                          |
+| `bev_area(size)` / `volume(size)`                    | `(N,)`                                                 |
+| `pairwise_bev_iou(...)` / `pairwise_volume_iou(...)` | `(N, M)`                                               |
+| `pairwise_roi_iou(est_roi, gt_roi)`                  | `(N, M)`, axis-aligned so no polygon clipping          |
+| `pairwise_plane_distance(...)`                       | `(N, M)`                                               |
+| `canonical_bev_corners(corners)`                     | corners reordered counter-clockwise about the centroid |
 
 ## Where the remaining systems fit
 
@@ -331,16 +331,16 @@ single `store.range()` call. There is no `List[PerceptionFrameResult]` to walk i
 
 | Old `evaluation_task` | New expression                                         |
 | :-------------------- | :----------------------------------------------------- |
-| `detection`           | `BatchDetection3D`'s components + matching + mAP       |
+| `detection`           | `Detections3D`'s components + matching + mAP           |
 | `tracking`            | as above + `INSTANCE_ID` + CLEAR / HOTA                |
 | `prediction`          | as above + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE |
-| `detection2d`         | `BatchDetection2D`'s components + IoU2D matching + mAP |
+| `detection2d`         | `Detections2D`'s components + IoU2D matching + mAP     |
 | `tracking2d`          | as above + `INSTANCE_ID` + CLEAR                       |
-| `classification2d`    | `BatchClassification2D`'s components + classification  |
+| `classification2d`    | `Classifications2D`'s components + classification      |
 
 The branches disappear because a system only asks whether the components it needs are present. To
 evaluate tracking data as detection, run the tracking entity through a detection pipeline unchanged --
-`tracking.has(*BatchDetection3D.required_descriptors())` is True.
+`tracking.has(*Detections3D.required_descriptors())` is True.
 
 ### The config dict
 

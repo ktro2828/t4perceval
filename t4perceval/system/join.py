@@ -1,6 +1,6 @@
 """Joining match verdicts back to the objects they refer to.
 
-A :class:`~t4perceval.archetype.BatchMatchResult` stores row *indices*, not object data,
+A :class:`~t4perceval.archetype.MatchResults` stores row *indices*, not object data,
 so a metric has to follow them back to read what it needs -- confidence for AP, headings
 for APH, instance ids for CLEAR, waypoints for ADE. Copying all of that into the match
 result instead would duplicate most of the object columns, so the indices are resolved
