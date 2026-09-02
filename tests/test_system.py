@@ -61,6 +61,8 @@ class TestProtocol:
 
 
 class TestPipeline:
+    SOURCE = "/estimation/objects"
+
     def test_runs_every_system_and_stores_the_results(self, scene_store: Store) -> None:
         pipeline = Pipeline(
             [
@@ -124,23 +126,23 @@ class TestPipeline:
         """One shared computation can feed several entities, and the pipeline sees them."""
         from t4perceval.system import ClearSystem
 
-        clear = ClearSystem.on("/matching/center_distance", SOURCE, "/ground_truth/objects")
+        clear = ClearSystem.on("/matching/center_distance", self.SOURCE, "/ground_truth/objects")
 
         assert len(clear.targets) == 3
         assert clear.target not in clear.targets, "the root is a prefix, not an output"
 
     def test_a_single_target_system_announces_just_itself(self) -> None:
-        system = FilterByDistanceSystem.on(SOURCE)
+        system = FilterByDistanceSystem.on(self.SOURCE)
 
         assert system.targets == (system.target,)
 
     def test_ordering_is_checked_against_every_target(self) -> None:
         from t4perceval.system import ClearSystem
 
-        clear = ClearSystem.on("/matching/center_distance", SOURCE, "/ground_truth/objects")
+        clear = ClearSystem.on("/matching/center_distance", self.SOURCE, "/ground_truth/objects")
         reader = ClearSystem.on(
             str(clear.targets[1]),
-            SOURCE,
+            self.SOURCE,
             "/ground_truth/objects",
             target="/metrics/second",
         )
