@@ -1,6 +1,6 @@
 # TODO
 
-データモデルとシステム層の設計・実装は完了した。設計は [docs/design/](docs/design/) を参照。
+データモデルとシステム層の設計・実装は完了した。設計は [docs/design/](../design/) を参照。
 
 ## 前提
 
@@ -44,7 +44,7 @@
 ## P0: dataloader
 
 - [ ] `t4_devkit.Tier4` を利用する dataloader を実装する。設計は
-      [data_model.md](docs/design/ja/data_model.md) の「dataloader 設計」を参照。
+      [data_model.md](../design/ja/data_model.md) の「dataloader 設計」を参照。
   - [ ] dataset root / revision を指定してロードできる。
   - [ ] scene、sample、sensor channel で絞り込める。
   - [ ] `Box3D` / `Box2D` を `Detections3D` / `Trackings3D` / `Predictions3D` へ変換する。
@@ -61,6 +61,7 @@
 - [ ] `ClassificationSystem` (accuracy / precision / recall / F1)
 - [ ] `HotaSystem` / `PassFailSystem` (critical object 判定を含む)は保留
 - [ ] `/metrics/*` chunk のスキーマ (指標名 × クラス × 閾値をどう列にするか) を決める
+- [ ] [metrics.md](./metrics.md)を参照して残りのTODOを完了する。
 
 ## P1: 座標変換
 
@@ -71,7 +72,7 @@
 ## P1: オフライン後解析
 
 - [ ] `Store`全体とその他評価メタデータを保存し、後解析・可視化できるようにする。
-  - [ ] [docs/design/en/offline_analysis.md](./docs/design/en/offline_analysis.md)を参照して実装方針を決める。
+  - [ ] [docs/design/en/offline_analysis.md](./offline_analysis.md)を参照して実装方針を決める。
   - [ ] `Store`の保存時のフォルダ・ファイル構成を決める。
 
 ## P2: 可視化
