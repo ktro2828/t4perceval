@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -159,3 +160,23 @@ def scene_store() -> Store:
 @pytest.fixture
 def frame_timeline() -> object:
     return FRAME
+
+
+T4_DATASET_ROOT = Path(__file__).parent / "data" / "t4dataset"
+
+
+@pytest.fixture(scope="session")
+def t4_dataset_root() -> Path:
+    """The vendored minimal T4 dataset. See ``tests/data/t4dataset/README.md``."""
+    if not T4_DATASET_ROOT.exists():  # pragma: no cover - the fixture is committed
+        pytest.skip(f"missing T4 fixture at {T4_DATASET_ROOT}")
+    return T4_DATASET_ROOT
+
+
+@pytest.fixture
+def t4_importer(t4_dataset_root: Path) -> object:
+    """A default importer over the vendored dataset."""
+    pytest.importorskip("t4_devkit")
+    from t4perceval.importer.t4 import T4Importer
+
+    return T4Importer.open(t4_dataset_root)
