@@ -14,14 +14,27 @@ dependencies = [
     "pyarrow>=15.0.0",
     "scipy>=1.15.3",
     "shapely>=2.0.0",  # vectorized polygon intersection for BEV / 3D IoU
-    "t4-devkit @ git+https://github.com/tier4/t4-devkit@v0.8.0",
     "typing-extensions>=4.0.0",
+]
+
+# Importers are optional: the evaluation core reads and writes its own recording model
+# and never imports either of these. Keeping them out of the base install is also what
+# mechanically enforces that rule -- an accidental `import t4_devkit` outside
+# `t4perceval.importer` fails for anyone who installed without the extra.
+[project.optional-dependencies]
+t4 = ["t4-devkit @ git+https://github.com/tier4/t4-devkit@v0.8.0"]
+rosbag = [
+    "mcap>=1.2",
+    "mcap-ros2-support>=0.5",
+    "zstandard>=0.22",  # rosbag2 writes zstd-chunked MCAP by default
+    "lz4>=4.3",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
     "zensical",
+    "t4-devkit @ git+https://github.com/tier4/t4-devkit@v0.8.0",
 ]
 
 [tool.pytest.ini_options]
