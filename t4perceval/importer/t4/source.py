@@ -142,6 +142,31 @@ class T4Source:
         """Return one ``sample_data`` record's own capture time, in microseconds."""
         return int(self._t4.get("sample_data", sample_data_token).timestamp)
 
+    def ego_pose(self, sample_data_token: str) -> Any:
+        """Return the ego pose recorded against one ``sample_data``.
+
+        The pose is the ego vehicle expressed in the map frame: ``translation`` in metres
+        and ``rotation`` as a ``wxyz`` quaternion.
+        """
+        record = self._t4.get("sample_data", sample_data_token)
+        return self._t4.get("ego_pose", record.ego_pose_token)
+
+    def extrinsics(self) -> dict[str, Any]:
+        """Return each sensor channel's ``calibrated_sensor``, keyed by channel.
+
+        The record is the sensor's pose in the ego frame, so it is the fixed
+        ``base_link -> <channel>`` edge of the frame tree.
+        """
+        channels: dict[str, Any] = {}
+        for record in self._t4.sample_data:
+            channel = str(record.channel)
+            if channel not in channels:
+                channels[channel] = self._t4.get(
+                    "calibrated_sensor",
+                    record.calibrated_sensor_token,
+                )
+        return channels
+
     # -- annotations -------------------------------------------------------------------
 
     def boxes3d(

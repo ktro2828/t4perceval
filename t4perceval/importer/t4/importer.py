@@ -31,6 +31,7 @@ from t4perceval.importer.t4.convert import (
 from t4perceval.importer.t4.labels import label_registry_from_categories
 from t4perceval.importer.t4.paths import DEFAULT_ROOT, objects2d_path, objects3d_path
 from t4perceval.importer.t4.source import T4Source
+from t4perceval.importer.t4.transforms import log_scene_transforms
 from t4perceval.label import InstanceRegistry
 from t4perceval.recording import Recording, RecordingMetadata, SourceInfo
 
@@ -96,6 +97,15 @@ class ImportOptions:
 
     strict: bool = True
     """Whether a sample missing a requested channel is an error."""
+
+    transforms: bool = True
+    """Whether to record the scene's coordinate-frame tree alongside the objects.
+
+    Ego poses and sensor extrinsics are cheap -- one row per frame and one per channel --
+    and without them a recording cannot be re-expressed in another frame later, which is
+    the whole reason importers preserve the source frame rather than converting on the way
+    in.
+    """
 
 
 @define(frozen=True, slots=True)
@@ -237,6 +247,9 @@ class T4Importer:
         path_3d = objects3d_path(entity_root)
         paths_2d = {channel: objects2d_path(entity_root, channel) for channel in chosen.channels_2d}
         refs: list[FrameRef] = []
+
+        if options.transforms and chosen.channel_3d is not None:
+            log_scene_transforms(store, self.source, frames, channel=chosen.channel_3d)
 
         for frame in frames:
             timestamp_ns = frame.timestamp_us * 1000
