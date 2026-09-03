@@ -396,10 +396,10 @@ rerun のデータモデルを**設計として採用**し、SDK には依存し
 
 ## dataloader 設計 (後続ステップ)
 
-`t4_devkit.Tier4` から `Chunk` を作る経路。実装は最小の T4 dataset fixture を用意できる段階で行う。
+`t4_devkit.T4Devkit` から `Chunk` を作る経路。実装は最小の T4 dataset fixture を用意できる段階で行う。
 
 ```
-Tier4(data_root, version)
+T4Devkit(data_root, revision)
   ├ get_box3ds(sample_data_token, future_seconds=...)  → list[Box3D]
   └ get_box2ds(sample_data_token)                      → list[Box2D]
         │
@@ -418,7 +418,9 @@ Tier4(data_root, version)
 考慮事項:
 
 - 空 annotation は 0 行の batch として扱う (全 archetype で許可済み)。
-- `velocity` が欠損する sample は optional component を省略する。
+- `velocity` は欠損値ではなく NaN ベクトルで返る。列を出すかどうかは frame ごとではなく
+  **scene 全体で 1 回**決める: `concat_chunks` は列集合の異なる chunk を拒否するため、
+  ある frame にあって次の frame にない列は `Store.range()` を失敗させる。
 - `Box3D.unix_time` は μs なので `TIMESTAMP` timeline (ns) へ変換する。
 - 1 scene = 1 `Store`、frame index を `FRAME` timeline に振る。
 - `t4_devkit` への依存は dataloader モジュールに閉じる。`t4perceval.core` は `t4perceval/typing.py` の

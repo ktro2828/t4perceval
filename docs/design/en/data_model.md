@@ -275,7 +275,7 @@ offsets = [0, 2, 5]        indexes[frame].times = [0, 1]
 partitions is rejected** (boolean masks and ascending index arrays always qualify). A partition may
 become empty; its index entry is kept, so the time axis survives.
 
-## Store — the recording
+## Store — the mutable log
 
 ```python
 store.send_chunk(chunk)
@@ -414,11 +414,11 @@ it.
 
 ## Dataloader design (a later step)
 
-The path from `t4_devkit.Tier4` to a `Chunk`. Implementation waits until a minimal T4 dataset fixture
-is available.
+The path from `t4_devkit.T4Devkit` to a `Chunk`. Implementation waits until a minimal T4 dataset
+fixture is available.
 
 ```
-Tier4(data_root, version)
+T4Devkit(data_root, revision)
   ├ get_box3ds(sample_data_token, future_seconds=...)  → list[Box3D]
   └ get_box2ds(sample_data_token)                      → list[Box2D]
         │
@@ -437,7 +437,10 @@ Tier4(data_root, version)
 Points to handle:
 
 - An empty annotation becomes a zero-row batch, which every archetype already allows.
-- When a sample has no velocity, omit the optional component.
+- Velocity is a NaN vector, not a missing value, when the devkit cannot estimate it. Whether to
+  emit the column is therefore a **scene-wide** decision, never a per-frame one: `concat_chunks`
+  rejects chunks with different column sets, so a column present on one frame and absent on the
+  next makes `Store.range()` raise.
 - `Box3D.unix_time` is in microseconds and must be converted for the nanosecond `TIMESTAMP` timeline.
 - One scene is one `Store`, with frame indices on the `FRAME` timeline.
 - The dependency on `t4_devkit` stays inside the dataloader module; `t4perceval.core` uses only the

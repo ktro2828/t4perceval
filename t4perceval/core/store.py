@@ -22,7 +22,11 @@ __all__ = ("Store",)
 
 
 class Store:
-    """A recording: chunks addressed by entity path and indexed along timelines.
+    """A mutable log of chunks, addressed by entity path and indexed along timelines.
+
+    A store says *what rows exist*; it deliberately does not say what the integers in
+    those rows mean. Pairing it with the registries that do is
+    :class:`~t4perceval.recording.Recording`'s job.
 
     This replaces the ``Catalog -> Scenario -> Scene -> List[PerceptionFrameResult]``
     nesting of the original package. A single frame is
