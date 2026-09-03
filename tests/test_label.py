@@ -152,3 +152,37 @@ class TestInstanceRegistry:
 
     def test_ids_are_int64(self) -> None:
         assert str(InstanceRegistry().encode(["a"]).dtype) == "int64"
+
+
+class TestFingerprint:
+    """The check that two sources agree about what a class id means."""
+
+    def test_same_names_in_the_same_order_agree(self) -> None:
+        names = ["car", "pedestrian", "bicycle"]
+
+        assert LabelRegistry.from_names(names).fingerprint() == (
+            LabelRegistry.from_names(names).fingerprint()
+        )
+
+    def test_same_names_in_a_different_order_disagree(self) -> None:
+        first = LabelRegistry.from_names(["car", "pedestrian"])
+        second = LabelRegistry.from_names(["pedestrian", "car"])
+
+        # Both are valid registries over the same vocabulary, and they disagree about
+        # every id -- which is exactly the silent failure the fingerprint exists to catch.
+        assert first.class_id("car") != second.class_id("car")
+        assert first.fingerprint() != second.fingerprint()
+
+    def test_a_different_prefix_disagrees(self) -> None:
+        names = ["car"]
+
+        assert LabelRegistry.from_names(names, prefix="autoware").fingerprint() != (
+            LabelRegistry.from_names(names, prefix="nuscenes").fingerprint()
+        )
+
+    def test_survives_a_metadata_round_trip(self) -> None:
+        registry = LabelRegistry.from_names(["car", "pedestrian"], colors={"car": (255, 0, 0)})
+
+        assert LabelRegistry.from_metadata(registry.to_metadata()).fingerprint() == (
+            registry.fingerprint()
+        )

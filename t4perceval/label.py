@@ -10,6 +10,8 @@ role Rerun gives to a static ``AnnotationContext``.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -247,6 +249,19 @@ class LabelRegistry:
             ],
             "aliases": {name: class_id for name, class_id in self.aliases},
         }
+
+    def fingerprint(self) -> str:
+        """Return a stable digest of everything that fixes this registry's class ids.
+
+        Two registries with equal fingerprints assign the same id to the same name, so
+        columns encoded against either are directly comparable. This is what lets data
+        imported from different sources be checked for agreement before it is evaluated
+        together: ids are assigned in first-seen order, so two registries built
+        independently from the same categories in a different order are both valid and
+        silently incompatible, and comparing names alone would not catch it.
+        """
+        payload = json.dumps(self.to_metadata(), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
     @classmethod
     def from_metadata(cls, metadata: Mapping[str, object]) -> Self:
