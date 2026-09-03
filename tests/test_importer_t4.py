@@ -20,7 +20,7 @@ from t4perceval import (
 from t4perceval.descriptors import INSTANCE_ID, TRANSLATION
 from t4perceval.evaluation import build_evaluation_store
 from t4perceval.system import Pipeline
-from t4perceval.transform import transform_edges
+from t4perceval.transform import TransformResolver, transform_edges
 from t4perceval.system.preset import average_precision_sweep
 
 pytest.importorskip("t4_devkit")
@@ -373,6 +373,15 @@ class TestTransforms:
             view = scene.latest_at("/tf/base_link", timeline=timeline, at=at)
             pose = view.materialize(Transform3D)
             assert pose.translation.value[0] == pytest.approx(10.0)
+
+    def test_the_tree_composes_into_a_sensor_pose(self, scene: Recording) -> None:
+        # The static calibration and the temporal ego pose take part in one graph.
+        resolver = TransformResolver.of(scene, timeline=FRAME)
+
+        pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+
+        assert pose.translation.value.tolist() == [10.0, 0.0, 2.0]
+        assert pose.child_frame_id.name == "LIDAR_TOP"
 
     def test_they_can_be_switched_off(self, t4_dataset_root: Path) -> None:
         importer = T4Importer.open(t4_dataset_root, options=ImportOptions(transforms=False))
