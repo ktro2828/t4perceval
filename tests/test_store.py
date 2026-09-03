@@ -184,6 +184,99 @@ class TestStaticData:
         with pytest.raises(ValueError, match="only a single row can be broadcast"):
             view.component(CONFIDENCE)
 
+    def test_writes_of_different_lengths_both_survive(self) -> None:
+        # Static writes are kept as separate chunks, so one entity may hold columns of
+        # different heights. Only broadcasting them into one view is a problem, and that
+        # is reported when it is asked for, not when they are written.
+        store = Store()
+        store.log_static_components("/x", {CONFIDENCE: BatchConfidence([0.1])})
+        store.log_static_components("/x", {TIME_OFFSET: BatchTimeOffset([[0, 1], [0, 2]])})
+
+        assert len(store.static("/x")[CONFIDENCE]) == 1
+        assert len(store.static("/x")[TIME_OFFSET]) == 2
+        assert len(store.static_chunks("/x")) == 2
+
+
+class TestStaticFrames:
+    """A static value states the frame it is expressed in, like a temporal one."""
+
+    def test_a_static_write_keeps_its_frame(self) -> None:
+        store = Store()
+        store.log_static("/tf/lidar", make_detections([[0.0, 0.0, 2.0]]), frame_id="base_link")
+
+        assert store.static_frame_id("/tf/lidar") == "base_link"
+        assert store.static_chunks("/tf/lidar")[0].frame_id == "base_link"
+
+    def test_the_chunk_keeps_everything_else_too(self) -> None:
+        store = Store()
+        store.log_static_components(
+            "/x",
+            {CONFIDENCE: BatchConfidence([0.1, 0.2])},
+            frame_id="map",
+        )
+
+        chunk = store.static_chunks("/x")[0]
+
+        assert chunk.is_static
+        assert chunk.num_rows == 2
+        assert chunk.offsets.tolist() == [0, 2]
+        assert chunk.frame_id == "map"
+
+    def test_an_unstated_frame_is_not_a_disagreement(self) -> None:
+        store = Store()
+        store.log_static_components("/x", {CONFIDENCE: BatchConfidence([0.1])})
+        store.log_static_components("/x", {TIME_OFFSET: BatchTimeOffset([[0, 1]])}, frame_id="map")
+
+        assert store.static_frame_id("/x") == "map"
+
+    def test_two_stated_frames_are_refused(self) -> None:
+        store = Store()
+        store.log_static_components("/x", {CONFIDENCE: BatchConfidence([0.1])}, frame_id="map")
+        store.log_static_components(
+            "/x",
+            {TIME_OFFSET: BatchTimeOffset([[0, 1]])},
+            frame_id="base_link",
+        )
+
+        with pytest.raises(ValueError, match="more than one coordinate frame"):
+            store.static_frame_id("/x")
+
+    def test_an_entity_without_static_data_states_nothing(self, scene_store: Store) -> None:
+        assert scene_store.static_frame_id("/estimation/objects") is None
+        assert scene_store.static_chunks("/nope") == ()
+
+    def test_a_static_only_entity_still_reads_back_as_no_rows(self) -> None:
+        # Deliberate, and load-bearing: a view is one temporal chunk plus a broadcast
+        # static overlay, and there is no row count to broadcast to here. Surfacing static
+        # rows through a time query would invent objects in frames that have none, and
+        # hand index-less chunks to systems that ask a view for its times. Readers that
+        # want static rows ask for the chunk.
+        store = Store()
+        store.log_static("/tf/lidar", make_detections([[0.0, 0.0, 2.0]]), frame_id="base_link")
+
+        assert len(store.latest_at("/tf/lidar", timeline=FRAME, at=0)) == 0
+        assert len(store.range("/tf/lidar", timeline=FRAME, time_range=TimeRange.everything())) == 0
+        assert store.static_chunks("/tf/lidar")[0].num_rows == 1
+
+    def test_a_view_does_not_borrow_the_static_frame(self) -> None:
+        # `EntityView.frame_id` feeds the cross-frame guard, and a static column's frame
+        # need not describe the rows -- a transform's frame is its edge's *parent*. Letting
+        # it through would make an unrelated static column raise "cannot compare geometry
+        # across coordinate frames".
+        store = Store()
+        store.log(
+            "/estimation/objects",
+            make_detections([[0.0, 0.0, 0.0]]),
+            at=TimePoint.at(frame=0),
+        )
+        store.log_static_components(
+            "/estimation/objects", {CONFIDENCE: BatchConfidence([0.5])}, frame_id="map"
+        )
+
+        view = store.latest_at("/estimation/objects", timeline=FRAME, at=0)
+
+        assert view.frame_id is None
+
 
 class TestColumnRestriction:
     def test_narrows_a_view_to_the_requested_columns(self, scene_store: Store) -> None:

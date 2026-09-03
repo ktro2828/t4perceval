@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 
 from attrs import define, evolve, field
 
-from t4perceval.core.chunk import Chunk
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import FRAME
@@ -146,12 +145,14 @@ def build_evaluation_store_from(
     for index, spec in enumerate(sources):
         lut = luts[index]
 
-        # Static first: it is merged into the store rather than carried by a chunk, and a
-        # static column takes precedence over a temporal one with the same descriptor --
-        # so a forgotten one changes results instead of raising.
-        static = spec.recording.static(spec.entity_path)
-        if static:
-            store.send_chunk(Chunk.from_columns(spec.target_path, static, is_static=True))
+        # Static first: a static column takes precedence over a temporal one with the
+        # same descriptor, so a forgotten one changes results instead of raising. Whole
+        # chunks are moved rather than rebuilt from columns, which keeps each write's
+        # `frame_id` and row count -- and, unlike the rebuild, puts static class ids
+        # through the same reconciliation as temporal ones.
+        for chunk in spec.recording.static_chunks(spec.entity_path):
+            moved = evolve(chunk, entity_path=spec.target_path)
+            store.send_chunk(moved if lut is None else remap_class_ids(moved, lut))
 
         # Log order matters, but only within one entity path: `latest_at` prefers the most
         # recently logged chunk on a tie and `range` sorts by (time, log order). Sources
@@ -252,6 +253,11 @@ def _check_frame_ids(sources: Sequence[SourceSpec], *, require_same_frame_id: bo
     Nothing downstream would complain: a matching system takes whichever frame id it finds
     first, so ground truth in ``base_link`` against estimations in ``map`` yields
     geometrically meaningless distances and a plausible near-zero score.
+
+    Temporal chunks only. A static chunk's frame need not name the frame its *rows* live
+    in -- a transform edge states its **parent** frame there -- so folding static data
+    into this store-wide "one frame" rule would reject a perfectly ordinary setup: ground
+    truth in ``base_link`` alongside an imported ``map -> base_link`` tree.
     """
     if not require_same_frame_id:
         return

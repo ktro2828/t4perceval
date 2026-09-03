@@ -225,6 +225,18 @@ class Recording:
         """
         return self._store.static(entity_path)
 
+    def static_chunks(self, entity_path: EntityPathLike) -> tuple[Chunk, ...]:
+        """Return an entity's static chunks in log order.
+
+        Unlike :meth:`static` these keep their ``frame_id``, which is what makes a saved
+        transform edge interpretable: the frame it states is the edge's parent.
+        """
+        return self._store.static_chunks(entity_path)
+
+    def static_frame_id(self, entity_path: EntityPathLike) -> str | None:
+        """Return the coordinate frame this entity's static data states, if any."""
+        return self._store.static_frame_id(entity_path)
+
     def times(self, entity_path: EntityPathLike, timeline: Timeline) -> NDArrayI64:
         """Return the sorted, unique times an entity was observed at."""
         return self._store.times(entity_path, timeline)

@@ -21,6 +21,19 @@ if TYPE_CHECKING:
 __all__ = ("Store",)
 
 
+def _fold_columns(chunks: Iterable[Chunk]) -> dict[ComponentDescriptor, Component]:
+    """Flatten static chunks into one column set, later writes winning per descriptor.
+
+    Static writes are kept whole so their metadata survives, but a *reader* asking for
+    static columns wants the same thing it always got: one column per descriptor, in log
+    order, the last write winning a collision.
+    """
+    folded: dict[ComponentDescriptor, Component] = {}
+    for chunk in chunks:
+        folded.update(chunk.columns)
+    return folded
+
+
 class Store:
     """A mutable log of chunks, addressed by entity path and indexed along timelines.
 
@@ -39,16 +52,18 @@ class Store:
 
     def __init__(self) -> None:
         self._temporal: dict[EntityPath, list[Chunk]] = {}
-        self._static: dict[EntityPath, dict[ComponentDescriptor, Component]] = {}
+        # Static data is kept as whole chunks, exactly like temporal data, because a
+        # chunk's `frame_id` is part of what was logged: a fixed sensor extrinsic states
+        # the frame it is expressed in as surely as an ego pose does. Reading still folds
+        # the list down to columns, so `static()` behaves as it always has.
+        self._static: dict[EntityPath, list[Chunk]] = {}
 
     # -- writing ----------------------------------------------------------------------
 
     def send_chunk(self, chunk: Chunk) -> None:
-        """Append a chunk. Static chunks merge into the entity's static columns."""
-        if chunk.is_static:
-            self._static.setdefault(chunk.entity_path, {}).update(chunk.columns)
-        else:
-            self._temporal.setdefault(chunk.entity_path, []).append(chunk)
+        """Append a chunk, to the entity's temporal or static series as it declares."""
+        series = self._static if chunk.is_static else self._temporal
+        series.setdefault(chunk.entity_path, []).append(chunk)
 
     def log(
         self,
@@ -61,17 +76,33 @@ class Store:
         """Log one archetype as a single partition observed at ``at``."""
         self.send_chunk(archetype.to_chunk(entity_path, at=at, frame_id=frame_id))
 
-    def log_static(self, entity_path: EntityPathLike, archetype: Archetype) -> None:
-        """Log one archetype as static data, applying to every point on every timeline."""
-        self.send_chunk(archetype.to_chunk(entity_path, is_static=True))
+    def log_static(
+        self,
+        entity_path: EntityPathLike,
+        archetype: Archetype,
+        *,
+        frame_id: str | None = None,
+    ) -> None:
+        """Log one archetype as static data, applying to every point on every timeline.
+
+        ``frame_id`` means what it means everywhere else -- the coordinate frame the rows
+        are expressed in -- and is retained rather than dropped. Static describes *time*
+        behaviour, not the kind of data, so a value that never changes says which frame it
+        is in just like a value that does.
+        """
+        self.send_chunk(archetype.to_chunk(entity_path, is_static=True, frame_id=frame_id))
 
     def log_static_components(
         self,
         entity_path: EntityPathLike,
         columns: dict[ComponentDescriptor, Component],
+        *,
+        frame_id: str | None = None,
     ) -> None:
         """Log loose components as static data."""
-        self.send_chunk(Chunk.from_columns(entity_path, columns, is_static=True))
+        self.send_chunk(
+            Chunk.from_columns(entity_path, columns, is_static=True, frame_id=frame_id),
+        )
 
     # -- inspection -------------------------------------------------------------------
 
@@ -90,11 +121,44 @@ class Store:
         return tuple(found)
 
     def static(self, entity_path: EntityPathLike) -> dict[ComponentDescriptor, Component]:
-        """Return the static columns of one entity."""
-        return dict(self._static.get(as_entity_path(entity_path), {}))
+        """Return the static columns of one entity, later writes winning per descriptor.
+
+        Columns only. Use :meth:`static_chunks` when the frame the rows are expressed in
+        matters -- a transform edge, for instance, states its parent frame there.
+        """
+        return _fold_columns(self._static.get(as_entity_path(entity_path), ()))
+
+    def static_chunks(self, entity_path: EntityPathLike) -> tuple[Chunk, ...]:
+        """Return the static chunks logged to one entity, in log order."""
+        return tuple(self._static.get(as_entity_path(entity_path), ()))
+
+    def static_frame_id(self, entity_path: EntityPathLike) -> str | None:
+        """Return the coordinate frame this entity's static data states, if any.
+
+        Follows the same rule as
+        :func:`~t4perceval.system.base.require_same_frame`: one stated frame wins, an
+        unstated frame is not a disagreement, and two *different stated* frames raise --
+        because nothing downstream could tell which one the columns belong to.
+
+        Raises:
+            ValueError: When two static writes state different frames.
+        """
+        path = as_entity_path(entity_path)
+        stated = {chunk.frame_id for chunk in self._static.get(path, ()) if chunk.frame_id}
+        if len(stated) > 1:
+            raise ValueError(
+                f"Static data of {path} states more than one coordinate frame: "
+                f"{sorted(stated)}. Log the disagreeing columns to separate entities.",
+            )
+        return next(iter(stated), None)
 
     def chunks(self, entity_path: EntityPathLike) -> tuple[Chunk, ...]:
-        """Return the temporal chunks logged to one entity, in log order."""
+        """Return the temporal chunks logged to one entity, in log order.
+
+        Temporal only, deliberately: everything downstream that walks chunks -- the time
+        axis, the frame-agreement checks, the evaluation-store copy -- means "rows on a
+        timeline". Static chunks are :meth:`static_chunks`.
+        """
         return tuple(self._temporal.get(as_entity_path(entity_path), ()))
 
     def times(self, entity_path: EntityPathLike, timeline: Timeline) -> NDArrayI64:
@@ -208,9 +272,9 @@ class Store:
         path: EntityPath,
         components: Iterable[ComponentDescriptor] | None,
     ) -> dict[ComponentDescriptor, Component]:
-        static = self._static.get(path, {})
+        static = _fold_columns(self._static.get(path, ()))
         if components is None:
-            return dict(static)
+            return static
         wanted = set(components)
         return {descriptor: column for descriptor, column in static.items() if descriptor in wanted}
 

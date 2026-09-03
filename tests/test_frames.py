@@ -14,6 +14,8 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
+from t4perceval.component import BatchConfidence
+from t4perceval.descriptors import CONFIDENCE
 from t4perceval.system import CenterDistanceMatchingSystem, Pipeline, SystemContext
 from t4perceval.system.base import require_same_frame, resolve_frame
 
@@ -131,6 +133,23 @@ class TestMatching:
     def test_unknown_frames_still_match(self, labels: LabelRegistry) -> None:
         # Most stores predate frame recording; an unstated frame is not a disagreement.
         store = two_frames(labels, None, None)
+
+        assert run(store, labels).num_tp == 1
+
+    def test_a_statically_stated_frame_is_not_a_disagreement(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        # A static column's frame does not describe the temporal rows -- and a transform
+        # edge states its *parent* there -- so it must not reach the geometry guard. This
+        # is the regression: matching in `map` against static data logged as `base_link`
+        # would otherwise start raising.
+        store = two_frames(labels, "map", "map")
+        store.log_static_components(
+            "/estimation/objects",
+            {CONFIDENCE: BatchConfidence([0.5])},
+            frame_id="base_link",
+        )
 
         assert run(store, labels).num_tp == 1
 

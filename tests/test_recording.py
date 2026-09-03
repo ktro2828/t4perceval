@@ -221,6 +221,49 @@ class TestMaterialization:
 
         assert setup.store.static("/ground_truth/objects")
 
+    def test_a_static_write_keeps_its_frame(self) -> None:
+        # Static data is moved as whole chunks, so the frame it states survives the hop
+        # into an evaluation store -- what makes a saved transform edge interpretable.
+        labels = LabelRegistry.from_names(["car"])
+        store = Store()
+        store.log_static("/tf/lidar", detections(labels, ["car"]), frame_id="base_link")
+        held = Recording.of(store, labels=labels)
+
+        setup = build_evaluation_store_from((SourceSpec.of(held, "/tf/lidar"),))
+
+        assert setup.store.static_frame_id("/tf/lidar") == "base_link"
+
+    def test_static_class_ids_are_reconciled_too(self) -> None:
+        # Rebuilding static columns bypassed reconciliation, leaving static ids in the
+        # source registry's space while temporal ones were remapped -- one store, two
+        # meanings for the same integer.
+        reference_labels = LabelRegistry.from_names(["car", "pedestrian"])
+        other_labels = LabelRegistry.from_names(["pedestrian", "car"])
+
+        reference_store = Store()
+        reference_store.log(
+            "/ground_truth/objects",
+            detections(reference_labels, ["car"]),
+            at=TimePoint.at(frame=0),
+        )
+        query_store = Store()
+        query_store.log_static("/estimation/objects", detections(other_labels, ["car"]))
+        query = Recording.of(query_store, labels=other_labels)
+
+        setup = build_evaluation_store_from(
+            (
+                SourceSpec.of(
+                    Recording.of(reference_store, labels=reference_labels), "/ground_truth/objects"
+                ),
+                SourceSpec.of(query, "/estimation/objects"),
+            ),
+            reconcile=True,
+        )
+
+        static = setup.store.static("/estimation/objects")
+
+        assert static[CLASS_ID].values.tolist() == [reference_labels.class_id("car")]
+
     def test_log_order_is_preserved(self) -> None:
         labels = LabelRegistry.from_names(["car"])
         store = Store()
