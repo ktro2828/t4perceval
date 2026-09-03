@@ -34,13 +34,19 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          # Passing the version here rather than only to `uv sync` is what keeps the
+          # three matrix legs on separate caches: setup-uv puts the Python version in
+          # the cache key, and without this input it falls back to detecting the
+          # runner's default interpreter -- the same value for every leg.
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: uv.lock
 
       - name: Install the project and its extras
         # `--all-extras` pulls in t4-devkit (a git dependency) and the MCAP stack, so the
-        # importers are exercised rather than skipped.
-        run: uv sync --locked --all-extras --python ${{ matrix.python-version }}
+        # importers are exercised rather than skipped. `--locked` makes a stale uv.lock a
+        # failure instead of something uv quietly re-resolves, so CI tests the pinned
+        # dependency set rather than whatever resolves that morning.
+        run: uv sync --locked --all-extras
 
       - name: Run the test suite
         run: uv run --no-sync pytest -q
@@ -54,20 +60,22 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          python-version: "3.13"
           enable-cache: true
-          cache-dependency-glob: uv.lock
 
-      - name: Install only the base dependencies
+      - name: Install only the base dependencies and a test runner
         # The importers are optional, so the evaluation core must install and pass
         # without t4-devkit or the MCAP libraries present. This is what stops an
         # accidental top-level import of an extra from reaching users who did not ask
         # for it -- the importer tests skip, they do not fail to collect.
-        run: |
-          uv venv --python 3.13
-          uv pip install -e . pytest
+        #
+        # `--no-default-groups` matters: the `dev` group carries t4-devkit, so a plain
+        # `uv sync` would install it and this job would silently stop testing anything.
+        # The `test` group exists to supply pytest without dragging that back in.
+        run: uv sync --locked --no-default-groups --group test
 
       - name: Run the test suite
-        run: uv run --no-project pytest -q
+        run: uv run --no-sync pytest -q
 
   lint:
     name: lint
@@ -77,6 +85,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: ruff check
         # Pinned to the version .pre-commit-config.yaml uses. Ruff's default rule set

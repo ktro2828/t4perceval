@@ -31,8 +31,11 @@ rosbag = [
 ]
 
 [dependency-groups]
+# Split out so the core-only CI job can install a test runner without also pulling in
+# the importer's optional dependencies -- which would defeat the point of that job.
+test = ["pytest>=8.4.0"]
 dev = [
-    "pytest>=8.4.0",
+    { include-group = "test" },
     "zensical",
     "t4-devkit @ git+https://github.com/tier4/t4-devkit@v0.8.0",
 ]
