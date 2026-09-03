@@ -124,9 +124,7 @@ class TestComponentMapping:
                 Detections2D,
             ),
             (
-                Trackings2D(
-                    roi=[[0, 0, 10, 10]], class_id=[1], confidence=[0.5], instance_id=[3]
-                ),
+                Trackings2D(roi=[[0, 0, 10, 10]], class_id=[1], confidence=[0.5], instance_id=[3]),
                 Trackings2D,
             ),
             (Classifications2D(class_id=[1], confidence=[0.5]), Classifications2D),

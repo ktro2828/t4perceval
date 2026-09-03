@@ -42,9 +42,7 @@ def empty_archetypes() -> dict[str, Callable[[], Archetype]]:
         "Detections3D": lambda: make_detections([]),
         "Detections2D": lambda: Detections2D(roi=[], class_id=[], confidence=[]),
         "Trackings3D": lambda: make_trackings([], []),
-        "Trackings2D": lambda: Trackings2D(
-            roi=[], class_id=[], confidence=[], instance_id=[]
-        ),
+        "Trackings2D": lambda: Trackings2D(roi=[], class_id=[], confidence=[], instance_id=[]),
         "Predictions3D": lambda: make_predictions([], []),
         "Classifications2D": lambda: Classifications2D(class_id=[], confidence=[]),
         "SemanticSegmentation2D": lambda: SemanticSegmentation2D(pixel=[], class_id=[]),
