@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
+import numpy as np
 from attrs import define, field
 
 from t4perceval.importer._optional import require
@@ -45,6 +46,19 @@ class SampleFrame:
     timestamp_us: int
     data: Mapping[str, str] = field(converter=dict)
     """Sensor channel to ``sample_data`` token, keyframes only."""
+
+
+def _same_pose(left: Any, right: Any) -> bool:
+    """Return whether two calibration records describe the same pose.
+
+    Only the pose is compared, because that is all the frame tree reads: two rows that
+    place a sensor identically but disagree on, say, a camera intrinsic are not an
+    ambiguity for this purpose.
+    """
+    return bool(
+        np.allclose(left.translation, right.translation)
+        and np.allclose(left.rotation.elements, right.rotation.elements),
+    )
 
 
 class T4Source:
@@ -156,16 +170,44 @@ class T4Source:
 
         The record is the sensor's pose in the ego frame, so it is the fixed
         ``base_link -> <channel>`` edge of the frame tree.
+
+        Read from the ``calibrated_sensor`` table, which holds one row per sensor -- not
+        gathered by walking ``sample_data``. Every frame of a channel references the same
+        calibration, so walking the frames would do work proportional to the scene to
+        recover a handful of values, and would quietly settle on whichever row it met
+        first if they ever disagreed.
+
+        These are a property of the dataset's sensor set rather than of the frames
+        selected for import, so a channel that this scene records no data for still
+        appears here.
+
+        Raises:
+            ValueError: If one channel has two calibrations placing it differently.
+                Choosing either would put a silently wrong extrinsic into the frame tree.
+            KeyError: If a calibration references a sensor the ``sensor`` table does not
+                list, so its channel -- and hence the edge it belongs on -- is unknown.
         """
-        channels: dict[str, Any] = {}
-        for record in self._t4.sample_data:
-            channel = str(record.channel)
-            if channel not in channels:
-                channels[channel] = self._t4.get(
-                    "calibrated_sensor",
-                    record.calibrated_sensor_token,
+        extrinsics: dict[str, Any] = {}
+        for record in self._t4.calibrated_sensor:
+            sensor_token = str(record.sensor_token)
+            try:
+                channel = self._t4.get("sensor", sensor_token).channel
+            except KeyError as error:
+                # The devkit's own message names the table but not what referenced it,
+                # which is the half that says where to look.
+                raise KeyError(
+                    f"Calibration {record.token!r} names unknown sensor {sensor_token!r}; "
+                    f"this dataset lists {[s.token for s in self._t4.sensor]}",
+                ) from error
+            seen = extrinsics.get(channel)
+            if seen is not None and not _same_pose(seen, record):
+                raise ValueError(
+                    f"Channel {channel!r} has more than one calibration and they disagree: "
+                    f"{seen.token!r} places it at {list(seen.translation)}, "
+                    f"{record.token!r} at {list(record.translation)}",
                 )
-        return channels
+            extrinsics[channel] = record
+        return extrinsics
 
     # -- annotations -------------------------------------------------------------------
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+from attrs import evolve
 
 from t4perceval import (
     FRAME,
@@ -373,3 +374,66 @@ class TestTransforms:
         scene = importer.import_scene(labels=importer.label_registry())
 
         assert edges(scene) == {}
+
+
+class TestExtrinsics:
+    """Where a sensor's fixed pose comes from."""
+
+    def test_one_entry_per_sensor(self, t4_dataset_root: Path) -> None:
+        source = T4Source(t4_dataset_root)
+        devkit = source.devkit
+
+        # `calibrated_sensor` holds one row per sensor, so that is what is read -- rather
+        # than gathering the same value again from every frame of every channel.
+        assert len(source.extrinsics()) == len(devkit.sensor)
+        assert set(source.extrinsics()) == {sensor.channel for sensor in devkit.sensor}
+
+    def test_it_does_not_depend_on_the_frames_imported(
+        self,
+        t4_importer: T4Importer,
+    ) -> None:
+        from t4perceval.transform import edges
+
+        one_frame = t4_importer.import_scene(
+            labels=t4_importer.label_registry(),
+            selection=SceneSelection(samples=[0]),
+        )
+        whole_scene = t4_importer.import_scene(labels=t4_importer.label_registry())
+
+        fixed = {edge for edge in edges(one_frame) if edge[0] == "base_link"}
+
+        assert fixed == {edge for edge in edges(whole_scene) if edge[0] == "base_link"}
+
+    def test_disagreeing_calibrations_are_rejected(self, t4_dataset_root: Path) -> None:
+        # Two calibrations for one channel is ambiguous. Settling on whichever came first
+        # would put a silently wrong extrinsic into the frame tree.
+        source = T4Source(t4_dataset_root)
+        devkit = source.devkit
+        original = devkit.calibrated_sensor[0]
+        moved = evolve(original, translation=np.asarray(original.translation) + 1.0)
+        devkit.calibrated_sensor = [*devkit.calibrated_sensor, moved]
+
+        with pytest.raises(ValueError, match="more than one calibration"):
+            source.extrinsics()
+
+    def test_an_identical_duplicate_is_accepted(self, t4_dataset_root: Path) -> None:
+        source = T4Source(t4_dataset_root)
+        devkit = source.devkit
+        devkit.calibrated_sensor = [
+            *devkit.calibrated_sensor,
+            evolve(devkit.calibrated_sensor[0]),
+        ]
+
+        assert len(source.extrinsics()) == len(devkit.sensor)
+
+    def test_a_calibration_for_an_unknown_sensor_is_rejected(
+        self,
+        t4_dataset_root: Path,
+    ) -> None:
+        source = T4Source(t4_dataset_root)
+        devkit = source.devkit
+        orphan = evolve(devkit.calibrated_sensor[0], sensor_token="0" * 32)
+        devkit.calibrated_sensor = [*devkit.calibrated_sensor, orphan]
+
+        with pytest.raises(KeyError, match="unknown sensor"):
+            source.extrinsics()

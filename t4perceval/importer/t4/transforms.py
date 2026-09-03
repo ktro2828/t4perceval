@@ -5,9 +5,18 @@ A T4 scene has two kinds of edge, and both become ordinary entities in the store
 * ``map -> base_link``, one sample per frame, from the ``ego_pose`` table.
 * ``base_link -> <channel>``, fixed, from the ``calibrated_sensor`` table.
 
-Neither is logged with ``log_static``. Static data carries no ``frame_id`` and, on an
-entity with no temporal rows, reads back as zero rows -- whereas a single temporal sample
-is returned by ``latest_at`` at every later time, which is the meaning wanted anyway.
+Neither is logged with ``log_static``, even though a sensor extrinsic really is
+time-invariant. ``static`` here means "this column broadcasts over this entity's rows",
+not "this value exists at all times": a static-only entity has no rows to broadcast over,
+so both ``latest_at`` and ``range`` return nothing and the value is reachable only through
+``Store.static()``. A single temporal sample is returned by ``latest_at`` at every later
+time instead, which is the meaning wanted and keeps fixed and moving edges on one code
+path.
+
+The cost is that a *windowed* ``range`` starting after that sample does not see it --
+``latest_at`` reaches backwards, ``range`` does not. Lookups are ``latest_at``-shaped, so
+this does not affect resolving a transform, but it does mean an extrinsic will not appear
+in a range query over a later interval.
 """
 
 from __future__ import annotations
