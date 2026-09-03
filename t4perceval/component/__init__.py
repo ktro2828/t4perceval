@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from t4perceval.component.frame_id import *  # noqa: F403
 from t4perceval.component.geometry import *  # noqa: F403
 from t4perceval.component.image import *  # noqa: F403
 from t4perceval.component.mask import *  # noqa: F403

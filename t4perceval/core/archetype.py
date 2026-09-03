@@ -6,7 +6,7 @@ import numpy as np
 from attrs import NOTHING, define, fields
 
 from t4perceval.core.chunk import Chunk
-from t4perceval.core.component import ColumnarComponent, validate_lengths
+from t4perceval.core.component import ColumnarComponent, MonoComponent, validate_lengths
 from t4perceval.core.selection import normalize_selection
 from t4perceval.core.timeline import TimeColumn
 
@@ -146,12 +146,20 @@ class Archetype:
     # -- component mapping ------------------------------------------------------------
 
     def as_components(self) -> dict[ComponentDescriptor, Component]:
-        """Return the present components keyed by descriptor."""
+        """Return the present components keyed by descriptor, as storage columns.
+
+        A :class:`~t4perceval.core.component.MonoComponent` field is widened into its
+        one-row columnar counterpart here. Mono is an archetype-boundary type; everything
+        below this line -- chunks, concatenation, the Arrow schema -- is columnar, so a
+        query spanning three samples still yields a three-row column.
+        """
         result: dict[ComponentDescriptor, Component] = {}
         for attribute in self.component_fields():
             column = getattr(self, attribute.name)
             if column is not None:
-                result[self._descriptor_of(attribute)] = column
+                result[self._descriptor_of(attribute)] = (
+                    column.as_batch() if isinstance(column, MonoComponent) else column
+                )
         return result
 
     @classmethod

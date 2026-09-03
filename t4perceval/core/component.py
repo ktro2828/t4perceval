@@ -21,6 +21,7 @@ __all__ = (
     "ANY",
     "ColumnarComponent",
     "Component",
+    "MonoComponent",
     "values_equal",
     "validate_lengths",
 )
@@ -86,6 +87,13 @@ def _coerce_column(value: ArrayLike, self_: ColumnarComponent) -> NDArray[Any]:
 
     expected_ndim = 1 + len(cls.SHAPE)
 
+    if cls.MONO and array.shape == cls.SHAPE:
+        # A mono component is written as the value itself -- `Position3D([1.0, 2.0, 3.0])`,
+        # `FrameId("lidar")` -- so the row axis is added here. Matched on the exact shape
+        # rather than the rank, so `Position3D([])` still falls through to the empty-input
+        # branch and reports zero rows instead of a nonsense shape.
+        array = array.reshape(1, *cls.SHAPE)
+
     if array.size == 0 and array.ndim != expected_ndim and ANY not in cls.SHAPE:
         # An empty input can only mean zero rows, and with a fully concrete per-row shape
         # there is nothing to guess -- so `BatchPosition3D([])` is accepted. A wildcard
@@ -100,6 +108,9 @@ def _coerce_column(value: ArrayLike, self_: ColumnarComponent) -> NDArray[Any]:
         raise ValueError(
             f"{name} must have shape {_describe_shape(cls.SHAPE)}, got {array.shape}",
         )
+
+    if cls.MONO and len(array) != 1:
+        raise ValueError(f"{name} holds exactly one value, got {len(array)} row(s)")
 
     if cls.REQUIRE_FINITE and array.size and not np.isfinite(array).all():
         raise ValueError(f"{name} must contain only finite values")
@@ -127,8 +138,12 @@ class ColumnarComponent:
     * :attr:`SHAPE` -- per-row shape. ``()`` is a scalar column; use :data:`ANY` for a
       dimension whose size is inferred from the data.
     * :attr:`DTYPE` -- numpy dtype every value is coerced to.
-    * :attr:`VALUE_RANGE` -- optional inclusive ``(low, high)`` bound.
-    * :attr:`REQUIRE_FINITE` -- reject ``NaN`` / ``Inf`` when set.
+    * :attr:`VALUE_RANGE` -- optional inclusive ``(low, high)`` bound. Numeric columns
+      only: the check calls ``np.isfinite``, which raises on a text column.
+    * :attr:`REQUIRE_FINITE` -- reject ``NaN`` / ``Inf`` when set. Numeric columns only,
+      for the same reason.
+    * :attr:`MONO` -- the component is one value rather than a column of them. See
+      :class:`MonoComponent`, which is what subclasses use.
 
     Examples:
         >>> import numpy as np
@@ -144,6 +159,7 @@ class ColumnarComponent:
     DTYPE: ClassVar[Any] = np.float64
     VALUE_RANGE: ClassVar[tuple[float, float] | None] = None
     REQUIRE_FINITE: ClassVar[bool] = False
+    MONO: ClassVar[bool] = False
 
     # NOTE: `eq=cmp_using(np.array_equal)` is required -- attrs' default equality would
     # compare arrays elementwise and then fail on the ambiguous truth value.
@@ -243,6 +259,63 @@ class ColumnarComponent:
         flat = current.to_numpy(zero_copy_only=False)
         shape = row_shape if row_shape is not None else tuple(dims)
         return cls(flat.reshape(-1, *shape) if shape else flat)
+
+
+@define(frozen=True, slots=True)
+class MonoComponent(ColumnarComponent):
+    """A component that is one value, not a column of them.
+
+    Some data is singular by nature. A detection archetype holds *N* objects, so every one
+    of its components is a column; a transform describes the relationship between two
+    coordinate frames, of which there is exactly one per entity per point in time. Writing
+    that as a column of length one makes every caller index into it, and makes "what if it
+    has three rows?" a question the type cannot answer.
+
+    Mono is a **boundary** type: it is what an archetype's field holds, while the store
+    stays columnar throughout. :meth:`~t4perceval.core.archetype.Archetype.as_components`
+    widens a mono value into :attr:`BATCH` on the way into a chunk, and the field converter
+    narrows it back on the way out. That division is what keeps ``concat_chunks``,
+    ``select`` and ``Store.range`` working: a query that spans three samples of one edge
+    returns a three-row column, which a type that permits exactly one row could not be.
+
+        >>> @define(frozen=True, slots=True)
+        ... class BatchTranslation(ColumnarComponent):
+        ...     SHAPE = (3,)
+        >>> @define(frozen=True, slots=True)
+        ... class Translation(MonoComponent):
+        ...     SHAPE = (3,)
+        ...     BATCH = BatchTranslation
+        >>> Translation([1.0, 2.0, 3.0]).value
+        array([1., 2., 3.])
+        >>> type(Translation([1.0, 2.0, 3.0]).as_batch()).__name__
+        'BatchTranslation'
+
+    The naming convention follows the distinction: a columnar component is
+    ``BatchPosition3D``, its mono counterpart ``Position3D``.
+    """
+
+    MONO: ClassVar[bool] = True
+
+    #: Columnar counterpart this widens into for storage.
+    BATCH: ClassVar[type[ColumnarComponent]]
+
+    def as_batch(self) -> ColumnarComponent:
+        """Return this value as a one-row column of :attr:`BATCH`."""
+        return self.BATCH(self.values)
+
+    @classmethod
+    def empty(cls, *row_shape: int) -> Self:
+        """Never returns: one value is one value, and zero of them is not this type."""
+        del row_shape
+        raise TypeError(
+            f"{cls.__name__} holds exactly one value and has no empty form; the batch "
+            f"component it mirrors is the one that can be empty",
+        )
+
+    @property
+    def value(self) -> Any:
+        """Return the single value, without the row axis."""
+        return self.values[0]
 
 
 def validate_lengths(expected: int, **columns: Sized | None) -> None:

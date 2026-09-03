@@ -47,6 +47,14 @@ BatchPosition3D -> Positions3D
 BatchClassId -> ClassIds
 ```
 
+Two conventions were settled by the transform work. `BatchFrameId` follows the rule above --
+singular, `Batch`-prefixed -- and is worth noting because it is the only component that is not a
+numeric array; the test for a text column is what it counts, a frame name being per _edge_ of the
+transform graph whereas a class or instance name is per _object_ and stays interned in a registry.
+And a component that holds **one** value rather than a column of them drops the prefix: `FrameId`,
+`Position3D` and `Quaternion` are the mono counterparts of `BatchFrameId`, `BatchPosition3D` and
+`BatchQuaternion` -- the same distinction Rerun draws between `Position3D` and `Position3DBatch`.
+
 If component types are renamed, suffixing them with `Batch` more closely follows Rerun's distinction:
 
 ```python

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from t4perceval.core.archetype import Archetype, as_component
 from t4perceval.core.chunk import Chunk, concat_chunks
-from t4perceval.core.component import ANY, ColumnarComponent, Component, validate_lengths
+from t4perceval.core.component import (
+    ANY,
+    ColumnarComponent,
+    Component,
+    MonoComponent,
+    validate_lengths,
+)
 from t4perceval.core.descriptor import ComponentDescriptor
 from t4perceval.core.entity import EntityPath, EntityPathLike, as_entity_path
 from t4perceval.core.selection import normalize_selection
@@ -29,6 +35,7 @@ __all__ = (
     "EntityPathLike",
     "EntityView",
     "FRAME",
+    "MonoComponent",
     "Store",
     "TIMESTAMP",
     "TimeColumn",

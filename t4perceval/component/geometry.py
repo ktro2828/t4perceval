@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 from attrs import define
 from scipy.spatial.transform import Rotation
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import ColumnarComponent, MonoComponent
 from t4perceval.component.vector import BatchVector2D, BatchVector3D
 
 if TYPE_CHECKING:
@@ -21,6 +21,8 @@ __all__ = (
     "BatchSize2D",
     "BatchSize3D",
     "BatchVelocity",
+    "Position3D",
+    "Quaternion",
 )
 
 
@@ -92,3 +94,30 @@ class BatchQuaternion(ColumnarComponent):
         if len(self) == 0:
             return np.empty(0, dtype=np.float64)
         return self.as_rotation().as_euler("xyz")[:, 2]
+
+
+@define(frozen=True, slots=True)
+class Position3D(BatchPosition3D, MonoComponent):
+    """One 3D position, written and read as a ``(3,)`` value.
+
+    The mono counterpart of :class:`BatchPosition3D`, for data that is singular by nature:
+    a transform's translation, not the positions of *N* objects. Stored as a
+    :class:`BatchPosition3D` of one row.
+    """
+
+    BATCH: ClassVar[type[ColumnarComponent]] = BatchPosition3D
+
+
+@define(frozen=True, slots=True)
+class Quaternion(BatchQuaternion, MonoComponent):
+    """One unit quaternion in ``xyzw`` order, written and read as a ``(4,)`` value.
+
+    ``xyzw`` matches :class:`BatchQuaternion` and SciPy, so nothing reorders on the way to
+    :class:`~scipy.spatial.transform.Rotation`.
+    """
+
+    BATCH: ClassVar[type[ColumnarComponent]] = BatchQuaternion
+
+    def as_rotation(self) -> Rotation:
+        """Return this quaternion as one SciPy rotation, not a length-one stack."""
+        return Rotation.from_quat(self.value)

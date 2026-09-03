@@ -19,7 +19,7 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
-from t4perceval.component import BatchTimeOffset
+from t4perceval.component import BatchTimeOffset, FrameId
 from t4perceval.core.archetype import Archetype
 from t4perceval.descriptors import CLASS_ID, CONFIDENCE, INSTANCE_ID, POSITION, TIME_OFFSET
 from t4perceval.io import (
@@ -177,6 +177,25 @@ class TestArrowRoundTrip:
 
         assert restored.is_static
         assert restored == chunk
+
+    def test_preserves_a_text_column(self) -> None:
+        # A text column is `string` in the schema, not something inferred from the value,
+        # and a mono component comes back as itself rather than as a one-row column.
+        frames = FrameId.descriptor()
+        chunk = Chunk.from_columns(
+            "/tf/lidar",
+            {frames: FrameId("LIDAR_TOP")},
+            is_static=True,
+            frame_id="base_link",
+        )
+
+        table = chunk_to_table(chunk)
+        restored, _ = chunk_from_table(table)
+
+        assert table.schema.field("FrameId").type == pa.string()
+        assert restored == chunk
+        assert restored.component(frames).name == "LIDAR_TOP"
+        assert restored.frame_id == "base_link"
 
     def test_preserves_an_empty_chunk(self) -> None:
         chunk = make_detections([]).to_chunk("/x", at=TimePoint.at(frame=0))

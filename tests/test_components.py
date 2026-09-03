@@ -19,6 +19,9 @@ from t4perceval.component import (
     BatchVector3D,
     BatchVelocity,
     BatchWaypoints3D,
+    FrameId,
+    Position3D,
+    Quaternion,
     VisibilityLevel,
 )
 
@@ -187,6 +190,84 @@ class TestSemanticColumns:
         assert VisibilityLevel.UNAVAILABLE < VisibilityLevel.NONE < VisibilityLevel.FULL
 
 
+class TestMonoComponents:
+    """Components that are one value rather than a column of them."""
+
+    def test_the_value_is_written_and_read_without_a_row_axis(self) -> None:
+        position = Position3D([1.0, 2.0, 3.0])
+
+        assert position.value.tolist() == [1.0, 2.0, 3.0]
+        assert position.values.shape == (1, 3), "stored as a one-row column underneath"
+
+    def test_a_one_row_column_is_also_accepted(self) -> None:
+        # What `from_arrow` hands back after a round-trip, so it has to work.
+        assert Position3D([[1.0, 2.0, 3.0]]).value.tolist() == [1.0, 2.0, 3.0]
+
+    @pytest.mark.parametrize("values", [[], [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]])
+    def test_anything_but_one_value_is_rejected(self, values: list[object]) -> None:
+        with pytest.raises(ValueError, match="exactly one value"):
+            Position3D(values)
+
+    def test_there_is_no_empty_form(self) -> None:
+        with pytest.raises(TypeError, match="no empty form"):
+            Position3D.empty()
+
+    def test_a_rotation_is_scipy_ready(self) -> None:
+        # xyzw, like BatchQuaternion, so nothing reorders on the way to scipy.
+        assert Quaternion([0.0, 0.0, 0.0, 1.0]).as_rotation().magnitude() == 0.0
+
+    def test_it_round_trips_through_arrow(self) -> None:
+        position = Position3D([1.0, 2.0, 3.0])
+
+        assert Position3D.from_arrow(position.to_arrow()) == position
+
+
+class TestFrameIds:
+    """The one text component in the model."""
+
+    def test_it_holds_a_variable_length_name(self) -> None:
+        # A fixed-width numpy dtype would truncate silently, turning one long frame into
+        # a different, shorter one -- and two sensors into the same frame.
+        long_name = "traffic_light_left_camera_optical_link"
+
+        assert FrameId(long_name).name == long_name
+        assert FrameId(long_name).values.flags.writeable is False
+
+    def test_a_name_may_contain_a_separator(self) -> None:
+        # Nothing parses a frame name any more, so a ROS-namespaced id is just a name.
+        assert FrameId("/robot1/base_link").name == "/robot1/base_link"
+
+    @pytest.mark.parametrize(
+        ("value", "message"),
+        [
+            (1, "not str"),
+            (None, "not str"),
+            (b"base_link", "not str"),
+            ("", "needs a name"),
+            ("x" * 300, "over the 256"),
+        ],
+    )
+    def test_it_rejects_what_is_not_a_name(self, value: object, message: str) -> None:
+        # An object dtype accepts anything numpy can store, so the check has to be here:
+        # a numeric name would encode as an int64 Arrow column and never compare equal.
+        with pytest.raises(ValueError, match=message):
+            FrameId(value)
+
+    def test_equality_compares_names(self) -> None:
+        assert FrameId("a") == FrameId("a")
+        assert FrameId("a") != FrameId("b")
+
+    def test_the_arrow_type_is_pinned(self) -> None:
+        import pyarrow as pa
+
+        # Inference on an object array reads the values, so the schema of a text column
+        # would depend on what it happened to hold.
+        assert FrameId("base_link").to_arrow().type == pa.string()
+
+    def test_it_round_trips_through_arrow(self) -> None:
+        assert FrameId.from_arrow(FrameId("lidar").to_arrow()) == FrameId("lidar")
+
+
 class TestArrowRoundTrip:
     @pytest.mark.parametrize(
         "column",
@@ -196,6 +277,8 @@ class TestArrowRoundTrip:
             BatchMask([True, False]),
             BatchWaypoints3D(np.arange(24, dtype=np.float64).reshape(1, 2, 4, 3)),
             BatchPosition3D.empty(),
+            FrameId("base_link"),
+            Position3D([1.0, 2.0, 3.0]),
         ],
     )
     def test_round_trips_through_arrow(self, column: ColumnarComponent) -> None:
