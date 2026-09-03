@@ -12,11 +12,21 @@ from t4perceval.importer.t4.convert import (
     boxes3d_to_columns,
     trajectory_shape_of,
 )
-from tests.t4_builder import FRAME_TIME_US, box2d, box3d, columns_of, future_of, yawed
 
+# Before importing the builders: they construct real devkit boxes at module scope, so
+# without the extra this file must skip rather than fail to collect.
 pytest.importorskip("t4_devkit")
 
 DEVKIT_VISIBILITY = pytest.importorskip("t4_devkit.schema").VisibilityLevel
+
+from tests.t4_builder import (  # noqa: E402
+    FRAME_TIME_US,
+    box2d,
+    box3d,
+    columns_of,
+    future_of,
+    yawed,
+)
 
 
 class TestGeometry:
