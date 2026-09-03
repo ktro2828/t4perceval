@@ -20,7 +20,7 @@ ourselves. Rerun itself is not a dependency; see "Relationship to Rerun" below.
 
 ## Layers
 
-```
+```text
                         ┌─────────────────────────────────────────┐
    t4perceval.system    │  System / Pipeline                      │  the "S" of ECS
                         │  filter · matching · metric · pass/fail │
@@ -41,6 +41,10 @@ ourselves. Rerun itself is not a dependency; see "Relationship to Rerun" below.
                         │  ComponentDescriptor  column identity    │
                         │  EntityPath           stream address     │
                         │  Timeline             time axis          │
+                        └──────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────┐
+   t4perceval.transform │  Transform3D rows -> FrameGraph          │  frames as data
+                        │  transform_edges · TransformResolver     │
                         └──────────────────────────────────────────┘
                         ┌──────────────────────────────────────────┐
    t4perceval.io        │  Chunk ↔ pyarrow.Table ↔ Parquet         │
@@ -78,9 +82,9 @@ together with every verdict recorded about it.
 ```python
 @define(frozen=True, slots=True)
 class ComponentDescriptor:
-    component: str                    # identity is this field alone
-    archetype: str | None             # eq=False; a provenance hint
-    component_type: str | None        # eq=False; the component class name
+    component: str  # identity is this field alone
+    archetype: str | None  # eq=False; a provenance hint
+    component_type: str | None  # eq=False; the component class name
 ```
 
 **Key decision**: descriptor names are archetype-independent. `Detections3D` and
@@ -105,8 +109,8 @@ The canonical descriptors live in `t4perceval/descriptors.py`.
 ```python
 @define(frozen=True, slots=True)
 class BatchPosition3D(ColumnarComponent):
-    SHAPE = (3,)            # per-row shape; () is scalar, ANY is inferred from the data
-    DTYPE = np.float64      # every value is coerced to this dtype
+    SHAPE = (3,)  # per-row shape; () is scalar, ANY is inferred from the data
+    DTYPE = np.float64  # every value is coerced to this dtype
     # VALUE_RANGE = (0.0, 1.0)   # optional inclusive bound
     # REQUIRE_FINITE = True      # optional; reject NaN / Inf
 ```
@@ -141,13 +145,13 @@ package treats `isinstance` as a claim that must be true.
 ```python
 @define(frozen=True, slots=True)
 class Trackings3D(Archetype):
-    position    = component_field(POSITION,    BatchPosition3D)
-    quaternion  = component_field(QUATERNION,  BatchQuaternion)
-    size        = component_field(SIZE,        BatchSize3D)
-    class_id    = component_field(CLASS_ID,    BatchClassId)
-    confidence  = component_field(CONFIDENCE,  BatchConfidence)
+    position = component_field(POSITION, BatchPosition3D)
+    quaternion = component_field(QUATERNION, BatchQuaternion)
+    size = component_field(SIZE, BatchSize3D)
+    class_id = component_field(CLASS_ID, BatchClassId)
+    confidence = component_field(CONFIDENCE, BatchConfidence)
     instance_id = component_field(INSTANCE_ID, BatchInstanceId, kw_only=True)
-    velocity    = component_field(VELOCITY,    BatchVelocity, optional=True, kw_only=True)
+    velocity = component_field(VELOCITY, BatchVelocity, optional=True, kw_only=True)
 ```
 
 ### Why inheritance was dropped
@@ -163,8 +167,8 @@ runs opposite to ECS composition:
 Now `Trackings3D` re-declares the box components explicitly. The descriptors are identical, so:
 
 ```python
-tracking.has(*Detections3D.required_descriptors())   # True
-isinstance(tracking, Detections3D)                   # False
+tracking.has(*Detections3D.required_descriptors())  # True
+isinstance(tracking, Detections3D)  # False
 ```
 
 `has()` asks exactly the question a system asks through `REQUIRES`, and is the correct replacement for
@@ -178,18 +182,18 @@ the `isinstance` check.
 
 ### The archetypes
 
-| Archetype                     | Components                                                                                       |
-| :---------------------------- | :----------------------------------------------------------------------------------------------- |
-| `Detections3D`            | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]         |
-| `Detections2D`            | roi, class_id, confidence, [visibility]                                                          |
-| `Trackings3D`             | Detection3D's columns + instance_id                                                              |
-| `Trackings2D`             | Detection2D's columns + instance_id                                                              |
-| `Predictions3D`           | Tracking3D's columns + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
-| `Classifications2D`       | class_id, confidence, [instance_id]                                                              |
+| Archetype                | Components                                                                                       |
+| :----------------------- | :----------------------------------------------------------------------------------------------- |
+| `Detections3D`           | position, quaternion, size, class_id, confidence, [velocity], [num_points], [visibility]         |
+| `Detections2D`           | roi, class_id, confidence, [visibility]                                                          |
+| `Trackings3D`            | Detection3D's columns + instance_id                                                              |
+| `Trackings2D`            | Detection2D's columns + instance_id                                                              |
+| `Predictions3D`          | Tracking3D's columns + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
+| `Classifications2D`      | class_id, confidence, [instance_id]                                                              |
 | `SemanticSegmentation2D` | pixel, class_id                                                                                  |
 | `SemanticSegmentation3D` | point, class_id                                                                                  |
-| `Trajectories3D`           | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                        |
-| `MatchResults`            | est_index, gt_index, matching_score, match_status                                                |
+| `Trajectories3D`         | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                        |
+| `MatchResults`           | est_index, gt_index, matching_score, match_status                                                |
 
 ### Trajectory decisions
 
@@ -207,11 +211,12 @@ the `isinstance` check.
 
 ```python
 class TimeKind(Enum):
-    SEQUENCE   # a monotonic counter, such as a frame index
+    SEQUENCE  # a monotonic counter, such as a frame index
     TIMESTAMP  # nanoseconds since the Unix epoch
-    DURATION   # elapsed nanoseconds
+    DURATION  # elapsed nanoseconds
 
-FRAME     = Timeline("frame", TimeKind.SEQUENCE)
+
+FRAME = Timeline("frame", TimeKind.SEQUENCE)
 TIMESTAMP = Timeline("timestamp_ns", TimeKind.TIMESTAMP)
 ```
 
@@ -230,18 +235,19 @@ construction time.
 
 > **Decided.** Rerun expresses coordinate frames through the entity-path hierarchy plus a
 > `Transform3D` archetype (for example `/base_link/estimation/objects`). We keep
-> `Chunk.frame_id` for perception data: an entity path answers *what the data is*, and folding
+> `Chunk.frame_id` for perception data: an entity path answers _what the data is_, and folding
 > the frame into it would make `/ground_truth/objects` unaddressable by a system that does not
 > care which frame it is in.
 >
-> A transform edge is the opposite case, and does live in the path: `/transforms/<parent>/<child>`
-> with a `Transform3D` of `translation` and `rotation`. There the frame pair *is* the identity of
-> the data. Keeping it in the path also avoids a string column in a model where every component is
-> a numeric array, and gives each edge its own series, so `latest_at` answers per edge.
+> ~~A transform edge is the opposite case, and does live in the path:
+> `/transforms/<parent>/<child>` with a `Transform3D` of `translation` and `rotation`. There the
+> frame pair _is_ the identity of the data.~~
 >
-> A fixed extrinsic is logged as a single temporal sample rather than with `log_static`: static
-> data carries no `frame_id`, and on an entity with no temporal rows it reads back as zero rows,
-> whereas one sample is returned by `latest_at` at every later time.
+> **Reversed.** A transform now states its **parent** through `Chunk.frame_id` -- the same meaning
+> that field has everywhere else -- and its **child** through a `child_frame_id` component, which is
+> how ROS splits a `TransformStamped`. What decided it: a frame name had to be path-safe, so
+> `/robot1/base_link` was inexpressible, and the frame graph could not be re-filed without being
+> renamed. See "Transforms" below.
 
 ## Chunk — a column-oriented table
 
@@ -249,9 +255,9 @@ construction time.
 @define(frozen=True, slots=True)
 class Chunk:
     entity_path: EntityPath
-    indexes: tuple[TimeColumn, ...]                    # length P (partitions)
-    offsets: NDArrayI64                                # length P+1, row boundaries
-    columns: dict[ComponentDescriptor, Component]      # each of length N = offsets[-1]
+    indexes: tuple[TimeColumn, ...]  # length P (partitions)
+    offsets: NDArrayI64  # length P+1, row boundaries
+    columns: dict[ComponentDescriptor, Component]  # each of length N = offsets[-1]
     frame_id: str | None = None
     is_static: bool = False
 ```
@@ -265,7 +271,7 @@ The reason is that evaluation math is elementwise over objects -- distance matri
 verdicts -- and that maps directly onto NumPy over flat contiguous arrays, with no list offsets to
 walk per frame. `offsets` still makes per-frame aggregation cheap (`partition(i)`, `partition_ids()`).
 
-```
+```text
 offsets = [0, 2, 5]        indexes[frame].times = [0, 1]
            │  │  └── frame 1 is rows 2..4 (three objects)
            │  └───── frame 0 is rows 0..1 (two objects)
@@ -291,9 +297,9 @@ become empty; its index entry is kept, so the time axis survives.
 ```python
 store.send_chunk(chunk)
 store.log(entity_path, archetype, at=TimePoint.at(frame=0), frame_id="base_link")
-store.log_static(entity_path, archetype)
+store.log_static(entity_path, archetype, frame_id="base_link")
 
-store.latest_at(entity_path, timeline=FRAME, at=12)                    # → EntityView
+store.latest_at(entity_path, timeline=FRAME, at=12)  # → EntityView
 store.range(entity_path, timeline=FRAME, time_range=TimeRange(0, 99))  # → EntityView
 ```
 
@@ -305,10 +311,25 @@ This replaces the `Catalog → Scenario → Scene → List[PerceptionFrameResult
 | One scene             | `store.range(..., TimeRange.everything())` |
 | Shared by every frame | `store.log_static(...)`                    |
 
+`static` is a statement about **time** -- "this does not depend on a timeline" -- not about the kind
+of data. Anything may be logged either way, so a sensor calibration is a static `Transform3D` and an
+ego pose is a temporal one, with no second archetype.
+
 ### Semantics (following Rerun)
 
 - **Static data belongs to every timeline** and takes precedence over temporal data carrying the same
   descriptor. A one-row static column is broadcast across the view.
+- A static write is kept as a **whole chunk**, so its `frame_id` survives -- `static_chunks()` and
+  `static_frame_id()` reach it, while `static()` still returns just the columns, later writes winning
+  per descriptor.
+- A **static-only** entity therefore reads back as _zero rows_ through `latest_at` and `range`: a
+  view is one temporal chunk plus a broadcast overlay, and there is no row count to broadcast to.
+  That is deliberate. Surfacing static rows through a time query would invent objects in frames that
+  have none, and hand index-less chunks to systems that ask a view for its times. Readers that want
+  static rows ask for the chunk.
+- `EntityView.frame_id` reports the **temporal** chunk's frame only. A static column's frame need not
+  describe the rows -- a transform's frame is its edge's parent -- so letting it through would make
+  an unrelated static column trip the cross-frame guard.
 - `latest_at` returns the most recent partition at or **before** the given time. When several share
   that time, the most recently logged one wins.
 - `range` orders partitions **by time** (ties keep log order).
@@ -321,7 +342,7 @@ This replaces the `Catalog → Scenario → Scene → List[PerceptionFrameResult
 @define(frozen=True, slots=True)
 class EntityView:
     chunk: Chunk
-    indices: NDArrayI64                              # normalized row indices into the chunk
+    indices: NDArrayI64  # normalized row indices into the chunk
     static: dict[ComponentDescriptor, Component]
 ```
 
@@ -329,9 +350,9 @@ class EntityView:
 `materialize()` or `to_chunk()`.
 
 ```python
-view.select(slice(None, None, 2)).select([1])   # no copy
-view.component(POSITION)                        # copies exactly one column
-view.materialize(Detections3D)              # materializes as an archetype
+view.select(slice(None, None, 2)).select([1])  # no copy
+view.component(POSITION)  # copies exactly one column
+view.materialize(Detections3D)  # materializes as an archetype
 ```
 
 ### The copy/view contract
@@ -354,11 +375,11 @@ only place that says what those integers mean.
 
 ```python
 labels = LabelRegistry.from_names(["car", "truck", "pedestrian"])
-labels.class_id("truck")            # 1
-labels.encode(["car", "truck"])     # an i32 column for BatchClassId
+labels.class_id("truck")  # 1
+labels.encode(["car", "truck"])  # an i32 column for BatchClassId
 
 merged = labels.merged({"vehicle": ["car", "truck"]})
-merged.class_id("car") == merged.class_id("vehicle")   # True
+merged.class_id("car") == merged.class_id("vehicle")  # True
 ```
 
 This replaces `LabelConverter` together with `label_prefix`, `merge_similar_labels` and
@@ -374,6 +395,183 @@ metadata -- the role Rerun gives to a static `AnnotationContext`.
 tracking metrics need in order to compare identities across frames. `intern()` assigns an id to a UUID
 it has not seen; `instance_id()` refuses to, and raises instead -- which is what filtering needs, so
 that a mistyped UUID cannot quietly become a fresh identity.
+
+## Transforms — coordinate frames as recorded data
+
+A transform is an observation like any other, not hidden state owned by a service. One row is one
+edge of the frame graph, split between the chunk and a column the way ROS splits a
+`TransformStamped`:
+
+| ROS `TransformStamped`  | `t4perceval`                 |
+| :---------------------- | :--------------------------- |
+| `header.frame_id`       | `Chunk.frame_id` -- parent   |
+| `child_frame_id`        | `Transform3D.child_frame_id` |
+| `transform.translation` | `Transform3D.translation`    |
+| `transform.rotation`    | `Transform3D.rotation`       |
+
+A row maps a point in the child frame into the parent: `p_parent = R p_child + t`.
+
+The parent belongs on the chunk because `frame_id` already means "the frame these rows are expressed
+in", which is exactly true of a transform's row.
+
+### A transform is one edge, so its components are mono
+
+`Transform3D` is the only archetype in the package whose components are **mono**
+(`MonoComponent`). Every other one describes _N_ objects, so every column is a batch; a transform
+describes one relationship, of which an entity holds exactly one per point in time. Its translation
+is therefore a `(3,)` value and its child frame a `str`:
+
+```python
+pose = Transform3D(
+    translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"
+)
+pose.translation.value  # array([1.2, 0. , 1.8])
+pose.child_frame_id.name  # 'lidar'
+```
+
+There is no row to index into, and "what if it has three rows?" is not a question the type can be
+asked -- it raises at construction.
+
+**Mono is a boundary type; the store stays columnar.** `as_components()` widens a mono value into
+its `BATCH` counterpart on the way into a chunk (`Position3D` to `BatchPosition3D`, `FrameId` to
+`BatchFrameId`), and the archetype's field converter narrows it back. That division is load-bearing:
+`Store.range` concatenates partitions, so a query spanning three samples of one edge returns a
+three-row column -- which a type permitting exactly one row could not be. A chunk therefore always
+holds batch columns:
+
+```python
+scene.range("/tf/base_link", timeline=FRAME, time_range=EVERYTHING).component(TRANSLATION)
+# BatchPosition3D of 3 rows -- the ego's path
+
+Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_TOP")[0]).translation.value
+# array([0., 0., 2.]) -- one row narrows back to one value
+```
+
+Materializing a multi-row view as a `Transform3D` raises rather than silently taking the first row.
+Read the columns for the series; materialize for the edge.
+
+Neither frame is in the entity path. A path says where data is _filed_; a frame names a _node of the
+graph_. Conflating them means a frame name has to be path-safe -- `/robot1/base_link` was
+inexpressible -- and a tree cannot be re-filed without being renamed.
+
+```python
+store.log_static(  # a calibration: fixed
+    "/tf/lidar",
+    Transform3D(translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"),
+    frame_id="base_link",
+)
+store.log(  # an ego pose: per frame
+    "/tf/base_link",
+    Transform3D(
+        translation=[10.0, 0.0, 0.0], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="base_link"
+    ),
+    at=TimePoint.at(frame=1, timestamp_ns=...),
+    frame_id="map",
+)
+```
+
+### Static or temporal is a statement about time
+
+Both of those are the same archetype, and neither is a special case. `static` means "does not depend
+on a timeline", so a calibration is static and an ego pose is not, and a static write keeps its
+`frame_id` -- which is what makes the edge interpretable without inventing a sample time for it.
+
+The earlier design could not do this: static storage discarded everything but the columns, so a
+fixed extrinsic had to be logged as a _temporal_ sample at the scene's first frame and rely on
+`latest_at` reaching forward from it. The cost was that a windowed `range` starting after that sample
+never saw it. A static edge has no window, so that cost is gone.
+
+The remaining consequence is that static rows do not surface through `latest_at` or `range` (see
+"Store"), so a fixed edge is read through `static_chunks()` rather than through a time query.
+
+### `TRANSLATION` and `ROTATION` are their own descriptors
+
+Not a reuse of `POSITION` and `QUATERNION`, so a system asking for a 3D position -- a distance
+filter, say -- cannot be pointed at a transform entity and appear to work.
+
+### Frame names are a text column
+
+`FrameId` and its storage form `BatchFrameId` are the one non-numeric component in the model. The
+rule that admits it: **text is admissible where there is one value per edge, not one per object.** Class and instance names are per object
+and stay interned in a registry, carried as metadata; frame names are per edge, so a registry would
+save a few hundred bytes while leaving `Chunk.frame_id` a string and the column an integer -- two
+encodings of one concept, with nothing checking they agree -- and would have to be threaded through
+`Store`, `SystemContext`, `Recording` and the Arrow schema.
+
+The column is `object`-typed, never a fixed-width `<U*`: numpy truncates silently, so a long name
+would become a different, shorter frame and two sensors could collapse into one. Its Arrow type is
+pinned to `string` rather than inferred, because inference on an object array depends on the values
+-- a zero-row column infers `null`, which the schema rejects for declaring every field non-nullable.
+
+### Finding the graph again
+
+```python
+from t4perceval.transform import FrameGraph, TransformResolver, transform_edges
+
+transform_edges(recording)  # -> (TransformEdge(parent, child, entity_path, is_static), ...)
+FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_TOP", ...)
+```
+
+Discovery _reads_ the chunks -- the earlier design enumerated the graph from the list of entity paths
+alone, which is no longer possible and was the price of frames being data. The read is small: a chunk
+with no `child_frame_id` is skipped on a dict lookup, and one that has it holds one edge per row.
+
+- A chunk without a `child_frame_id` column is **ignored**, so an unrelated entity filed nearby
+  cannot break discovery.
+- A chunk that names a child but states no `frame_id` **raises**: its parent is unknown, so the edge
+  cannot be interpreted at all. This differs from `require_same_frame`, where an unstated frame is
+  merely "no opinion" -- that rule is about comparing two things, this one about interpreting one.
+- The same `(parent, child)` recorded in two places **raises**, because nothing could choose.
+
+### Resolving a chain
+
+`TransformResolver` is the interpretation step the store does not take. It walks the graph
+breadth-first (fewest hops, since every composition compounds error), inverts an edge walked against
+the direction it was recorded in -- exact, for a rigid transform -- and composes:
+
+```python
+resolver = TransformResolver.of(recording, timeline=FRAME)
+resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+# T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
+```
+
+Static and temporal edges take part in one graph, exactly as ROS composes a latched transform with a
+live one. A temporal edge picks its sample by `LookupPolicy`: `LATEST`, `EXACT`, `NEAREST` or
+`INTERPOLATE` (linear translation, `Slerp` rotation). A static edge ignores the policy -- interpolating
+something that never changes is a question with one answer, not an error. An unknown or unreachable
+frame raises, so a missing calibration can never quietly resolve to identity.
+
+It is **not** a `System`: a system returns chunks for a pipeline to file, whereas a lookup answers a
+question and writes nothing. Materializing a _transformed entity_ is the system-shaped job, and it is
+still blocked on a passthrough system being unable to declare the columns it carries.
+
+### The frame tree of an imported scene
+
+`log_scene_transforms` in `t4perceval.importer.t4` records two kinds of edge:
+
+| Edge                     | Filed at        | How                     | Source              |
+| :----------------------- | :-------------- | :---------------------- | :------------------ |
+| `map -> base_link`       | `/tf/base_link` | one sample per keyframe | `ego_pose`          |
+| `base_link -> <channel>` | `/tf/<channel>` | static                  | `calibrated_sensor` |
+
+- Extrinsics come from `calibrated_sensor`, which holds one row per sensor, rather than from walking
+  `sample_data` -- that would do work proportional to the scene to recover a handful of values. They
+  are a property of the dataset's sensor set, so a channel this scene records no data for still
+  appears, and the tree does not depend on which frames were imported.
+- Two calibrations for one channel raise unless they place the sensor identically, and a calibration
+  naming a sensor the `sensor` table does not list raises as well. Settling on one silently would put
+  a wrong extrinsic into the frame tree, where nothing downstream could notice.
+- The dataset stores rotations as `wxyz` and this package as `xyzw`. Both are four floats, so taking
+  them verbatim yields a plausible rotation rather than an error; the reorder happens at this
+  boundary, and nowhere else.
+- Ego poses are recorded per **keyframe**, on both timelines, so a lookup works whether an evaluation
+  runs on frame indices or on timestamps. Sub-frame ego motion is not represented, which is the
+  resolution the annotations themselves have.
+
+Still to come: a system that materializes a _transformed entity_. Until it exists, transforms are
+recorded, discoverable and resolvable, but nothing rewrites an object chunk into another frame -- so
+the system layer refuses to compare geometry across frames instead. See "Coordinate frames" in
+[system.md](system.md).
 
 ## IO — Arrow and Parquet
 
@@ -423,12 +621,12 @@ We adopt Rerun's data model as a **design**, without depending on the SDK.
 `rerun-sdk` is present in the virtualenv as a `t4-devkit` dependency, but `t4perceval` does not import
 it.
 
-## Dataloader design (a later step)
+## Dataloader design
 
-The path from `t4_devkit.T4Devkit` to a `Chunk`. Implementation waits until a minimal T4 dataset
-fixture is available.
+The path from `t4_devkit.T4Devkit` to a `Chunk`. Implemented as `t4perceval.importer.t4`, against
+the `tests/data/t4dataset` fixture; the design below is what shipped.
 
-```
+```text
 T4Devkit(data_root, revision)
   ├ get_box3ds(sample_data_token, future_seconds=...)  → list[Box3D]
   └ get_box2ds(sample_data_token)                      → list[Box2D]
@@ -461,13 +659,16 @@ Points to handle:
 
 Conclusions for the points left open in `TODO.md`.
 
-| Question                                   | Decision                                                                                                |
-| :----------------------------------------- | :------------------------------------------------------------------------------------------------------ |
-| Fix trajectory `M` / `T`?                  | Fixed within a chunk; variable lengths use validity masks                                               |
-| Validate that `mode_confidence` sums to 1? | No; only range and finiteness                                                                           |
-| Validate finite `waypoints`?               | Yes; invalid timesteps are expressed by the mask                                                        |
-| Make component arrays read-only?           | Yes                                                                                                     |
-| Allow zero-object batches?                 | Yes, for every archetype                                                                                |
-| What does `Selection` accept?              | slice / int array / bool array / int list / bool list; negative, duplicate and reversed indices allowed |
-| How do categories map to `BatchClassId`?   | `LabelRegistry`, carried as static metadata                                                             |
-| A view class per archetype?                | No; one generic `EntityView`                                                                            |
+| Question                                   | Decision                                                                                                  |
+| :----------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
+| Fix trajectory `M` / `T`?                  | Fixed within a chunk; variable lengths use validity masks                                                 |
+| Validate that `mode_confidence` sums to 1? | No; only range and finiteness                                                                             |
+| Validate finite `waypoints`?               | Yes; invalid timesteps are expressed by the mask                                                          |
+| Make component arrays read-only?           | Yes                                                                                                       |
+| Allow zero-object batches?                 | Yes, for every archetype                                                                                  |
+| What does `Selection` accept?              | slice / int array / bool array / int list / bool list; negative, duplicate and reversed indices allowed   |
+| How do categories map to `BatchClassId`?   | `LabelRegistry`, carried as static metadata                                                               |
+| A view class per archetype?                | No; one generic `EntityView`                                                                              |
+| Put the coordinate frame in the path?      | No. Perception data keeps `Chunk.frame_id`; a transform states its parent there and its child in a column |
+| Carry a transform as static data?          | When it is time-invariant, yes -- `static` means "not on a timeline", and a static write keeps its frame  |
+| Intern frame names into a registry?        | No; a text column, because a frame column is O(edges) rather than O(objects)                              |

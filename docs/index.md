@@ -30,14 +30,20 @@ T4 dataset / NumPy / Parquet
    Filter / Matching / Metrics
 ```
 
-The model is split into four layers:
+Coordinate frames ride along the same path: an ego pose or a sensor extrinsic is a `Transform3D`
+row -- parent in the chunk's `frame_id`, child in a column -- not state held outside the store.
+
+The model is split into these layers:
 
 | Layer                  | Responsibility                                                            |
 | ---------------------- | ------------------------------------------------------------------------- |
 | `t4perceval.component` | Typed, column-oriented values such as positions, labels, and trajectories |
 | `t4perceval.archetype` | Validated bundles of related components                                   |
 | `t4perceval.core`      | Entity paths, timelines, chunks, storage, and views                       |
+| `t4perceval.transform` | Coordinate-frame edges: finding the graph, and composing a lookup         |
 | `t4perceval.system`    | Filtering, matching, metrics, and pass/fail evaluation                    |
+| `t4perceval.importer`  | External formats in (the T4 dataset today, a ROS bag later)               |
+| `t4perceval.io`        | Arrow and Parquet persistence                                             |
 
 ## Quick example
 
@@ -76,12 +82,12 @@ The detailed design is available in Japanese and English.
 Install the development dependencies and start the documentation server:
 
 ```console
-$ uv sync --group dev
-$ uv run zensical serve
+uv sync --group dev
+uv run zensical serve
 ```
 
 Then open the local URL printed by Zensical. To produce a static site instead, run:
 
 ```console
-$ uv run zensical build --clean
+uv run zensical build --clean
 ```

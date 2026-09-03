@@ -11,6 +11,8 @@
 | `Shape` / `ShapeType`                                      | `BatchSize3D`                                                                                                                                            | footprint 計算は matching system 側へ                        |
 | `FrameGroundTruth`                                         | `/ground_truth/objects` の 1 partition                                                                                                                   | `unix_time` → `TIMESTAMP` timeline                           |
 | `FrameGroundTruth.raw_data`                                | 別 entity path (`/sensor/<channel>`)                                                                                                                     | 今回は未実装                                                 |
+| `FrameID` enum                                             | 文字列としての `Chunk.frame_id`                                                                                                                          | system は比較するだけで、分岐はしない                        |
+| `HomogeneousMatrix` / 引数で渡す変換                       | `Transform3D` の行 + `TransformResolver.lookup()`                                                                                                        | 状態ではなく記録データ。親は `Chunk.frame_id`、子は列        |
 | `Catalog` / `Scenario` / `Scene`                           | `Store` + timeline 上の `TimeRange`                                                                                                                      | list のネストを廃止                                          |
 | `PerceptionFrameResult`                                    | `store.latest_at(...)` の結果 + `/matching/*` chunk                                                                                                      | frame ごとの再計算が不要                                     |
 | `DynamicObjectWithPerceptionResult`                        | `MatchResults`                                                                                                                                           | 参照ではなく行 index。保存・再解析できる                     |
@@ -33,16 +35,17 @@
 
 ## 概念の対応
 
-| 旧の概念                     | 新の概念                                              |
-| :--------------------------- | :---------------------------------------------------- |
-| オブジェクトのフィールド     | component (列)                                        |
-| タスクごとのクラス           | archetype (component の束)                            |
-| est / gt の区別 (引数の順序) | entity path (`/estimation/...` / `/ground_truth/...`) |
-| `frame_id` (座標系)          | `Chunk.frame_id`                                      |
-| `unix_time`                  | `TIMESTAMP` timeline 上の値                           |
-| frame 番号                   | `FRAME` timeline 上の値                               |
-| `List[FrameResult]` の走査   | `store.range(...)`                                    |
-| 中間結果 (破棄)              | `/`配下の chunk (保存)                                |
+| 旧の概念                          | 新の概念                                              |
+| :-------------------------------- | :---------------------------------------------------- |
+| オブジェクトのフィールド          | component (列)                                        |
+| タスクごとのクラス                | archetype (component の束)                            |
+| est / gt の区別 (引数の順序)      | entity path (`/estimation/...` / `/ground_truth/...`) |
+| `frame_id` (座標系)               | `Chunk.frame_id`                                      |
+| ego pose / センサー外部パラメータ | `Transform3D` の行: `frame_id` -> `child_frame_id`    |
+| `unix_time`                       | `TIMESTAMP` timeline 上の値                           |
+| frame 番号                        | `FRAME` timeline 上の値                               |
+| `List[FrameResult]` の走査        | `store.range(...)`                                    |
+| 中間結果 (破棄)                   | `/`配下の chunk (保存)                                |
 
 ## コード例
 
@@ -71,8 +74,8 @@ instances = InstanceRegistry()
 
 detections = Trackings3D(
     position=[[1.0, 2.0, 3.0], ...],
-    quaternion=[[0.0, 0.0, 0.0, 1.0], ...],       # xyzw
-    size=[[1.0, 4.0, 2.0], ...],                  # width, length, height
+    quaternion=[[0.0, 0.0, 0.0, 1.0], ...],  # xyzw
+    size=[[1.0, 4.0, 2.0], ...],  # width, length, height
     class_id=labels.encode(["car", ...]),
     confidence=[0.9, ...],
     instance_id=instances.encode(["c28556c1...", ...]),
@@ -108,23 +111,31 @@ scene_score = manager.get_scene_result()
 
 ```python
 # 新
-pipeline = Pipeline([
-    FilterByDistanceSystem.on("/ground_truth/objects", max_distance=102.4),
-    CenterDistanceMatchingSystem.between(
-        "/estimation/objects", "/ground_truth/objects", threshold=1.0,
-    ),
-])
+pipeline = Pipeline(
+    [
+        FilterByDistanceSystem.on("/ground_truth/objects", max_distance=102.4),
+        CenterDistanceMatchingSystem.between(
+            "/estimation/objects",
+            "/ground_truth/objects",
+            threshold=1.0,
+        ),
+    ]
+)
 pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 
 # scene 全体
 scene = store.range(
-    "/matching/center_distance", timeline=FRAME, time_range=TimeRange.everything(),
+    "/matching/center_distance",
+    timeline=FRAME,
+    time_range=TimeRange.everything(),
 ).materialize(MatchResults)
 scene.num_tp, scene.num_fp, scene.num_fn
 
 # frame 単位 — 再計算なしで同じ store から取れる
 frame_1 = store.range(
-    "/matching/center_distance", timeline=FRAME, time_range=TimeRange.single(1),
+    "/matching/center_distance",
+    timeline=FRAME,
+    time_range=TimeRange.single(1),
 ).materialize(MatchResults)
 ```
 
@@ -142,7 +153,9 @@ region = FilterByRegionSystem.symmetric(src, max_xy=(102.4, 102.4))
 label = FilterByLabelSystem.on(src, labels=["car", "bicycle", "pedestrian", "motorbike"])
 points = FilterByNumPointsSystem.on(src, min_num_points=5)
 keep = CombineMasksSystem.of(
-    [region.target, label.target, points.target], f"{src}/filter/keep", mode="all",
+    [region.target, label.target, points.target],
+    f"{src}/filter/keep",
+    mode="all",
 )
 
 ctx = SystemContext(store, FRAME, labels=labels, instances=instances)
@@ -153,7 +166,11 @@ store.range(region.target, timeline=FRAME, time_range=TimeRange.everything()).co
 
 # 通過した行だけを遅延 view で取る
 passed = masked_view(
-    store, src, keep.target, timeline=FRAME, time_range=TimeRange.everything(),
+    store,
+    src,
+    keep.target,
+    timeline=FRAME,
+    time_range=TimeRange.everything(),
 ).materialize(Detections3D)
 ```
 
@@ -162,7 +179,7 @@ passed = masked_view(
 ```python
 # 旧
 if isinstance(obj, DynamicObject) and obj.uuid is not None:
-    ...   # tracking として扱う
+    ...  # tracking として扱う
 ```
 
 ```python
@@ -188,7 +205,9 @@ json.dump(dict_result, f)
 ```python
 # 新 — dtype と shape が schema で固定され、列指向で読み戻せる
 chunk = store.range(
-    "/matching/center_distance", timeline=FRAME, time_range=TimeRange.everything(),
+    "/matching/center_distance",
+    timeline=FRAME,
+    time_range=TimeRange.everything(),
 ).to_chunk()
 write_parquet(chunk, "matching.parquet", labels=labels)
 

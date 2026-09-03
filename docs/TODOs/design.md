@@ -95,7 +95,7 @@ distinct message schemas, unlike the T4 3D archetypes.
       semantic location; they are not the same concept.
 - [ ] `t4perceval.align` — associate ground-truth and estimation frames by nearest
       timestamp within a tolerance, one-to-one, producing a shared `FRAME` index. Needed
-      because matching takes the *union* of the two time sets, so mismatched stamps yield
+      because matching takes the _union_ of the two time sets, so mismatched stamps yield
       all-FP + all-FN frames instead of an error.
 - [ ] Decide what `existence_probability` versus the per-class probability means for
       `BatchConfidence`, and how `Shape.dimensions` (x=length, y=width, z=height) maps onto
@@ -136,30 +136,60 @@ distinct message schemas, unlike the T4 3D archetypes.
 
 Transforms are recorded data plus an explicit interpretation step, never hidden state.
 
-- [x] Decide how to carry a transform. Not `HomogeneousMatrix`, and not static data:
+- [x] ~~Decide how to carry a transform. Not `HomogeneousMatrix`, and not static data:
       `Transform3D` (`translation` + `rotation`) at `/transforms/<parent>/<child>`, logged as
-      ordinary temporal samples. Static data carries no `frame_id` and reads back as zero
-      rows on an entity with no temporal partition, so a fixed extrinsic is one sample that
-      `latest_at` reaches forward from.
-- [x] Revisit the coordinate frame in the `EntityPath` hierarchy. Perception data keeps
-      `Chunk.frame_id`; a transform *edge* lives in the path, because there the frame pair is
-      the identity of the data. Recorded in [data_model.md](../design/en/data_model.md).
+      ordinary temporal samples, because a static-only entity reads back as zero rows.~~
+- [x] ~~Revisit the coordinate frame in the `EntityPath` hierarchy. A transform _edge_ lives in
+      the path, because there the frame pair is the identity of the data.~~
+- [x] **Reversed, both of the above.** A transform is ROS-shaped: parent in `Chunk.frame_id`,
+      child in a `child_frame_id` component, neither in the entity path. The path version
+      could not express a frame name containing `/`, and tied the graph to where it was
+      filed. `static` now means only "not on a timeline", so a calibration is `log_static`
+      and an ego pose is `log` -- same archetype. Recorded in
+      [data_model.md](../design/en/data_model.md); the old claims are struck through there
+      rather than deleted.
+- [x] Mono components. `Transform3D` describes one relationship, not N objects, so its
+      fields are `Position3D` / `Quaternion` / `FrameId` -- values, not columns, with
+      `.value` / `.name` accessors and no row to index. `MonoComponent` is a boundary type:
+      `Archetype.as_components()` widens it into its `BATCH` counterpart, because
+      `Store.range` concatenates partitions and a type permitting exactly one row could not
+      be the stored column. Materializing a multi-row view as a `Transform3D` raises instead
+      of taking the first row.
+- [x] Make static data retain its chunk. `Store._static` holds whole chunks, so a static write
+      keeps its `frame_id` (and offsets, and `is_static`); `static_chunks()` /
+      `static_frame_id()` reach them while `static()` still returns folded columns. Static rows
+      deliberately do **not** surface through `latest_at` / `range` -- that would invent rows in
+      empty frames and hand index-less chunks to systems that ask a view for its times -- and
+      `EntityView.frame_id` still reports the temporal chunk's frame only. This is also a
+      prerequisite for `write_recording`, which would otherwise have nothing to write.
 - [x] Refuse to compare geometry across frames. `require_same_frame()` in
       `t4perceval/system/base.py`, called from the matching base and from `MatchJoin`, so
-      every matcher and every geometric metric is covered once. Two *different stated* frames
+      every matcher and every geometric metric is covered once. Two _different stated_ frames
       raise; an unstated frame is not a disagreement. Opt out per system with
       `check_frames=False`.
 - [x] Import the frame tree. The T4 importer records `map -> base_link` per keyframe from
-      `ego_pose` and a fixed `base_link -> <channel>` per sensor from `calibrated_sensor`.
-- [ ] `TransformResolver` — graph traversal, inversion, composition, and a lookup policy of
-      `latest` / `exact` / `nearest` / `interpolate` (`Slerp` for rotation, lerp for
-      translation; both are in the scipy already depended on).
-- [ ] `TransformSystem` — materialize a transformed entity. Decisions already taken: velocity
+      `ego_pose` at `/tf/base_link`, and a **static** `base_link -> <channel>` per sensor from
+      `calibrated_sensor` at `/tf/<channel>` -- one row per sensor, so the tree costs nothing
+      per frame and does not depend on which frames were imported. Two calibrations for one
+      channel raise unless they agree, and one naming a sensor the `sensor` table does not list
+      raises as well.
+- [x] Find the graph from the data. `transform_edges()` / `FrameGraph` read `(chunk.frame_id,
+child_frame_id)` out of the chunks, so nothing parses an entity path. A chunk without the
+      column is ignored; one that names a child but states no `frame_id` raises, as does the
+      same `(parent, child)` recorded twice.
+- [x] `TransformResolver` — breadth-first traversal, exact inversion of an edge walked
+      backwards, composition, and `LookupPolicy.LATEST` / `EXACT` / `NEAREST` / `INTERPOLATE`
+      (`Slerp` for rotation, lerp for translation). Static edges ignore the policy. Returns a
+      one-row `Transform3D`, not a matrix, so it can be logged straight back. Not a `System`:
+      it answers a question rather than producing chunks.
+- [ ] A system that materializes a transformed entity. Decisions already taken: velocity
       is rotated only and never translated, and the docstring must say that ignores relative
       motion between the frames; every waypoint of a chunk uses that chunk's own transform;
       `MASK` columns are dropped rather than carried, because a distance or region mask is a
-      claim about the source frame. It writes a *separate* entity — `range()` refuses to
-      concatenate chunks in different frames, so this is forced rather than stylistic.
+      claim about the source frame. It writes a _separate_ entity — `range()` refuses to
+      concatenate chunks in different frames, so this is forced rather than stylistic. The
+      resolver above already answers the geometry question; this is only the plumbing that
+      writes the answer back as an entity.
   - [ ] Resolve the `PROVIDES` problem first: a passthrough system cannot enumerate the
         columns it carries, and declaring `()` makes `Pipeline` reject any consumer of its
         target. `ApplyMaskSystem` already has this wart. A sentinel that makes `_validate`

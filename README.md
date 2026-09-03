@@ -18,6 +18,7 @@ pipeline you compose.
 | Data model   | [ja/data_model.md](docs/design/ja/data_model.md) | [en/data_model.md](docs/design/en/data_model.md) |
 | System layer | [ja/system.md](docs/design/ja/system.md)         | [en/system.md](docs/design/en/system.md)         |
 | Migration    | [ja/migration.md](docs/design/ja/migration.md)   | [en/migration.md](docs/design/en/migration.md)   |
+| Naming       | —                                                | [en/naming.md](docs/design/en/naming.md)         |
 
 ## Layers
 
@@ -28,7 +29,8 @@ t4perceval.core       Store / Chunk / Timeline     the mutable log
                       Archetype / Component        the data model
                       EntityPath / Descriptor      addressing
 t4perceval.geometry   box corners / IoU / planes   vectorized, pairwise
-t4perceval.importer   T4 dataset / ROS bag         external formats in
+t4perceval.transform  FrameGraph / resolver         coordinate frames as data
+t4perceval.importer   T4 dataset (ROS bag next)    external formats in
 t4perceval.io         Arrow / Parquet              persistence
 t4perceval.label      LabelRegistry                meaning for the integer columns
 t4perceval.recording  Recording                    a log plus what its integers mean
@@ -189,6 +191,61 @@ Pipeline(
 result = setup.into_recording()  # inputs, matches and metrics, with provenance
 ```
 
+### Coordinate frames
+
+A chunk states the frame its rows are in (`frame_id`), and a transform is recorded data like
+everything else -- one edge of the frame graph, split the way ROS splits a `TransformStamped`: the
+chunk's `frame_id` is the **parent**, `child_frame_id` is the **child**. Static (a calibration) and
+temporal (an ego pose) are the same archetype; `static` says only that the value does not depend on
+a timeline.
+
+`Transform3D` is the one archetype whose components are **mono** -- it describes a single
+relationship, not `N` objects -- so its fields are values rather than columns:
+
+```python
+pose = Transform3D(
+    translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"
+)
+pose.translation.value  # array([1.2, 0. , 1.8])
+pose.child_frame_id.name  # 'lidar'
+```
+
+Storage stays columnar: a mono value is widened into its `Batch*` counterpart on the way into a
+chunk, so a range query over three ego samples still returns a three-row column.
+
+```python
+from t4perceval.transform import TransformResolver, transform_edges
+
+# The T4 importer records the scene's tree: `map -> base_link` per keyframe from `ego_pose`,
+# and a static `base_link -> <channel>` per sensor from `calibrated_sensor`.
+print(sorted(edge.frames for edge in transform_edges(ground_truth)))
+# [('base_link', 'CAM_BACK'), ('base_link', 'CAM_FRONT'), ('base_link', 'LIDAR_TOP'),
+#  ('map', 'base_link')]
+
+# Static and temporal edges compose in one graph:
+#   T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
+resolver = TransformResolver.of(ground_truth, timeline=FRAME)
+pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+print(pose.translation.value)  # [10.  0.  2.]
+```
+
+Edges are found by reading the chunks, not by parsing entity paths, so where a transform is filed is
+a filing decision and a frame name may contain a `/`. A temporal edge picks its sample with a
+`LookupPolicy` (`LATEST`, `EXACT`, `NEAREST`, `INTERPOLATE`); an unreachable frame raises rather than
+quietly resolving to identity.
+
+Nothing rewrites an entity's rows into another frame yet, so the system layer refuses to compare
+geometry across frames instead of silently producing plausible numbers:
+
+```text
+ValueError: Cannot compare geometry across coordinate frames: /estimation/objects in 'base_link',
+/ground_truth/objects in 'map'. Bring the inputs into one frame first.
+```
+
+Every matcher is covered through `MatchingSystem`, and every geometric metric through `MatchJoin`.
+Only two _different, stated_ frames raise; an unstated frame is not a disagreement, and
+`check_frames=False` opts out per system.
+
 ## Benchmark
 
 Compared with `autoware_perception_evaluation` (`perception_eval`) 1.3.6, the columnar data model
@@ -220,10 +277,15 @@ ruff check t4perceval tests && ruff format --check t4perceval tests
 Implemented: the data model (`core`), all component and archetype types, the store with timelines and
 static data, lazy views, the label registries, Arrow/Parquet IO, the system protocol with `Pipeline`,
 the full filter family (eight filters on a shared `MaskSystem` base, plus `CombineMasksSystem` and
-`masked_view`), and the full matching family (six modes on a shared `MatchingSystem` base, with
-per-class `Thresholds` and vectorized geometry in `t4perceval.geometry`).
+`masked_view`), the full matching family (six modes on a shared `MatchingSystem` base, with per-class
+`Thresholds` and vectorized geometry in `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR,
+ADE/FDE/MissRate, classification, confusion matrix), the T4 importer with the `Recording` boundary and
+`t4perceval.evaluation`, and coordinate transforms -- static and temporal edges, frame-graph discovery
+from the data, composition through `TransformResolver`, and the cross-frame guard.
 
-Next: the metric systems (mAP/APH, CLEAR, HOTA, ADE/FDE, classification), pass/fail, the `t4_devkit`
-dataloader, and a visualization layer. See
-[docs/design/en/system.md](docs/design/en/system.md) for where each of those fits on the protocol, and
-[TODO.md](TODO.md) for the current list.
+Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, the MCAP/ROS bag
+importer, persisting a whole `Recording`, and a visualization layer. See
+[docs/design/en/system.md](docs/design/en/system.md) for where each of those fits on the protocol,
+[docs/TODOs/design.md](docs/TODOs/design.md) for the current list, and
+[docs/TODOs/metrics.md](docs/TODOs/metrics.md) for where the metric implementations differ from the
+official benchmark definitions.

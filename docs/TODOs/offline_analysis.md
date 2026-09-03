@@ -23,7 +23,8 @@ A recording should preserve:
 - Static components
 - Entity paths
 - All timelines and partition offsets
-- `frame_id`
+- `frame_id` (temporal and static alike: a static write keeps its own, reachable through
+  `Store.static_chunks()`, which is what makes a saved transform edge interpretable)
 - Label and instance registries
 - Raw estimations and ground truth
 - Filter masks

@@ -16,13 +16,13 @@ of components present plus the pipeline you compose.**
 ```python
 @runtime_checkable
 class System(Protocol):
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]   # components it needs
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]   # components it writes
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]  # components it needs
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]  # components it writes
 
     @property
-    def sources(self) -> tuple[EntityPath, ...]: ...      # entities it reads
+    def sources(self) -> tuple[EntityPath, ...]: ...  # entities it reads
     @property
-    def target(self) -> EntityPath: ...                   # entity it writes
+    def target(self) -> EntityPath: ...  # entity it writes
 
     def __call__(self, ctx: SystemContext, at: int | TimeRange) -> Iterable[Chunk]: ...
 ```
@@ -55,11 +55,14 @@ later why a given object was excluded from evaluation.
 ## Pipeline
 
 ```python
-pipeline = Pipeline([
-    FilterByDistanceSystem.on("/estimation/objects", max_distance=102.4),
-    CenterDistanceMatchingSystem.between("/estimation/objects", "/ground_truth/objects",
-                                         threshold=1.0),
-])
+pipeline = Pipeline(
+    [
+        FilterByDistanceSystem.on("/estimation/objects", max_distance=102.4),
+        CenterDistanceMatchingSystem.between(
+            "/estimation/objects", "/ground_truth/objects", threshold=1.0
+        ),
+    ]
+)
 pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 ```
 
@@ -77,11 +80,14 @@ contents are not knowable at construction time.
 
 ```python
 # The filter writes only a mask, so its entity cannot be a matching source
-Pipeline([
-    FilterByDistanceSystem.on("/estimation/objects"),
-    CenterDistanceMatchingSystem.between("/estimation/objects/filter/distance",
-                                         "/ground_truth/objects"),
-])
+Pipeline(
+    [
+        FilterByDistanceSystem.on("/estimation/objects"),
+        CenterDistanceMatchingSystem.between(
+            "/estimation/objects/filter/distance", "/ground_truth/objects"
+        ),
+    ]
+)
 # ValueError: ... reads /estimation/objects/filter/distance for component(s)
 #             class_id, position, which no earlier system provides there
 ```
@@ -97,7 +103,7 @@ chunk construction are implemented once, in `MaskSystem`.
 @define(slots=True)
 class FilterByConfidenceSystem(MaskSystem):
     REQUIRES = (CONFIDENCE,)
-    FILTER_NAME = "confidence"          # target defaults to <source>/filter/confidence
+    FILTER_NAME = "confidence"  # target defaults to <source>/filter/confidence
 
     min_confidence: float = field(default=0.0, kw_only=True)
     max_confidence: float = field(default=1.0, kw_only=True)
@@ -155,8 +161,8 @@ Per-filter notes:
 ### `CombineMasksSystem` — composing masks
 
 ```python
-CombineMasksSystem.of([mask_a, mask_b], target, mode="all")   # intersection (AND)
-CombineMasksSystem.of([mask_a, mask_b], target, mode="any")   # union (OR)
+CombineMasksSystem.of([mask_a, mask_b], target, mode="all")  # intersection (AND)
+CombineMasksSystem.of([mask_a, mask_b], target, mode="any")  # union (OR)
 ```
 
 Having both modes is what makes **per-class thresholds expressible without a per-class threshold
@@ -165,13 +171,13 @@ becomes an AND of a label filter with a threshold filter per class, then an OR a
 
 ```python
 # Cars must have 50+ points; every other class is admitted regardless.
-is_car      = FilterByLabelSystem.on(src, labels=["car"], name="is_car")
-not_car     = FilterByLabelSystem.on(src, exclude=["car"], name="not_car")
+is_car = FilterByLabelSystem.on(src, labels=["car"], name="is_car")
+not_car = FilterByLabelSystem.on(src, exclude=["car"], name="not_car")
 many_points = FilterByNumPointsSystem.on(src, min_num_points=50, name="pts50")
-car_ok      = CombineMasksSystem.of([is_car.target, many_points.target],
-                                    f"{src}/filter/car_ok", mode="all")
-keep        = CombineMasksSystem.of([car_ok.target, not_car.target],
-                                    f"{src}/filter/keep", mode="any")
+car_ok = CombineMasksSystem.of(
+    [is_car.target, many_points.target], f"{src}/filter/car_ok", mode="all"
+)
+keep = CombineMasksSystem.of([car_ok.target, not_car.target], f"{src}/filter/keep", mode="any")
 
 Pipeline([is_car, not_car, many_points, car_ok, keep]).run(ctx, TimeRange.everything())
 ```
@@ -182,8 +188,9 @@ entity — and this is checked rather than assumed.
 ### `masked_view()` — only the rows that passed
 
 ```python
-view = masked_view(store, "/estimation/objects", keep.target,
-                   timeline=FRAME, time_range=TimeRange.everything())
+view = masked_view(
+    store, "/estimation/objects", keep.target, timeline=FRAME, time_range=TimeRange.everything()
+)
 passed = view.materialize(Detections3D)
 ```
 
@@ -201,7 +208,7 @@ implemented once, in `MatchingSystem`.
 @define(slots=True)
 class CenterDistanceMatchingSystem(MatchingSystem):
     REQUIRES = (POSITION, CLASS_ID)
-    MATCHING_NAME = "center_distance"     # target defaults to /matching/center_distance
+    MATCHING_NAME = "center_distance"  # target defaults to /matching/center_distance
     DEFAULT_THRESHOLD = 1.0
     # HIGHER_IS_BETTER = False            # a distance, so smaller is better (the default)
 
@@ -270,7 +277,8 @@ Per-mode notes:
 
 ```python
 CenterDistanceMatchingSystem.between(
-    "/estimation/objects", "/ground_truth/objects",
+    "/estimation/objects",
+    "/ground_truth/objects",
     threshold=Thresholds(1.0, by_class={"car": 2.0, "pedestrian": 0.5}),
 )
 ```
@@ -299,9 +307,47 @@ directly rather than being called per pair from Python.
 | `pairwise_plane_distance(...)`                       | `(N, M)`                                               |
 | `canonical_bev_corners(corners)`                     | corners reordered counter-clockwise about the centroid |
 
+## Coordinate frames
+
+Geometry across two frames is meaningless, and nothing downstream notices: subtracting a `map`
+position from a `base_link` one produces a number, not an error, and the metric built on it looks
+entirely plausible. The system layer therefore refuses the comparison.
+
+```python
+from t4perceval.system.base import require_same_frame, resolve_frame
+```
+
+| Helper                       | Behaviour                                                                       |
+| :--------------------------- | :------------------------------------------------------------------------------ |
+| `require_same_frame(*views)` | returns the single stated frame; raises when two views state different ones     |
+| `resolve_frame(*views)`      | returns the first stated frame, without checking -- for a system with one input |
+
+Two seams cover the whole surface: `MatchingSystem` calls it, so all six matchers are checked, and
+`MatchJoin.of` calls it, so every geometric metric is checked through the join it already goes
+through.
+
+- An **unstated** frame is not a disagreement. A view carries `None` when the entity had nothing in
+  range, when the data was logged without a frame, or when it holds a metric rather than geometry.
+  Only two _different, stated_ frames raise.
+- Row count is deliberately not consulted. A frame with no objects is still recorded in a frame, and
+  skipping it would make the output frame flicker across a scene -- which `concat_chunks` then
+  refuses to join.
+- Only the **temporal** chunk's frame is consulted. A static column's frame need not describe the
+  rows it broadcasts over -- a transform states its edge's _parent_ there -- so a static
+  `time_offset` logged in `base_link` must not make a comparison in `map` raise.
+- `check_frames=False` opts out per system, mirroring the `require_same_frame_id` escape hatch that
+  store assembly already offers. Without it, a store assembled with that flag would be un-matchable.
+
+This is a guard, not a fix. Resolving a transform _is_ implemented --
+`TransformResolver.lookup(target_frame=..., source_frame=..., at=...)`, see "Transforms" in
+[data_model.md](data_model.md) -- but rewriting an entity's rows into another frame is not, because a
+passthrough system cannot yet declare the columns it carries. Until it can, bringing the inputs into
+one frame is the caller's job and this guard is what stops the alternative from looking plausible.
+
 ## Where the remaining systems fit
 
-All of the following sit on the same protocol; only the predicate or cost computation differs.
+All of the following sit on the same protocol; only the predicate or cost computation differs. The
+metric systems are implemented apart from `HotaSystem`; `PassFailSystem` is not.
 
 ### Metrics (`PROVIDES = /metrics/*` descriptors)
 

@@ -5,7 +5,7 @@
 元の [`autoware_perception_evaluation`](https://github.com/tier4/autoware_perception_evaluation) は、
 1 オブジェクト = 1 Python オブジェクト (`DynamicObject`) というモデルを採っていた。この構造は次の問題を生む。
 
-- `DynamicObject` が position / orientation / shape / velocity / tracked_\* / predicted_\* を 20 以上の
+- `DynamicObject` が position / orientation / shape / velocity / tracked*\* / predicted*\* を 20 以上の
   フィールドとして 1 クラスに抱える。タスクによって使わないフィールドが `None` で埋まる。
 - `List[DynamicObject]` を Python ループで回すため、ベクトル化できない。
 - `EvaluationTask` enum が config・matching・metrics・visualization の全層に if 分岐として漏れる。
@@ -18,7 +18,7 @@ rerun 自体は依存に入れない (後述の「rerun との関係」を参照
 
 ## レイヤ構成
 
-```
+```text
                         ┌─────────────────────────────────────────┐
    t4perceval.system    │  System / Pipeline                      │  ECS の "S"
                         │  filter · matching · metric · pass/fail │
@@ -41,6 +41,10 @@ rerun 自体は依存に入れない (後述の「rerun との関係」を参照
                         │  Timeline             時間軸              │
                         └──────────────────────────────────────────┘
                         ┌──────────────────────────────────────────┐
+   t4perceval.transform │  Transform3D の行 -> FrameGraph          │  座標系もデータ
+                        │  transform_edges · TransformResolver     │
+                        └──────────────────────────────────────────┘
+                        ┌──────────────────────────────────────────┐
    t4perceval.io        │  Chunk ↔ pyarrow.Table ↔ Parquet         │
                         └──────────────────────────────────────────┘
 ```
@@ -51,8 +55,8 @@ rerun 自体は依存に入れない (後述の「rerun との関係」を参照
 すべてパスの区別に移す。
 
 ```python
-EntityPath.parse("/estimation/objects")          # 推定結果
-EntityPath.parse("/ground_truth/objects")        # 正解
+EntityPath.parse("/estimation/objects")  # 推定結果
+EntityPath.parse("/ground_truth/objects")  # 正解
 EntityPath.parse("/estimation/objects") / "filter" / "distance"
 ```
 
@@ -75,9 +79,9 @@ EntityPath.parse("/estimation/objects") / "filter" / "distance"
 ```python
 @define(frozen=True, slots=True)
 class ComponentDescriptor:
-    component: str                    # 同一性はこれだけで決まる
-    archetype: str | None             # eq=False。provenance のヒント
-    component_type: str | None        # eq=False。component クラス名のヒント
+    component: str  # 同一性はこれだけで決まる
+    archetype: str | None  # eq=False。provenance のヒント
+    component_type: str | None  # eq=False。component クラス名のヒント
 ```
 
 **重要な設計判断**: descriptor 名は archetype 非依存にする。
@@ -102,8 +106,8 @@ archetype 名を含めるが、評価ツールでは「archetype 横断で同じ
 ```python
 @define(frozen=True, slots=True)
 class BatchPosition3D(ColumnarComponent):
-    SHAPE = (3,)            # 行あたりの形状。() はスカラ列。ANY はデータから推論
-    DTYPE = np.float64      # すべての値をこの dtype に正規化
+    SHAPE = (3,)  # 行あたりの形状。() はスカラ列。ANY はデータから推論
+    DTYPE = np.float64  # すべての値をこの dtype に正規化
     # VALUE_RANGE = (0.0, 1.0)   # 任意。閉区間の値域
     # REQUIRE_FINITE = True      # 任意。NaN / Inf を拒否
 ```
@@ -137,13 +141,13 @@ class BatchPosition3D(ColumnarComponent):
 ```python
 @define(frozen=True, slots=True)
 class Trackings3D(Archetype):
-    position    = component_field(POSITION,    BatchPosition3D)
-    quaternion  = component_field(QUATERNION,  BatchQuaternion)
-    size        = component_field(SIZE,        BatchSize3D)
-    class_id    = component_field(CLASS_ID,    BatchClassId)
-    confidence  = component_field(CONFIDENCE,  BatchConfidence)
+    position = component_field(POSITION, BatchPosition3D)
+    quaternion = component_field(QUATERNION, BatchQuaternion)
+    size = component_field(SIZE, BatchSize3D)
+    class_id = component_field(CLASS_ID, BatchClassId)
+    confidence = component_field(CONFIDENCE, BatchConfidence)
     instance_id = component_field(INSTANCE_ID, BatchInstanceId, kw_only=True)
-    velocity    = component_field(VELOCITY,    BatchVelocity, optional=True, kw_only=True)
+    velocity = component_field(VELOCITY, BatchVelocity, optional=True, kw_only=True)
 ```
 
 ### 継承をやめた理由
@@ -157,8 +161,8 @@ class Trackings3D(Archetype):
 いまは `Trackings3D` が box 系 component を**明示的に再宣言**する。descriptor は同一なので:
 
 ```python
-tracking.has(*Detections3D.required_descriptors())   # True
-isinstance(tracking, Detections3D)                   # False
+tracking.has(*Detections3D.required_descriptors())  # True
+isinstance(tracking, Detections3D)  # False
 ```
 
 `has()` は System が `REQUIRES` で問うのと同じ質問であり、`isinstance` の正しい置き換えである。
@@ -197,11 +201,12 @@ isinstance(tracking, Detections3D)                   # False
 
 ```python
 class TimeKind(Enum):
-    SEQUENCE   # frame index 等の単調カウンタ
+    SEQUENCE  # frame index 等の単調カウンタ
     TIMESTAMP  # Unix epoch からの ns
-    DURATION   # 経過 ns
+    DURATION  # 経過 ns
 
-FRAME     = Timeline("frame", TimeKind.SEQUENCE)
+
+FRAME = Timeline("frame", TimeKind.SEQUENCE)
 TIMESTAMP = Timeline("timestamp_ns", TimeKind.TIMESTAMP)
 ```
 
@@ -222,14 +227,15 @@ TIMESTAMP = Timeline("timestamp_ns", TimeKind.TIMESTAMP)
 > entity path は「そのデータが何か」を表すものであり、座標系を畳み込むと、座標系に関心のない
 > system から `/ground_truth/objects` を指定できなくなる。
 >
-> transform の辺は逆で、path に置く: `/transforms/<parent>/<child>` に
+> ~~transform の辺は逆で、path に置く: `/transforms/<parent>/<child>` に
 > `translation` と `rotation` を持つ `Transform3D` を記録する。ここでは座標系の組そのものが
-> データの同一性である。path に置くことで、全 component が数値配列であるモデルに文字列列を
-> 持ち込まずに済み、辺ごとに独立した時系列となるため `latest_at` が辺単位で答えられる。
+> データの同一性である。~~
 >
-> 固定の外部パラメータは `log_static` ではなく単一の temporal sample として記録する。static
-> データは `frame_id` を持たず、temporal 行のない entity では 0 行として読み出されるが、
-> 1 サンプルであれば `latest_at` が以降のあらゆる時刻で返す。
+> **撤回**: transform は **親**を `Chunk.frame_id` で (このフィールドが他の場所で持つ意味と同じ)、
+> **子**を `child_frame_id` 列で表す。ROS が `TransformStamped` を分けているのと同じ形である。
+> 決め手は、path に入れた版ではできなかった 2 点: 座標系名が path として安全でなければならず
+> (`/robot1/base_link` が表現できない)、座標系グラフを別の場所に置き直すと名前まで変わってしまう。
+> 詳細は後述の「transform」を参照。
 
 ## Chunk — 列指向テーブル
 
@@ -237,9 +243,9 @@ TIMESTAMP = Timeline("timestamp_ns", TimeKind.TIMESTAMP)
 @define(frozen=True, slots=True)
 class Chunk:
     entity_path: EntityPath
-    indexes: tuple[TimeColumn, ...]                    # 長さ P (partition 数)
-    offsets: NDArrayI64                                # 長さ P+1、行境界
-    columns: dict[ComponentDescriptor, Component]      # 各長さ N = offsets[-1]
+    indexes: tuple[TimeColumn, ...]  # 長さ P (partition 数)
+    offsets: NDArrayI64  # 長さ P+1、行境界
+    columns: dict[ComponentDescriptor, Component]  # 各長さ N = offsets[-1]
     frame_id: str | None = None
     is_static: bool = False
 ```
@@ -253,7 +259,7 @@ rerun の chunk は「行 = log 呼び出し、セル = 可変長 component batc
 平坦な contiguous 配列に対する NumPy 演算に直接落ちる。フレームごとに list offset を歩く必要がない。
 `offsets` があるのでフレーム単位の集計 (`partition(i)`, `partition_ids()`) も O(1) で取れる。
 
-```
+```text
 offsets = [0, 2, 5]        indexes[frame].times = [0, 1]
            │  │  └── frame 1 は行 2..4 (3 オブジェクト)
            │  └───── frame 0 は行 0..1 (2 オブジェクト)
@@ -279,9 +285,9 @@ offsets = [0, 2, 5]        indexes[frame].times = [0, 1]
 ```python
 store.send_chunk(chunk)
 store.log(entity_path, archetype, at=TimePoint.at(frame=0), frame_id="base_link")
-store.log_static(entity_path, archetype)
+store.log_static(entity_path, archetype, frame_id="base_link")
 
-store.latest_at(entity_path, timeline=FRAME, at=12)                  # → EntityView
+store.latest_at(entity_path, timeline=FRAME, at=12)  # → EntityView
 store.range(entity_path, timeline=FRAME, time_range=TimeRange(0, 99))  # → EntityView
 ```
 
@@ -293,10 +299,24 @@ store.range(entity_path, timeline=FRAME, time_range=TimeRange(0, 99))  # → Ent
 | 1 scene             | `store.range(..., TimeRange.everything())` |
 | 全 frame 共通の情報 | `store.log_static(...)`                    |
 
+`static` は「**時間**に依存しない」という主張であり、データの種類についての主張ではない。どの
+archetype でもどちらでも log できるので、センサーのキャリブレーションは static な `Transform3D`、
+ego pose は temporal な `Transform3D` であり、2 つ目の archetype は要らない。
+
 ### セマンティクス (rerun 準拠)
 
 - **static データは全 timeline に属する**。同一 entity・同一 descriptor の時系列データより**優先**する。
   1 行の static 列は view の行数に broadcast される。
+- static な書き込みは **chunk のまま**保持されるので `frame_id` が残る。`static_chunks()` と
+  `static_frame_id()` がそこに届き、`static()` は従来どおり列だけを返す (descriptor 単位で後勝ち)。
+- したがって **static だけの** entity は `latest_at` / `range` から _0 行_ として読み出される。view は
+  「1 つの temporal chunk + broadcast される overlay」であり、broadcast する先の行数が存在しない。
+  これは意図的である: 時刻クエリから static 行を出すと、オブジェクトのない frame にオブジェクトを
+  でっちあげ、view に時刻を尋ねる system に index を持たない chunk を渡すことになる。static 行が
+  必要な読み手は chunk を要求する。
+- `EntityView.frame_id` は **temporal** chunk の座標系だけを返す。static 列の座標系は行を説明すると
+  は限らない — transform の座標系はその辺の**親**である — ので、通してしまうと無関係な static 列が
+  座標系チェックを踏む。
 - `latest_at` は指定時刻**以下**の最新 partition を返す。同時刻が複数あれば**後に log したもの**が勝つ。
 - `range` は partition を**時刻順**に並べる (同時刻は log 順)。
 - 1 entity に異なる列構成の chunk を log してもよい。`range` がそれらを跨いだときに初めてエラーになる
@@ -308,7 +328,7 @@ store.range(entity_path, timeline=FRAME, time_range=TimeRange(0, 99))  # → Ent
 @define(frozen=True, slots=True)
 class EntityView:
     chunk: Chunk
-    indices: NDArrayI64                              # chunk の行への正規化済み index
+    indices: NDArrayI64  # chunk の行への正規化済み index
     static: dict[ComponentDescriptor, Component]
 ```
 
@@ -316,9 +336,9 @@ class EntityView:
 `to_chunk()` の時点で起きる。
 
 ```python
-view.select(slice(None, None, 2)).select([1])   # コピーなし
-view.component(POSITION)                        # ここで 1 列だけコピー
-view.materialize(Detections3D)              # archetype として実体化
+view.select(slice(None, None, 2)).select([1])  # コピーなし
+view.component(POSITION)  # ここで 1 列だけコピー
+view.materialize(Detections3D)  # archetype として実体化
 ```
 
 ### copy / view の契約
@@ -339,11 +359,11 @@ TODO.md が要求していた `BatchDetection3DView` / `BatchTracking3DView` / `
 
 ```python
 labels = LabelRegistry.from_names(["car", "truck", "pedestrian"])
-labels.class_id("truck")            # 1
-labels.encode(["car", "truck"])     # BatchClassId 用の i32 列
+labels.class_id("truck")  # 1
+labels.encode(["car", "truck"])  # BatchClassId 用の i32 列
 
 merged = labels.merged({"vehicle": ["car", "truck"]})
-merged.class_id("car") == merged.class_id("vehicle")   # True
+merged.class_id("car") == merged.class_id("vehicle")  # True
 ```
 
 元リポジトリの `LabelConverter` + `label_prefix` + `merge_similar_labels` + `count_label_number` を置き換える。
@@ -359,6 +379,175 @@ rerun が static `AnnotationContext` に与えている役割にあたる。
 同一性判定に必要な性質である。`intern()` は未知の UUID に新しい id を振るが、`instance_id()` は
 振らずに例外を出す — フィルタが必要とするのは後者で、typo した UUID が黙って新しい identity に
 なってはいけない。
+
+## transform — 座標系をデータとして記録する
+
+transform は service が抱える隠れた状態ではなく、他の観測と同じ 1 つのデータである。1 行 = 1 辺で、
+ROS が `TransformStamped` を分けているのと同じように chunk と列に分かれる:
+
+| ROS `TransformStamped`  | `t4perceval`                 |
+| :---------------------- | :--------------------------- |
+| `header.frame_id`       | `Chunk.frame_id` — 親        |
+| `child_frame_id`        | `Transform3D.child_frame_id` |
+| `transform.translation` | `Transform3D.translation`    |
+| `transform.rotation`    | `Transform3D.rotation`       |
+
+1 行は child 座標系の点を parent へ写す: `p_parent = R p_child + t`。
+
+親が chunk 側にあるのは、`frame_id` がもともと「この行が乗っている座標系」を意味しており、それが
+transform の行についてもそのまま成り立つからである。
+
+### transform は 1 辺なので component は mono
+
+`Transform3D` はこのパッケージで唯一、component が **mono** (`MonoComponent`) の archetype である。
+他の archetype は _N_ 個のオブジェクトを表すので全列が batch だが、transform が表すのは 1 つの関係で
+あり、1 entity が 1 時刻に持つのはちょうど 1 つである。したがって並進は `(3,)` の値、子座標系は
+`str` になる:
+
+```python
+pose = Transform3D(
+    translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"
+)
+pose.translation.value  # array([1.2, 0. , 1.8])
+pose.child_frame_id.name  # 'lidar'
+```
+
+添字を取る行が存在せず、「3 行あったらどうなるか」は型に対して問えない — 構築時に例外になる。
+
+**mono は境界の型であり、store は列指向のままである。** `as_components()` が chunk へ入る手前で
+mono を `BATCH` の相手方に広げ (`Position3D` → `BatchPosition3D`、`FrameId` → `BatchFrameId`)、
+archetype の field converter が戻すときに狭める。この分担は本質的である: `Store.range` は partition を
+連結するので、1 つの辺の 3 サンプルにまたがるクエリは 3 行の列を返す — 「ちょうど 1 行」を要求する型
+ではありえない。よって chunk が持つのは常に batch の列である:
+
+```python
+scene.range("/tf/base_link", timeline=FRAME, time_range=EVERYTHING).component(TRANSLATION)
+# 3 行の BatchPosition3D — ego の軌跡
+
+Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_TOP")[0]).translation.value
+# array([0., 0., 2.]) — 1 行は 1 つの値に戻る
+```
+
+複数行の view を `Transform3D` として materialize するのは、先頭行を黙って採るのではなく例外になる。
+系列が欲しいときは列を読み、辺が欲しいときに materialize する。
+
+どちらの座標系も entity path には入れない。path は「どこに置いたか」であり、座標系は「グラフの
+ノード名」である。混ぜると、座標系名が path として安全でなければならず (`/robot1/base_link` が
+表現できない)、ツリーの置き場所を変えると名前まで変わってしまう。
+
+```python
+store.log_static(  # キャリブレーション: 固定
+    "/tf/lidar",
+    Transform3D(translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"),
+    frame_id="base_link",
+)
+store.log(  # ego pose: frame ごと
+    "/tf/base_link",
+    Transform3D(
+        translation=[10.0, 0.0, 0.0], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="base_link"
+    ),
+    at=TimePoint.at(frame=1, timestamp_ns=...),
+    frame_id="map",
+)
+```
+
+### static / temporal は時間についての主張
+
+上の 2 つは同じ archetype であり、どちらも特別扱いではない。`static` は「timeline に依存しない」
+という意味なので、キャリブレーションは static、ego pose はそうではない。そして static な書き込みも
+`frame_id` を保つ — これが、サンプル時刻をでっちあげずに辺を解釈可能にしている。
+
+以前の設計ではこれができなかった。static ストレージが列以外を捨てていたため、固定の外部パラメータを
+scene 先頭フレームの _temporal_ sample として置き、`latest_at` が過去に手を伸ばすことに頼るしかなかった。
+代償は、そのサンプルより後から始まる窓付き `range` がそれを見ないことだった。static な辺には窓が
+ないので、この代償は消える。
+
+残る帰結は、static 行が `latest_at` / `range` から出てこないこと (「Store」参照) であり、固定の辺は
+時刻クエリではなく `static_chunks()` で読む。
+
+### `TRANSLATION` / `ROTATION` は独立した descriptor
+
+`POSITION` / `QUATERNION` の再利用ではない。3D 位置を要求する system — 例えば距離フィルタ — に
+transform の entity を渡したとき、動いてしまわないためである。
+
+### 座標系名は文字列列
+
+`FrameId` とその保存形 `BatchFrameId` は、モデル内で唯一の非数値 component である。それを許す規則は
+「**文字列が許されるのは、オブジェクトごとではなく辺ごとに 1 つの値であるとき**」。クラス名やインスタンス名はオブジェクトごとなので
+registry に intern してメタデータとして運ぶ。座標系名は辺ごとなので、registry にしても数百バイトの
+節約にしかならず、`Chunk.frame_id` は文字列・列は整数という 1 つの概念に 2 つの符号化を残し (しかも
+両者の一致を誰も検査しない)、`Store` / `SystemContext` / `Recording` / Arrow schema に registry を
+通す必要が出る。
+
+列の dtype は `object` で、固定幅の `<U*` は使わない: numpy が黙って切り詰めるため、長い名前が別の
+短い座標系になり、2 つのセンサーが 1 つに潰れうる。Arrow 型は推論させず `string` に固定する。object
+配列の推論は値に依存し、0 行の列は `null` と推論されて、全 field を non-nullable と宣言する schema に
+拒否されるからである。
+
+### グラフを読み直す
+
+```python
+from t4perceval.transform import FrameGraph, TransformResolver, transform_edges
+
+transform_edges(recording)  # -> (TransformEdge(parent, child, entity_path, is_static), ...)
+FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_TOP", ...)
+```
+
+探索は chunk を**読む**。以前の設計は entity path の一覧だけからグラフを列挙できたが、それはもう
+できない — これが「座標系をデータにする」ことの代償である。読む量は小さい: `child_frame_id` を持たない
+chunk は dict 参照 1 回で飛ばされ、持つ chunk は 1 行 1 辺である。
+
+- `child_frame_id` 列を持たない chunk は**無視**する。近くに置かれた無関係な entity が探索を壊さない。
+- 子を名乗るのに `frame_id` を持たない chunk は**例外**にする。親が不明では辺をまったく解釈できない。
+  これは `require_same_frame` の「未宣言は不一致ではない」とは別である — あちらは 2 つを比較する話、
+  こちらは 1 つを解釈する話である。
+- 同じ `(親, 子)` が 2 か所に記録されていれば**例外**にする。選ぶ根拠がない。
+
+### 連鎖を解決する
+
+`TransformResolver` は store が取らない解釈のステップである。グラフを幅優先で辿り (合成ごとに誤差が
+積み上がるので最小ホップ数)、記録された向きと逆に辿る辺は反転し (剛体変換なので厳密)、合成する:
+
+```python
+resolver = TransformResolver.of(recording, timeline=FRAME)
+resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+# T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
+```
+
+static な辺と temporal な辺は 1 つのグラフに参加する。ROS が latched な transform と live な
+transform を合成するのと同じである。temporal な辺は `LookupPolicy` でサンプルを選ぶ: `LATEST` /
+`EXACT` / `NEAREST` / `INTERPOLATE` (並進は線形、回転は `Slerp`)。static な辺は policy を無視する —
+変化しないものを補間するのは、エラーではなく答えが 1 つに決まる問いである。未知・非連結の座標系は
+例外にするので、キャリブレーション漏れが黙って恒等変換になることはない。
+
+これは `System` では**ない**: system は pipeline が保存する chunk を返すが、lookup は問いに答えて
+何も書かない。_変換後の entity_ を materialize するのが system の形をした仕事で、そちらは
+「passthrough な system が自分の運ぶ列を宣言できない」問題が未解決のままである。
+
+### import した scene の座標系ツリー
+
+`t4perceval.importer.t4` の `log_scene_transforms` は 2 種類の辺を記録する:
+
+| 辺                       | 置き場所        | 記録の仕方           | 出所                |
+| :----------------------- | :-------------- | :------------------- | :------------------ |
+| `map -> base_link`       | `/tf/base_link` | keyframe ごとに 1 行 | `ego_pose`          |
+| `base_link -> <channel>` | `/tf/<channel>` | static               | `calibrated_sensor` |
+
+- 外部パラメータはセンサー 1 台 1 行の `calibrated_sensor` から読む。`sample_data` を歩くと、数個の値を
+  得るために scene の長さに比例した仕事をすることになる。これらは frame ではなくデータセットの
+  センサー構成の性質なので、この scene がデータを持たない channel も現れ、ツリーは import した frame 数に
+  依存しない。
+- 1 つの channel に 2 つのキャリブレーションがある場合、ポーズが一致しない限り例外を出す。`sensor`
+  テーブルに無いセンサーを指すキャリブレーションも同様。黙ってどちらかを選ぶと、下流の誰も気づけない
+  場所に誤った外部パラメータが入る。
+- データセットは回転を `wxyz`、本パッケージは `xyzw` で持つ。どちらも 4 つの float なので、そのまま
+  渡すとエラーではなく「もっともらしい回転」になる。並べ替えはこの境界だけで行う。
+- ego pose は **keyframe** 単位で、両方の timeline に記録する。評価が frame index で走っても timestamp
+  で走っても参照できる。frame 間の ego 運動は表現しないが、これは annotation 自身の解像度と同じである。
+
+未実装: _変換後の entity_ を materialize する system。それまでは transform は記録・探索・解決できるが、
+オブジェクトの chunk を別座標系へ書き換えることはしない — 代わりに system 層が座標系をまたぐ幾何比較を
+拒否する。[system.md](system.md) の「座標系」を参照。
 
 ## IO — Arrow / Parquet
 
@@ -404,11 +593,12 @@ rerun のデータモデルを**設計として採用**し、SDK には依存し
 
 なお `rerun-sdk` は `t4-devkit` の依存として venv には入っているが、`t4perceval` は import しない。
 
-## dataloader 設計 (後続ステップ)
+## dataloader 設計
 
-`t4_devkit.T4Devkit` から `Chunk` を作る経路。実装は最小の T4 dataset fixture を用意できる段階で行う。
+`t4_devkit.T4Devkit` から `Chunk` を作る経路。`tests/data/t4dataset` fixture に対して
+`t4perceval.importer.t4` として実装済みで、以下はその設計そのものである。
 
-```
+```text
 T4Devkit(data_root, revision)
   ├ get_box3ds(sample_data_token, future_seconds=...)  → list[Box3D]
   └ get_box2ds(sample_data_token)                      → list[Box2D]
@@ -440,13 +630,16 @@ T4Devkit(data_root, revision)
 
 TODO.md に残っていた論点の結論。
 
-| 論点                                    | 決定                                                                       |
-| :-------------------------------------- | :------------------------------------------------------------------------- |
-| trajectory の `M` / `T` を固定するか    | chunk 内で固定。可変長は validity mask                                     |
-| `mode_confidence` の合計 1 を検証するか | しない。値域と有限性のみ                                                   |
-| `waypoints` の有限値検証                | する。無効 timestep は mask で表現                                         |
-| component 内部配列を read-only にするか | する                                                                       |
-| オブジェクト数 0 の batch を許可するか  | 全 archetype で許可                                                        |
-| `Selection` が受理する入力              | slice / int 配列 / bool 配列 / int list / bool list。負index・重複・逆順可 |
-| category ↔ `BatchClassId` の対応        | `LabelRegistry`。static なメタデータとして運ぶ                             |
-| view を archetype ごとに作るか          | 作らない。汎用 `EntityView` 1 つ                                           |
+| 論点                                    | 決定                                                                               |
+| :-------------------------------------- | :--------------------------------------------------------------------------------- |
+| trajectory の `M` / `T` を固定するか    | chunk 内で固定。可変長は validity mask                                             |
+| `mode_confidence` の合計 1 を検証するか | しない。値域と有限性のみ                                                           |
+| `waypoints` の有限値検証                | する。無効 timestep は mask で表現                                                 |
+| component 内部配列を read-only にするか | する                                                                               |
+| オブジェクト数 0 の batch を許可するか  | 全 archetype で許可                                                                |
+| `Selection` が受理する入力              | slice / int 配列 / bool 配列 / int list / bool list。負index・重複・逆順可         |
+| category ↔ `BatchClassId` の対応        | `LabelRegistry`。static なメタデータとして運ぶ                                     |
+| view を archetype ごとに作るか          | 作らない。汎用 `EntityView` 1 つ                                                   |
+| 座標系を path に入れるか                | 入れない。認識データは `Chunk.frame_id`、transform は親を `frame_id`・子を列で表す |
+| transform を static データにするか      | 時間不変なら する。`static` は「timeline に乗らない」の意味で、frame_id も残る     |
+| 座標系名を registry で intern するか    | しない。文字列列にする。frame の列は O(辺) で O(オブジェクト) ではない             |

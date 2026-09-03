@@ -16,13 +16,13 @@
 ```python
 @runtime_checkable
 class System(Protocol):
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]   # 必要な component
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]   # 生成する component
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]  # 必要な component
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]  # 生成する component
 
     @property
-    def sources(self) -> tuple[EntityPath, ...]: ...      # 読む entity
+    def sources(self) -> tuple[EntityPath, ...]: ...  # 読む entity
     @property
-    def target(self) -> EntityPath: ...                   # 書く entity
+    def target(self) -> EntityPath: ...  # 書く entity
 
     def __call__(self, ctx: SystemContext, at: int | TimeRange) -> Iterable[Chunk]: ...
 ```
@@ -55,11 +55,14 @@ class SystemContext:
 ## Pipeline
 
 ```python
-pipeline = Pipeline([
-    FilterByDistanceSystem.on("/estimation/objects", max_distance=102.4),
-    CenterDistanceMatchingSystem.between("/estimation/objects", "/ground_truth/objects",
-                                         threshold=1.0),
-])
+pipeline = Pipeline(
+    [
+        FilterByDistanceSystem.on("/estimation/objects", max_distance=102.4),
+        CenterDistanceMatchingSystem.between(
+            "/estimation/objects", "/ground_truth/objects", threshold=1.0
+        ),
+    ]
+)
 pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 ```
 
@@ -77,11 +80,14 @@ store の内容は構築時には分からないためである。
 
 ```python
 # フィルタは mask しか書かないので、その entity を matching の source にはできない
-Pipeline([
-    FilterByDistanceSystem.on("/estimation/objects"),
-    CenterDistanceMatchingSystem.between("/estimation/objects/filter/distance",
-                                         "/ground_truth/objects"),
-])
+Pipeline(
+    [
+        FilterByDistanceSystem.on("/estimation/objects"),
+        CenterDistanceMatchingSystem.between(
+            "/estimation/objects/filter/distance", "/ground_truth/objects"
+        ),
+    ]
+)
 # ValueError: ... reads /estimation/objects/filter/distance for component(s)
 #             class_id, position, which no earlier system provides there
 ```
@@ -96,7 +102,7 @@ Pipeline([
 @define(slots=True)
 class FilterByConfidenceSystem(MaskSystem):
     REQUIRES = (CONFIDENCE,)
-    FILTER_NAME = "confidence"          # 既定の target は <source>/filter/confidence
+    FILTER_NAME = "confidence"  # 既定の target は <source>/filter/confidence
 
     min_confidence: float = field(default=0.0, kw_only=True)
     max_confidence: float = field(default=1.0, kw_only=True)
@@ -153,8 +159,8 @@ class FilterByConfidenceSystem(MaskSystem):
 ### `CombineMasksSystem` — mask の合成
 
 ```python
-CombineMasksSystem.of([mask_a, mask_b], target, mode="all")   # 積 (AND)
-CombineMasksSystem.of([mask_a, mask_b], target, mode="any")   # 和 (OR)
+CombineMasksSystem.of([mask_a, mask_b], target, mode="all")  # 積 (AND)
+CombineMasksSystem.of([mask_a, mask_b], target, mode="any")  # 和 (OR)
 ```
 
 両方のモードを持つことで、**クラスごとの閾値をパラメータなしで表現できる**。
@@ -163,13 +169,13 @@ CombineMasksSystem.of([mask_a, mask_b], target, mode="any")   # 和 (OR)
 
 ```python
 # car だけ 50 点以上を要求し、他クラスは無条件で通す
-is_car      = FilterByLabelSystem.on(src, labels=["car"], name="is_car")
-not_car     = FilterByLabelSystem.on(src, exclude=["car"], name="not_car")
+is_car = FilterByLabelSystem.on(src, labels=["car"], name="is_car")
+not_car = FilterByLabelSystem.on(src, exclude=["car"], name="not_car")
 many_points = FilterByNumPointsSystem.on(src, min_num_points=50, name="pts50")
-car_ok      = CombineMasksSystem.of([is_car.target, many_points.target],
-                                    f"{src}/filter/car_ok", mode="all")
-keep        = CombineMasksSystem.of([car_ok.target, not_car.target],
-                                    f"{src}/filter/keep", mode="any")
+car_ok = CombineMasksSystem.of(
+    [is_car.target, many_points.target], f"{src}/filter/car_ok", mode="all"
+)
+keep = CombineMasksSystem.of([car_ok.target, not_car.target], f"{src}/filter/keep", mode="any")
 
 Pipeline([is_car, not_car, many_points, car_ok, keep]).run(ctx, TimeRange.everything())
 ```
@@ -180,8 +186,9 @@ source の mask はすべて同じ行を記述していなければならない 
 ### `masked_view()` — 通過した行だけを見る
 
 ```python
-view = masked_view(store, "/estimation/objects", keep.target,
-                   timeline=FRAME, time_range=TimeRange.everything())
+view = masked_view(
+    store, "/estimation/objects", keep.target, timeline=FRAME, time_range=TimeRange.everything()
+)
 passed = view.materialize(Detections3D)
 ```
 
@@ -197,7 +204,7 @@ passed = view.materialize(Detections3D)
 @define(slots=True)
 class CenterDistanceMatchingSystem(MatchingSystem):
     REQUIRES = (POSITION, CLASS_ID)
-    MATCHING_NAME = "center_distance"     # 既定の target は /matching/center_distance
+    MATCHING_NAME = "center_distance"  # 既定の target は /matching/center_distance
     DEFAULT_THRESHOLD = 1.0
     # HIGHER_IS_BETTER = False            # 距離なので小さいほど良い (既定)
 
@@ -265,7 +272,8 @@ frame ごとに `scipy.optimize.linear_sum_assignment` で**大域最適な 1 �
 
 ```python
 CenterDistanceMatchingSystem.between(
-    "/estimation/objects", "/ground_truth/objects",
+    "/estimation/objects",
+    "/ground_truth/objects",
     threshold=Thresholds(1.0, by_class={"car": 2.0, "pedestrian": 0.5}),
 )
 ```
@@ -293,9 +301,45 @@ CenterDistanceMatchingSystem.between(
 | `pairwise_plane_distance(...)`                       | `(N, M)`                                |
 | `canonical_bev_corners(corners)`                     | 重心まわりに反時計回りへ並べ替え        |
 
+## 座標系
+
+異なる座標系をまたいだ幾何計算には意味がなく、しかも下流の誰も気づかない。`map` の位置から
+`base_link` の位置を引いてもエラーにはならず数値が出るだけで、その上に載る指標はもっともらしく
+見える。そこで system 層はこの比較を拒否する。
+
+```python
+from t4perceval.system.base import require_same_frame, resolve_frame
+```
+
+| ヘルパー                     | 挙動                                                                 |
+| :--------------------------- | :------------------------------------------------------------------- |
+| `require_same_frame(*views)` | 宣言された座標系を返し、2 つの view が別の座標系を宣言していれば例外 |
+| `resolve_frame(*views)`      | 検査せず最初に宣言された座標系を返す (入力が 1 つの system 用)       |
+
+覆う経路は 2 箇所だけで足りる: `MatchingSystem` が呼ぶので 6 つのマッチャー全てが検査され、
+`MatchJoin.of` が呼ぶので幾何を使う指標は全て、既に通っている join 1 箇所で検査される。
+
+- **宣言されていない**座標系は不一致ではない。entity が範囲内に何も持たないとき、座標系なしで
+  記録されたデータのとき、幾何ではなく指標を保持しているときに view は `None` を持つ。
+  例外になるのは _異なる値が 2 つ宣言された_ 場合だけである。
+- 行数は意図的に見ない。オブジェクト 0 個の frame も何らかの座標系で記録されており、それを飛ばすと
+  出力の座標系が scene の中でちらつき、`concat_chunks` が結合を拒否する。
+- 見るのは **temporal** chunk の座標系だけである。static 列の座標系は broadcast 先の行を説明すると
+  は限らない — transform はそこに辺の「親」を書く — ので、`base_link` で log された static な
+  `time_offset` が `map` での比較を例外にしてはいけない。
+- `check_frames=False` で system ごとに無効化できる。store 組み立て側の `require_same_frame_id`
+  と対になっており、これがないとそのフラグで組んだ store がマッチング不能になる。
+
+これは対策ではなく検知である。transform の**解決**は実装済みで
+(`TransformResolver.lookup(target_frame=..., source_frame=..., at=...)`、
+[data_model.md](data_model.md) の「transform」を参照)、まだ無いのは entity の行を別座標系へ書き換える
+system である — passthrough な system が自分の運ぶ列を宣言できないため。それまで、入力を 1 つの
+座標系に揃えるのは呼び出し側の仕事であり、この検知がその代替案をもっともらしく見せないための砦である。
+
 ## 未実装 system の配置
 
-以下は同じ protocol 上に載る。predicate やコスト計算だけが違う。
+以下は同じ protocol 上に載る。predicate やコスト計算だけが違う。指標 system は `HotaSystem` を
+除いて実装済みで、`PassFailSystem` は未実装である。
 
 ### 指標 (`PROVIDES = /metrics/* の descriptors`)
 
