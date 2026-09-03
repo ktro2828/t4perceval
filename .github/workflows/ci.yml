@@ -43,10 +43,13 @@ jobs:
 
       - name: Install the project and its extras
         # `--all-extras` pulls in t4-devkit (a git dependency) and the MCAP stack, so the
-        # importers are exercised rather than skipped. `--locked` makes a stale uv.lock a
-        # failure instead of something uv quietly re-resolves, so CI tests the pinned
-        # dependency set rather than whatever resolves that morning.
-        run: uv sync --locked --all-extras
+        # importers are exercised rather than skipped.
+        #
+        # Deliberately not `--locked`: uv re-resolves when uv.lock is stale rather than
+        # failing, so CI tracks the current dependency set. The trade-off is that lock
+        # drift does not surface here -- a dependency can break the build without any
+        # change in this repository.
+        run: uv sync --all-extras
 
       - name: Run the test suite
         run: uv run --no-sync pytest -q
@@ -72,7 +75,7 @@ jobs:
         # `--no-default-groups` matters: the `dev` group carries t4-devkit, so a plain
         # `uv sync` would install it and this job would silently stop testing anything.
         # The `test` group exists to supply pytest without dragging that back in.
-        run: uv sync --locked --no-default-groups --group test
+        run: uv sync --no-default-groups --group test
 
       - name: Run the test suite
         run: uv run --no-sync pytest -q
