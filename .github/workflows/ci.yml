@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A new push supersedes whatever the previous one was still running.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Sourced ROS environments register ament_* and launch_testing pytest plugins that
+  # fail to import here. The repo already sets this in pyproject; belt and braces for
+  # any runner that has ROS on PYTHONPATH.
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # t4-devkit declares `Requires-Python: <3.13,>=3.10`, so the full suite -- which
+        # needs the `t4` extra -- cannot run on 3.13. The `core` job below covers newer
+        # interpreters against the dependency-light core instead.
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install the project and its extras
+        # `--all-extras` pulls in t4-devkit (a git dependency) and the MCAP stack, so the
+        # importers are exercised rather than skipped.
+        run: uv sync --locked --all-extras --python ${{ matrix.python-version }}
+
+      - name: Run the test suite
+        run: uv run --no-sync pytest -q
+
+  core:
+    name: core only (no extras)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install only the base dependencies
+        # The importers are optional, so the evaluation core must install and pass
+        # without t4-devkit or the MCAP libraries present. This is what stops an
+        # accidental top-level import of an extra from reaching users who did not ask
+        # for it -- the importer tests skip, they do not fail to collect.
+        run: |
+          uv venv --python 3.13
+          uv pip install -e . pytest
+
+      - name: Run the test suite
+        run: uv run --no-project pytest -q
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: ruff check
+        # Pinned to the version .pre-commit-config.yaml uses. Ruff's default rule set
+        # widens between releases, so an unpinned run would fail on code that was clean
+        # when it was written.
+        run: uvx ruff@0.16.5 check t4perceval tests
+
+      - name: ruff format
+        run: uvx ruff@0.16.5 format --check t4perceval tests
+
+  # NOTE: There is no pre-commit job yet. `.pre-commit-config.yaml` has never been run
+  # against this repository, and its prettier hook rewrites ~159 lines across five design
+  # documents -- including stripping the `$` prompts from ``console`` blocks, where they
+  # are meaningful. Enabling it is a deliberate documentation decision, not a CI one, so
+  # the Python half is covered by `lint` above until that is made.
