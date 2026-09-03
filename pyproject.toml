@@ -43,6 +43,14 @@ addopts = ["--disable-plugin-autoload"]
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+# Pinned rather than inherited. Ruff's default rule set widens between releases -- 0.16
+# enables 413 rules where earlier versions enabled a handful -- so an unpinned project
+# starts failing on code that was clean when it was written, and existing `noqa`
+# comments start reading as unused. This is the set this code was written against.
+# Widening it is a deliberate change, made here, not a side effect of an upgrade.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
 
