@@ -25,6 +25,7 @@ __all__ = (
     "MATCHING_SCORE",
     "MATCH_STATUS",
     "METRIC_VALUE",
+    "CHILD_FRAME_ID",
     "MODE_CONFIDENCE",
     "MODE_VALID",
     "NUM_POINTS",
@@ -73,8 +74,13 @@ POINT = ComponentDescriptor("point", component_type="BatchPosition3D")
 # Deliberately not POSITION/QUATERNION. A transform is a relationship between frames, not
 # a thing in a frame, and separate names stop a system that asks for a 3D position -- a
 # distance filter, say -- from being pointed at a transform entity and appearing to work.
-TRANSLATION = ComponentDescriptor("translation", component_type="BatchPosition3D")
-ROTATION = ComponentDescriptor("rotation", component_type="BatchQuaternion")
+# Mono components, not `Batch*` ones: a transform is one relationship between two frames,
+# not a column of N of them, so one entity holds one edge per point in time.
+TRANSLATION = ComponentDescriptor("translation", component_type="Position3D")
+ROTATION = ComponentDescriptor("rotation", component_type="Quaternion")
+# The child frame is a component while the parent is `Chunk.frame_id`, matching ROS
+# `TransformStamped`.
+CHILD_FRAME_ID = ComponentDescriptor("child_frame_id", component_type="FrameId")
 
 # --- trajectories --------------------------------------------------------------------
 WAYPOINTS = ComponentDescriptor("waypoints", component_type="BatchWaypoints3D")

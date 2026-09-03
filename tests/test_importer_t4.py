@@ -17,9 +17,10 @@ from t4perceval import (
     TimeRange,
     Transform3D,
 )
-from t4perceval.descriptors import INSTANCE_ID
+from t4perceval.descriptors import INSTANCE_ID, TRANSLATION
 from t4perceval.evaluation import build_evaluation_store
 from t4perceval.system import Pipeline
+from t4perceval.transform import transform_edges
 from t4perceval.system.preset import average_precision_sweep
 
 pytest.importorskip("t4_devkit")
@@ -306,41 +307,48 @@ class TestEvaluation:
 
 class TestTransforms:
     def test_the_frame_tree_is_recorded(self, scene: Recording) -> None:
-        from t4perceval.transform import edges
-
-        assert set(edges(scene)) == {
+        # Read from the data, not from the entity paths: each chunk states its parent
+        # through `frame_id` and its child through the `child_frame_id` column.
+        assert {edge.frames for edge in transform_edges(scene)} == {
             ("map", "base_link"),
             ("base_link", "LIDAR_TOP"),
             ("base_link", "CAM_FRONT"),
             ("base_link", "CAM_BACK"),
         }
 
+    def test_an_extrinsic_is_static_and_an_ego_pose_is_not(self, scene: Recording) -> None:
+        by_child = {edge.child: edge for edge in transform_edges(scene)}
+
+        assert by_child["base_link"].is_static is False
+        assert by_child["LIDAR_TOP"].is_static is True
+
     def test_ego_poses_are_recorded_per_frame(self, scene: Recording) -> None:
-        view = scene.range("/transforms/map/base_link", timeline=FRAME, time_range=EVERYTHING)
-        translation = view.materialize(Transform3D).translation.values
+        # A `Transform3D` is one edge, so a scene of poses is read as a column rather than
+        # materialized into the archetype.
+        view = scene.range("/tf/base_link", timeline=FRAME, time_range=EVERYTHING)
+        translation = view.component(TRANSLATION).values
 
         # The fixture's ego travels 10 m along x per second.
         assert translation[:, 0].tolist() == [0.0, 10.0, 20.0]
 
     def test_microseconds_become_nanoseconds(self, scene: Recording) -> None:
-        assert scene.times("/transforms/map/base_link", TIMESTAMP).tolist() == FRAME_TIMES_NS
+        assert scene.times("/tf/base_link", TIMESTAMP).tolist() == FRAME_TIMES_NS
 
-    def test_an_extrinsic_answers_at_any_later_time(self, scene: Recording) -> None:
-        # A fixed edge is one sample, not one per frame; `latest_at` reaches it forward.
-        view = scene.latest_at("/transforms/base_link/LIDAR_TOP", timeline=FRAME, at=999)
+    def test_an_extrinsic_needs_no_time_at_all(self, scene: Recording) -> None:
+        # It is not on a timeline, so there is no sample time to invent and no window a
+        # range query could start after.
+        chunk = scene.static_chunks("/tf/LIDAR_TOP")[0]
 
-        assert view.materialize(Transform3D).translation.values.tolist() == [[0.0, 0.0, 2.0]]
+        assert scene.static_frame_id("/tf/LIDAR_TOP") == "base_link"
+        assert scene.times("/tf/LIDAR_TOP", FRAME).tolist() == []
+        # One row in, one value out: the archetype narrows the stored columns back.
+        assert Transform3D.from_chunk(chunk).translation.value.tolist() == [0.0, 0.0, 2.0]
 
     def test_extrinsics_match_the_calibration(self, scene: Recording) -> None:
         offsets = {
-            channel: scene.latest_at(
-                f"/transforms/base_link/{channel}",
-                timeline=FRAME,
-                at=0,
-            )
-            .materialize(Transform3D)
-            .translation.values[0]
-            .tolist()
+            channel: Transform3D.from_chunk(
+                scene.static_chunks(f"/tf/{channel}")[0],
+            ).translation.value.tolist()
             for channel in ("LIDAR_TOP", "CAM_FRONT", "CAM_BACK")
         }
 
@@ -353,27 +361,24 @@ class TestTransforms:
     def test_the_rear_camera_keeps_its_half_turn(self, scene: Recording) -> None:
         # The dataset stores wxyz and this package stores xyzw. Taken verbatim the rear
         # camera would read as unrotated -- a plausible answer, and completely wrong.
-        from scipy.spatial.transform import Rotation
 
-        view = scene.latest_at("/transforms/base_link/CAM_BACK", timeline=FRAME, at=0)
-        quaternion = view.materialize(Transform3D).rotation.values
+        rotation = Transform3D.from_chunk(scene.static_chunks("/tf/CAM_BACK")[0]).rotation
 
-        yaw = Rotation.from_quat(quaternion).as_euler("xyz", degrees=True)[0][2]
+        yaw = rotation.as_rotation().as_euler("xyz", degrees=True)[2]
 
         assert abs(yaw) == pytest.approx(180.0)
 
-    def test_a_transform_edge_is_queryable_on_either_timeline(self, scene: Recording) -> None:
+    def test_an_ego_pose_is_queryable_on_either_timeline(self, scene: Recording) -> None:
         for timeline, at in ((FRAME, 1), (TIMESTAMP, FRAME_TIMES_NS[1])):
-            view = scene.latest_at("/transforms/map/base_link", timeline=timeline, at=at)
-            assert view.materialize(Transform3D).translation.values[0][0] == pytest.approx(10.0)
+            view = scene.latest_at("/tf/base_link", timeline=timeline, at=at)
+            pose = view.materialize(Transform3D)
+            assert pose.translation.value[0] == pytest.approx(10.0)
 
     def test_they_can_be_switched_off(self, t4_dataset_root: Path) -> None:
-        from t4perceval.transform import edges
-
         importer = T4Importer.open(t4_dataset_root, options=ImportOptions(transforms=False))
         scene = importer.import_scene(labels=importer.label_registry())
 
-        assert edges(scene) == {}
+        assert transform_edges(scene) == ()
 
 
 class TestExtrinsics:
@@ -392,17 +397,16 @@ class TestExtrinsics:
         self,
         t4_importer: T4Importer,
     ) -> None:
-        from t4perceval.transform import edges
-
         one_frame = t4_importer.import_scene(
             labels=t4_importer.label_registry(),
             selection=SceneSelection(samples=[0]),
         )
         whole_scene = t4_importer.import_scene(labels=t4_importer.label_registry())
 
-        fixed = {edge for edge in edges(one_frame) if edge[0] == "base_link"}
+        def fixed(scene: Recording) -> set[tuple[str, str]]:
+            return {edge.frames for edge in transform_edges(scene) if edge.is_static}
 
-        assert fixed == {edge for edge in edges(whole_scene) if edge[0] == "base_link"}
+        assert fixed(one_frame) == fixed(whole_scene)
 
     def test_disagreeing_calibrations_are_rejected(self, t4_dataset_root: Path) -> None:
         # Two calibrations for one channel is ambiguous. Settling on whichever came first

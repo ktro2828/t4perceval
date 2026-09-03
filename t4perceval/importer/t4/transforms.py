@@ -2,21 +2,18 @@
 
 A T4 scene has two kinds of edge, and both become ordinary entities in the store:
 
-* ``map -> base_link``, one sample per frame, from the ``ego_pose`` table.
+* ``map -> base_link``, one sample per keyframe, from the ``ego_pose`` table.
 * ``base_link -> <channel>``, fixed, from the ``calibrated_sensor`` table.
 
-Neither is logged with ``log_static``, even though a sensor extrinsic really is
-time-invariant. ``static`` here means "this column broadcasts over this entity's rows",
-not "this value exists at all times": a static-only entity has no rows to broadcast over,
-so both ``latest_at`` and ``range`` return nothing and the value is reachable only through
-``Store.static()``. A single temporal sample is returned by ``latest_at`` at every later
-time instead, which is the meaning wanted and keeps fixed and moving edges on one code
-path.
+They differ only in *when* they hold. An ego pose is logged with ``log`` because it changes
+with time; a sensor extrinsic is logged with ``log_static`` because it does not. Same
+archetype, same components, same meaning of ``frame_id`` -- the parent frame of the edge.
 
-The cost is that a *windowed* ``range`` starting after that sample does not see it --
-``latest_at`` reaches backwards, ``range`` does not. Lookups are ``latest_at``-shaped, so
-this does not affect resolving a transform, but it does mean an extrinsic will not appear
-in a range query over a later interval.
+The entity path is a filing decision, not a frame name: ``/tf/<child>`` is chosen because
+it reads well next to the data it describes, and discovery does not depend on it. Both
+kinds of edge state their parent through ``frame_id`` and their child through
+``child_frame_id``, so :func:`~t4perceval.transform.graph.transform_edges` recovers the
+tree by reading the chunks.
 """
 
 from __future__ import annotations
@@ -26,8 +23,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from t4perceval.archetype.transform import Transform3D
+from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimePoint
-from t4perceval.transform.paths import DEFAULT_ROOT, transform_path
+from t4perceval.transform.graph import DEFAULT_ROOT
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -36,7 +34,7 @@ if TYPE_CHECKING:
     from t4perceval.core.store import Store
     from t4perceval.importer.t4.source import SampleFrame, T4Source
 
-__all__ = ("EGO_FRAME", "MAP_FRAME", "log_scene_transforms")
+__all__ = ("EGO_FRAME", "MAP_FRAME", "log_scene_transforms", "tf_path")
 
 #: The frame the T4 annotations are authored in.
 MAP_FRAME = "map"
@@ -45,7 +43,17 @@ MAP_FRAME = "map"
 EGO_FRAME = "base_link"
 
 
-def _pose_columns(record: Any) -> tuple[list[float], list[float]]:
+def tf_path(child: str, *, root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
+    """Return the entity the transforms of one child frame are filed under.
+
+    A convenience, not a convention anything relies on: the child frame is recorded in the
+    ``child_frame_id`` component, so a reader never parses this path. That is what lets a
+    frame name contain a ``/`` -- it simply produces a deeper path here.
+    """
+    return as_entity_path(root) / child
+
+
+def _pose_values(record: Any) -> tuple[list[float], list[float]]:
     """Return one record's translation and its rotation as ``xyzw``.
 
     The dataset stores ``wxyz`` and this package stores ``xyzw``. Both are four floats, so
@@ -71,7 +79,7 @@ def log_scene_transforms(
         source: The dataset being imported.
         frames: The selected keyframes, in order.
         channel: Channel whose ``sample_data`` supplies each frame's ego pose.
-        root: Where transform edges live.
+        root: Where transform entities are filed.
 
     Returns:
         The entity paths written, ego edge first.
@@ -85,35 +93,35 @@ def log_scene_transforms(
     """
     written: list[EntityPath] = []
 
-    ego_path = transform_path(MAP_FRAME, EGO_FRAME, root=root)
+    ego_path = tf_path(EGO_FRAME, root=root)
     for frame in frames:
         token = frame.data.get(channel)
         if token is None:
             continue
-        translation, rotation = _pose_columns(source.ego_pose(token))
+        translation, rotation = _pose_values(source.ego_pose(token))
         store.log(
             ego_path,
-            Transform3D(translation=[translation], rotation=[rotation]),
+            Transform3D(translation=translation, rotation=rotation, child_frame_id=EGO_FRAME),
             at=TimePoint.at(frame=frame.frame, timestamp_ns=frame.timestamp_us * 1000),
             frame_id=MAP_FRAME,
         )
-    if written or store.chunks(ego_path):
+    if store.chunks(ego_path):
         written.append(ego_path)
 
-    first = frames[0] if frames else None
     for sensor_channel, record in sorted(source.extrinsics().items()):
-        translation, rotation = _pose_columns(record)
-        path = transform_path(EGO_FRAME, sensor_channel, root=root)
-        store.log(
+        translation, rotation = _pose_values(record)
+        path = tf_path(sensor_channel, root=root)
+        store.log_static(
             path,
-            Transform3D(translation=[translation], rotation=[rotation]),
-            # A fixed edge needs one sample. `latest_at` returns the most recent at or
-            # before a time, so one entry at the scene's first frame answers every later
-            # query without re-emitting it per frame.
-            at=TimePoint.at(
-                frame=first.frame if first else 0,
-                timestamp_ns=(first.timestamp_us * 1000) if first else 0,
+            Transform3D(
+                translation=translation,
+                rotation=rotation,
+                child_frame_id=sensor_channel,
             ),
+            # Static, so there is no sample time to invent. The old design had to place a
+            # fixed extrinsic at the scene's first frame and rely on `latest_at` reaching
+            # forward from it, which left it invisible to a range query over any later
+            # interval.
             frame_id=EGO_FRAME,
         )
         written.append(path)

@@ -1,16 +1,35 @@
 """Coordinate transforms as recorded data.
 
 A transform is not hidden state owned by a service: it is a row in the store like any
-other observation, addressed by the pair of frames it relates.
+other observation. One row is one edge of the frame graph, split the way ROS splits a
+``TransformStamped``::
 
-    /transforms/<parent>/<child>        Transform3D(translation, rotation)
+    Chunk.frame_id            the parent frame
+    Transform3D.child_frame_id  the child frame
+    Transform3D.translation / .rotation
 
-This package holds the addressing rules. Resolving a chain of edges into a single
-relationship, and applying one to a chunk, come later and build on these.
+Whether an edge is static (a sensor calibration) or temporal (an ego pose) is a statement
+about *time*, not about the kind of data, so both use ``Transform3D`` and differ only in
+being logged with ``log_static`` or ``log``.
+
+This package reads those rows back: :func:`~t4perceval.transform.graph.transform_edges`
+and :class:`~t4perceval.transform.graph.FrameGraph` recover the graph from the data alone.
+Nothing here owns a transform; everything is rebuilt from what a recording holds, so a
+saved recording still knows its frame tree.
 """
 
 from __future__ import annotations
 
-from t4perceval.transform.paths import DEFAULT_ROOT, edges, frames_of, transform_path
+from t4perceval.transform.graph import (
+    DEFAULT_ROOT,
+    FrameGraph,
+    TransformEdge,
+    transform_edges,
+)
 
-__all__ = ("DEFAULT_ROOT", "edges", "frames_of", "transform_path")
+__all__ = (
+    "DEFAULT_ROOT",
+    "FrameGraph",
+    "TransformEdge",
+    "transform_edges",
+)
