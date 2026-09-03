@@ -35,6 +35,8 @@ __all__ = (
     "System",
     "SystemContext",
     "require",
+    "require_same_frame",
+    "resolve_frame",
     "resolve_times",
 )
 
@@ -87,6 +89,57 @@ class System(Protocol):
         ...
 
     def __call__(self, ctx: SystemContext, at: int | TimeRange) -> Iterable[Chunk]: ...
+
+
+def resolve_frame(*views: EntityView) -> str | None:
+    """Return the coordinate frame these views are in, or ``None`` when none states one.
+
+    Row count is deliberately not consulted. A frame with no objects is still recorded in
+    a frame -- the importer logs an empty frame with its ``frame_id`` intact -- and
+    dropping that would make a system's output frame flicker between the stated value and
+    ``None`` across a scene, which ``concat_chunks`` then refuses to join.
+    """
+    for view in views:
+        if view.frame_id is not None:
+            return view.frame_id
+    return None
+
+
+def require_same_frame(*views: EntityView) -> str | None:
+    """Return the frame every view agrees on, raising when two of them disagree.
+
+    Geometry across two frames is meaningless, and nothing downstream notices: subtracting
+    a ``map`` position from a ``base_link`` one produces a number, not an error, and the
+    metric built on it looks plausible. This is the check that turns that into a failure.
+
+    An **unstated** frame is not a disagreement. A view carries ``None`` when the entity
+    had nothing in range at all, when the data was logged without a frame, or when it
+    holds a metric rather than geometry -- none of which can be shown to conflict with
+    anything. Only two *different, stated* frames raise.
+
+    A view with no rows is still consulted: an empty frame is recorded in a frame like any
+    other, and ignoring that would make the caller's output frame flicker across a scene.
+
+    Returns:
+        The single stated frame, or ``None`` when no view states one.
+
+    Raises:
+        ValueError: When two views state different frames.
+    """
+    stated: dict[str, EntityView] = {}
+    for view in views:
+        if view.frame_id is not None:
+            stated.setdefault(view.frame_id, view)
+
+    if len(stated) > 1:
+        detail = ", ".join(
+            f"{view.entity_path} in {frame!r}" for frame, view in sorted(stated.items())
+        )
+        raise ValueError(
+            f"Cannot compare geometry across coordinate frames: {detail}. "
+            f"Bring the inputs into one frame first.",
+        )
+    return next(iter(stated), None)
 
 
 def require(view: EntityView, *descriptors: ComponentDescriptor) -> None:

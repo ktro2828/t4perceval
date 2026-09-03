@@ -18,7 +18,7 @@ import numpy as np
 from attrs import cmp_using, define, field
 
 from t4perceval.descriptors import CLASS_ID, EST_INDEX, GT_INDEX
-from t4perceval.system.base import require
+from t4perceval.system.base import require, require_same_frame
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -97,11 +97,23 @@ class MatchJoin:
         *,
         timeline: Timeline,
         time_range: TimeRange,
+        check_frames: bool = True,
     ) -> Self:
-        """Build the join for one time range."""
+        """Build the join for one time range.
+
+        Args:
+            check_frames: Whether estimation and ground truth must agree about their
+                coordinate frame. Every geometric metric reaches its inputs through this
+                join, so one check here covers all of them.
+        """
         matches = store.range(matching, timeline=timeline, time_range=time_range)
         est_view = store.range(estimation, timeline=timeline, time_range=time_range)
         gt_view = store.range(ground_truth, timeline=timeline, time_range=time_range)
+
+        if check_frames:
+            # The match entity is left out on purpose: its frame is derived, and a store
+            # written before frames were recorded leaves it unstated.
+            require_same_frame(est_view, gt_view)
 
         if len(matches):
             require(matches, EST_INDEX, GT_INDEX)

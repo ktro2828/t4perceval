@@ -39,7 +39,13 @@ from t4perceval.descriptors import (
     SIZE,
     THRESHOLD,
 )
-from t4perceval.system.base import EntitySystem, SystemContext, require
+from t4perceval.system.base import (
+    EntitySystem,
+    SystemContext,
+    require,
+    require_same_frame,
+    resolve_frame,
+)
 from t4perceval.system.threshold import Thresholds
 
 if TYPE_CHECKING:
@@ -102,6 +108,15 @@ class MatchingSystem(EntitySystem):
         kw_only=True,
     )
     class_agnostic: bool = field(default=False, kw_only=True)
+
+    check_frames: bool = field(default=True, kw_only=True)
+    """Whether to refuse inputs that state different coordinate frames.
+
+    On by default because the alternative is silent: distances between two frames are
+    numbers, not errors, so the resulting metric looks plausible. Turn it off only when
+    the frames are known to coincide despite their names -- the same escape hatch
+    :func:`~t4perceval.evaluation.build_evaluation_store_from` offers at assembly time.
+    """
 
     def __attrs_post_init__(self) -> None:
         if len(self.sources) != 2:
@@ -168,12 +183,18 @@ class MatchingSystem(EntitySystem):
             if len(gt_view):
                 require(gt_view, *self.REQUIRES)
 
+            frame_id = (
+                require_same_frame(est_view, gt_view)
+                if self.check_frames
+                else resolve_frame(est_view, gt_view)
+            )
+
             result = self._match_frame(est_view, gt_view, ctx)
             pieces.append(
                 result.to_chunk(
                     self.target,
                     at=TimePoint(((ctx.timeline, time),)),
-                    frame_id=est_view.frame_id or gt_view.frame_id,
+                    frame_id=frame_id,
                 ),
             )
 
