@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -38,8 +39,15 @@ def _as_offsets(value: ArrayLike) -> NDArrayI64:
 
 def _as_columns(
     value: Mapping[ComponentDescriptor, Component],
-) -> dict[ComponentDescriptor, Component]:
-    return dict(value)
+) -> Mapping[ComponentDescriptor, Component]:
+    """Return a read-only snapshot of the column mapping.
+
+    The proxy is what makes a chunk safe to share between two stores. Everything else
+    about a chunk is already immutable -- it is frozen and every component array is
+    read-only -- so a plain ``dict`` here would be the one hole through which a caller
+    could reach into a chunk that another recording is still using.
+    """
+    return MappingProxyType(dict(value))
 
 
 @define(frozen=True, slots=True)
@@ -63,7 +71,7 @@ class Chunk:
     entity_path: EntityPath = field(converter=as_entity_path)
     indexes: tuple[TimeColumn, ...] = field(converter=tuple)
     offsets: NDArrayI64 = field(converter=_as_offsets, eq=cmp_using(eq=np.array_equal))
-    columns: dict[ComponentDescriptor, Component] = field(converter=_as_columns)
+    columns: Mapping[ComponentDescriptor, Component] = field(converter=_as_columns)
     frame_id: str | None = field(default=None, kw_only=True)
     is_static: bool = field(default=False, kw_only=True)
 

@@ -220,3 +220,42 @@ class TestConcat:
 
         with pytest.raises(ValueError, match="different columns"):
             concat_chunks([chunk, other])
+
+
+class TestSharing:
+    """A chunk is safe to hand to two stores at once."""
+
+    def test_columns_cannot_be_reassigned(self) -> None:
+        chunk = two_frame_chunk()
+
+        with pytest.raises(TypeError, match="does not support item assignment"):
+            chunk.columns[POSITION] = BatchPosition3D(np.zeros((5, 3)))  # type: ignore[index]
+
+    def test_columns_mapping_is_a_snapshot_of_its_input(self) -> None:
+        columns = {POSITION: BatchPosition3D(np.zeros((5, 3)))}
+        chunk = Chunk("/estimation/objects", (TimeColumn.of(FRAME, [0]),), [0, 5], columns)
+
+        columns[CONFIDENCE] = BatchConfidence(np.zeros(5))
+
+        assert CONFIDENCE not in chunk.columns
+
+    def test_two_stores_share_one_chunk(self) -> None:
+        from t4perceval import Store
+
+        chunk = two_frame_chunk()
+        first, second = Store(), Store()
+        first.send_chunk(chunk)
+        second.send_chunk(chunk)
+
+        assert first.chunks("/estimation/objects")[0] is second.chunks("/estimation/objects")[0]
+
+    def test_repathing_a_chunk_copies_no_data(self) -> None:
+        from attrs import evolve
+
+        chunk = two_frame_chunk()
+        moved = evolve(chunk, entity_path="/ground_truth/objects")
+
+        assert moved.entity_path != chunk.entity_path
+        assert moved.offsets is chunk.offsets
+        assert moved.indexes is chunk.indexes
+        assert all(moved.columns[key] is chunk.columns[key] for key in chunk.columns)
