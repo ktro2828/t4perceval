@@ -217,9 +217,19 @@ TIMESTAMP = Timeline("timestamp_ns", TimeKind.TIMESTAMP)
 
 これにより archetype は純粋な component の束になり、構築時に header を引き回さなくなった。
 
-> **将来案**: rerun は座標系を entity path 階層 + `Transform3D` archetype で表す
-> (例: `/base_link/estimation/objects`)。transform system を導入する段階で再検討する。
-> 現時点では `Chunk.frame_id` を採用している。
+> **決定済み**: rerun は座標系を entity path 階層 + `Transform3D` archetype で表す
+> (例: `/base_link/estimation/objects`)。認識データについては `Chunk.frame_id` を維持する。
+> entity path は「そのデータが何か」を表すものであり、座標系を畳み込むと、座標系に関心のない
+> system から `/ground_truth/objects` を指定できなくなる。
+>
+> transform の辺は逆で、path に置く: `/transforms/<parent>/<child>` に
+> `translation` と `rotation` を持つ `Transform3D` を記録する。ここでは座標系の組そのものが
+> データの同一性である。path に置くことで、全 component が数値配列であるモデルに文字列列を
+> 持ち込まずに済み、辺ごとに独立した時系列となるため `latest_at` が辺単位で答えられる。
+>
+> 固定の外部パラメータは `log_static` ではなく単一の temporal sample として記録する。static
+> データは `frame_id` を持たず、temporal 行のない entity では 0 行として読み出されるが、
+> 1 サンプルであれば `latest_at` が以降のあらゆる時刻で返す。
 
 ## Chunk — 列指向テーブル
 

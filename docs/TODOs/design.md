@@ -134,11 +134,38 @@ distinct message schemas, unlike the T4 3D archetypes.
 
 ## P1: coordinate transforms
 
-- [ ] Design a transform system that uses `Chunk.frame_id`.
-  - [ ] Decide whether to carry the equivalent of `HomogeneousMatrix` (`t4_devkit.dataclass`) as a
-        component or as static data.
-  - [ ] Revisit embedding the coordinate frame in the `EntityPath` hierarchy (Rerun's `Transform3D`
-        style).
+Transforms are recorded data plus an explicit interpretation step, never hidden state.
+
+- [x] Decide how to carry a transform. Not `HomogeneousMatrix`, and not static data:
+      `Transform3D` (`translation` + `rotation`) at `/transforms/<parent>/<child>`, logged as
+      ordinary temporal samples. Static data carries no `frame_id` and reads back as zero
+      rows on an entity with no temporal partition, so a fixed extrinsic is one sample that
+      `latest_at` reaches forward from.
+- [x] Revisit the coordinate frame in the `EntityPath` hierarchy. Perception data keeps
+      `Chunk.frame_id`; a transform *edge* lives in the path, because there the frame pair is
+      the identity of the data. Recorded in [data_model.md](../design/en/data_model.md).
+- [x] Refuse to compare geometry across frames. `require_same_frame()` in
+      `t4perceval/system/base.py`, called from the matching base and from `MatchJoin`, so
+      every matcher and every geometric metric is covered once. Two *different stated* frames
+      raise; an unstated frame is not a disagreement. Opt out per system with
+      `check_frames=False`.
+- [x] Import the frame tree. The T4 importer records `map -> base_link` per keyframe from
+      `ego_pose` and a fixed `base_link -> <channel>` per sensor from `calibrated_sensor`.
+- [ ] `TransformResolver` — graph traversal, inversion, composition, and a lookup policy of
+      `latest` / `exact` / `nearest` / `interpolate` (`Slerp` for rotation, lerp for
+      translation; both are in the scipy already depended on).
+- [ ] `TransformSystem` — materialize a transformed entity. Decisions already taken: velocity
+      is rotated only and never translated, and the docstring must say that ignores relative
+      motion between the frames; every waypoint of a chunk uses that chunk's own transform;
+      `MASK` columns are dropped rather than carried, because a distance or region mask is a
+      claim about the source frame. It writes a *separate* entity — `range()` refuses to
+      concatenate chunks in different frames, so this is forced rather than stylistic.
+  - [ ] Resolve the `PROVIDES` problem first: a passthrough system cannot enumerate the
+        columns it carries, and declaring `()` makes `Pipeline` reject any consumer of its
+        target. `ApplyMaskSystem` already has this wart. A sentinel that makes `_validate`
+        propagate the source's contract would fix both.
+- [ ] Sub-frame ego motion. Only keyframe poses are imported today, so a lookup between
+      frames has no finer sample to find.
 
 ## P1: offline analysis
 

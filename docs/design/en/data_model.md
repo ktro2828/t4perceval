@@ -228,9 +228,20 @@ The old `Header(timestamp_ns, frame_id)` is gone.
 Archetypes therefore became pure bundles of components, with no header to carry around at
 construction time.
 
-> **Future option**: Rerun expresses coordinate frames through the entity-path hierarchy plus a
-> `Transform3D` archetype (for example `/base_link/estimation/objects`). Worth revisiting when a
-> transform system is introduced. For now `Chunk.frame_id` is what we use.
+> **Decided.** Rerun expresses coordinate frames through the entity-path hierarchy plus a
+> `Transform3D` archetype (for example `/base_link/estimation/objects`). We keep
+> `Chunk.frame_id` for perception data: an entity path answers *what the data is*, and folding
+> the frame into it would make `/ground_truth/objects` unaddressable by a system that does not
+> care which frame it is in.
+>
+> A transform edge is the opposite case, and does live in the path: `/transforms/<parent>/<child>`
+> with a `Transform3D` of `translation` and `rotation`. There the frame pair *is* the identity of
+> the data. Keeping it in the path also avoids a string column in a model where every component is
+> a numeric array, and gives each edge its own series, so `latest_at` answers per edge.
+>
+> A fixed extrinsic is logged as a single temporal sample rather than with `log_static`: static
+> data carries no `frame_id`, and on an entity with no temporal rows it reads back as zero rows,
+> whereas one sample is returned by `latest_at` at every later time.
 
 ## Chunk — a column-oriented table
 
