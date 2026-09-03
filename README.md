@@ -24,13 +24,19 @@ pipeline you compose.
 ```bash
 t4perceval.system     System / Pipeline            the "S" of ECS
                       filter / matching            mask and pair up objects
-t4perceval.core       Store / Chunk / Timeline     the recording
+t4perceval.core       Store / Chunk / Timeline     the mutable log
                       Archetype / Component        the data model
                       EntityPath / Descriptor      addressing
 t4perceval.geometry   box corners / IoU / planes   vectorized, pairwise
+t4perceval.importer   T4 dataset / ROS bag         external formats in
 t4perceval.io         Arrow / Parquet              persistence
 t4perceval.label      LabelRegistry                meaning for the integer columns
+t4perceval.recording  Recording                    a log plus what its integers mean
 ```
+
+`importer` converts an external representation into this one; `io` moves an already-native
+recording to and from storage. Reading a saved recording is `io`; reading a dataset is
+`importer`.
 
 ## Data shapes
 
@@ -151,6 +157,36 @@ print(mask.values)  # [ True False]
 write_parquet(
     scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "matching.parquet"
 )
+```
+
+### Importing a T4 dataset
+
+Requires the `t4` extra (`pip install 't4perceval[t4]'`).
+
+```python
+from t4perceval.evaluation import build_evaluation_store
+from t4perceval.importer.t4 import T4Importer
+from t4perceval.system import Pipeline
+from t4perceval.system.preset import average_precision_sweep
+
+importer = T4Importer.open("tests/data/t4dataset")
+
+# The registry is an input, not something each importer invents. Class ids are assigned in
+# first-seen order, so two sources that each derive their own registry are both valid and
+# silently incompatible -- and the disagreement shows up as plausible numbers, not an error.
+labels = importer.label_registry()
+
+ground_truth = importer.import_scene(labels=labels)  # -> Recording
+
+# A Recording is read-only: `Pipeline.run` writes its results back into the store it reads
+# from, so the entities an evaluation needs are materialized into a fresh one first. Only
+# what you name moves, which is what keeps a saved result about the evaluation.
+setup = build_evaluation_store(ground_truth, estimation)
+Pipeline(
+    average_precision_sweep("/estimation/objects", "/ground_truth/objects", thresholds=[1.0])
+).run(setup.context(), TimeRange.everything())
+
+result = setup.into_recording()  # inputs, matches and metrics, with provenance
 ```
 
 ## Benchmark

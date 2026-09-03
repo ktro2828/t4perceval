@@ -1,90 +1,170 @@
 # TODO
 
-データモデルとシステム層の設計・実装は完了した。設計は [docs/design/](../design/) を参照。
+The data model and the system layer are designed and implemented. See [docs/design/](../design/)
+for the design itself.
 
-## 前提
+## Ground rules
 
-- 複数行を保持する component には `Batch` を付け、archetype には意味に基づく複数形の名前を付ける。
-- descriptor 名は archetype 非依存 (`POSITION` は Detection3D でも Tracking3D でも `"position"`)。
-- `Component.select()` / `Archetype.select()` / `Chunk.select()` は独立したデータを生成する。
-  遅延 view は `EntityView` が担う。
-- component 内部の NumPy 配列は read-only。
-- オブジェクト数 0 の batch は全 archetype で許可する。
+- A component that holds several rows is prefixed with `Batch`; an archetype gets a meaning-based
+  plural name.
+- Descriptor names are archetype-independent (`POSITION` is `"position"` in both Detection3D and
+  Tracking3D).
+- `Component.select()` / `Archetype.select()` / `Chunk.select()` produce independent data. Lazy
+  views are `EntityView`'s job.
+- The NumPy arrays inside a component are read-only.
+- A batch of zero objects is allowed in every archetype.
 
-## 完了
+## Done
 
-- [x] `core` の実装 — `EntityPath` / `ComponentDescriptor` / `ColumnarComponent` / `Archetype` /
+- [x] `core` — `EntityPath` / `ComponentDescriptor` / `ColumnarComponent` / `Archetype` /
       `Timeline` / `Chunk` / `Store` / `EntityView` / `normalize_selection`
-- [x] archetype を継承から合成へ移行。`select()` は基底の 1 実装のみ
-- [x] `Header` を解体 (`TimePoint` + `Chunk.frame_id`)
-- [x] `Trajectories3D` を component から archetype へ昇格し、列を分解
-- [x] `BatchModeValid` / `BatchTimestepValid` / `BatchNumPoints` / `BatchVisibility` /
-      `BatchRoi` / `BatchPixel` / `BatchMask` / matching 系 component を追加
-- [x] `LabelRegistry` / `InstanceRegistry` (category ↔ `BatchClassId` の対応規則)
-- [x] Arrow IO を公開 API として実装。nested vector は fixed-size list、
-      非行方向の情報は schema metadata。Parquet round-trip 検証済み
-- [x] `pyarrow` を直接依存へ追加
-- [x] System protocol / `SystemContext` / `Pipeline` (順序検証)
-- [x] フィルタ system 一式 — 共通基底 `MaskSystem` + 8 種
+- [x] Move archetypes from inheritance to composition. `select()` has one implementation, on the base
+- [x] Dismantle `Header` (`TimePoint` + `Chunk.frame_id`)
+- [x] Promote `Trajectories3D` from a component to an archetype and split out its columns
+- [x] Add `BatchModeValid` / `BatchTimestepValid` / `BatchNumPoints` / `BatchVisibility` /
+      `BatchRoi` / `BatchPixel` / `BatchMask` and the matching components
+- [x] `LabelRegistry` / `InstanceRegistry` (the category ↔ `BatchClassId` correspondence)
+- [x] Arrow IO as public API. Nested vectors are fixed-size lists, non-row-wise information lives in
+      schema metadata. Parquet round-trip verified
+- [x] Add `pyarrow` as a direct dependency
+- [x] System protocol / `SystemContext` / `Pipeline` (order validation)
+- [x] The filter systems — a shared `MaskSystem` base plus 8 kinds
       (`FilterByDistance` / `Region` / `Label` / `Confidence` / `Instance` / `Speed` /
       `NumPoints` / `Visibility`)
 - [x] `CombineMasksSystem` (`mode="all"` / `"any"`)
-- [x] `masked_view()` — mask を通過した行の遅延 view
-- [x] `SystemContext.instances` と `InstanceRegistry.instance_id()` (intern しない参照)
-- [x] マッチング system 一式 — 共通基底 `MatchingSystem` + 6 モード
+- [x] `masked_view()` — a lazy view of the rows that passed a mask
+- [x] `SystemContext.instances` and `InstanceRegistry.instance_id()` (a reference that does not
+      intern)
+- [x] The matching systems — a shared `MatchingSystem` base plus 6 modes
       (`CenterDistance` / `CenterDistanceBEV` / `PlaneDistance` / `IoUBEV` / `IoU3D` / `IoURoi`)
-- [x] `t4perceval.geometry` — ベクトル化した箱の幾何 (footprint 頂点、BEV/3D IoU、
-      ROI IoU、plane distance)。`shapely` を直接依存へ追加
-- [x] クラスごとの閾値 — マッチングは `Thresholds(default, by_class=...)` (正解側のクラスで引く)。
-      フィルタは `CLASS_ID` を要求しない system もあるため、`CombineMasksSystem` による合成で表現する
-- [x] 設計ドキュメント (ja / en) — data_model / system / migration
-- [x] `README.md` に目的・データshape・使用例を記載
-- [x] `pyproject.toml` の description を更新
+- [x] `t4perceval.geometry` — vectorized box geometry (footprint vertices, BEV/3D IoU, ROI IoU,
+      plane distance). `shapely` added as a direct dependency
+- [x] Per-class thresholds — matching takes `Thresholds(default, by_class=...)`, keyed by the
+      ground-truth class. Filters express the same thing by composition through
+      `CombineMasksSystem`, because not every filter system requires `CLASS_ID`
+- [x] Design documents (ja / en) — data_model / system / migration
+- [x] `README.md` states the purpose, the data shapes and a usage example
+- [x] Update the `pyproject.toml` description
 
-## P0: dataloader
+## P0: dataloader (or data importer)
 
-- [ ] `t4_devkit.Tier4` を利用する dataloader を実装する。設計は
-      [data_model.md](../design/ja/data_model.md) の「dataloader 設計」を参照。
-  - [ ] dataset root / revision を指定してロードできる。
-  - [ ] scene、sample、sensor channel で絞り込める。
-  - [ ] `Box3D` / `Box2D` を `Detections3D` / `Trackings3D` / `Predictions3D` へ変換する。
-  - [ ] `Box3D.unix_time` (μs) を `TIMESTAMP` timeline (ns) へ変換する。
-  - [ ] 空annotation、欠損velocity、無効sample dataを処理する。
-  - [ ] `t4_devkit` への依存を dataloader モジュールに閉じる。
-- [ ] 最小構成のT4 dataset fixtureを用意し、dataloaderを実データ形式で検証する。
+Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers converge on.
 
-## P1: 指標 system
+- [x] Implement an importer on top of `t4_devkit.T4Devkit`. See "Dataloader design" in
+      [data_model.md](../design/en/data_model.md).
+  - [x] Load by dataset root / revision.
+  - [x] Narrow by scene, sample and sensor channel.
+  - [x] Convert `Box3D` into `Detections3D` / `Trackings3D` / `Predictions3D` and `Box2D`
+        into `Detections2D` / `Trackings2D`. One extraction, one projection per archetype:
+        the 3D archetypes are a nested superset chain over the same annotation rows.
+  - [x] Convert `Box3D.unix_time` (μs) to the `TIMESTAMP` timeline (ns).
+  - [x] Handle empty annotations, missing velocity and invalid sample data.
+  - [x] Keep the dependency on `t4_devkit` inside the importer module — enforced by a test
+        asserting `import t4perceval` never loads it, and by making it an optional extra.
+- [x] Prepare a minimal T4 dataset fixture and validate against the real data format.
+      `tests/data/t4dataset`, 84 KB of annotation tables vendored from `t4-devkit`.
+- [x] `Recording` / `RecordingMetadata` — a log bound to the registries that encoded it.
+- [x] `t4perceval.evaluation` — materializing recordings into a runnable store, with the
+      class-id, coordinate-frame and instance-registry agreement checks.
+- [x] `t4perceval.reconcile` — expressing one registry's class ids in another's.
 
-- [ ] `MeanAveragePrecisionSystem` (mAP / APH)
-- [ ] `ClearSystem` (MOTA / MOTP / IDSwitch)
-- [ ] `PathDisplacementSystem` (ADE / FDE / MissRate)
-- [ ] `ClassificationSystem` (accuracy / precision / recall / F1)
-- [ ] `HotaSystem` / `PassFailSystem` (critical object 判定を含む)は保留
-- [ ] `/metrics/*` chunk のスキーマ (指標名 × クラス × 閾値をどう列にするか) を決める
-- [ ] [metrics.md](./metrics.md)を参照して残りのTODOを完了する。
+Deferred deliberately: segmentation (no system consumes `PIXEL` / `POINT`, and
+`SemanticSegmentation2D` carries no image width) and sensor data.
 
-## P1: 座標変換
+### Follow-ups
 
-- [ ] `Chunk.frame_id` を使う transform system を設計する。
-  - [ ] `HomogeneousMatrix` (`t4_devkit.dataclass`) 相当を component / static データとして持つか決める。
-  - [ ] 座標系を `EntityPath` 階層に埋める案 (rerun の `Transform3D` 流儀) を再検討する。
+- [ ] `scan_t4_labels`-style discovery without opening the whole dataset, if load time
+      becomes a problem on real scenes.
+- [ ] Decide whether a camera `channel_3d` should ever be allowed. It is rejected today
+      because `get_sample_data` silently drops boxes outside the image.
 
-## P1: オフライン後解析
+## P1: MCAP / ROS bag importer
 
-- [ ] `Store`全体とその他評価メタデータを保存し、後解析・可視化できるようにする。
-  - [ ] [docs/design/en/offline_analysis.md](./offline_analysis.md)を参照して実装方針を決める。
-  - [ ] `Store`の保存時のフォルダ・ファイル構成を決める。
+The second source. Its output converges on the same `Recording`, but it shares no
+converters with T4: `DetectedObjects` / `TrackedObjects` / `PredictedObjects` are three
+distinct message schemas, unlike the T4 3D archetypes.
 
-## P2: 可視化
+- [ ] `t4perceval.importer.rosbag`, decoding through the pure-Python `mcap` +
+      `mcap-ros2-support` (the `rosbag` extra). MCAP is self-describing, so an Autoware bag
+      decodes from its own embedded schemas — no ROS install, no Autoware message packages,
+      and no version pinning against a project that releases independently.
+- [ ] `AUTOWARE_CLASS_NAMES`: `ObjectClassification` is a `uint8` enum, so the mapping goes
+      `enum -> canonical name -> registry id` in two visible stages rather than baking
+      enum-to-class-id directly.
+- [ ] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
+      semantic location; they are not the same concept.
+- [ ] `t4perceval.align` — associate ground-truth and estimation frames by nearest
+      timestamp within a tolerance, one-to-one, producing a shared `FRAME` index. Needed
+      because matching takes the *union* of the two time sets, so mismatched stamps yield
+      all-FP + all-FN frames instead of an error.
+- [ ] Decide what `existence_probability` versus the per-class probability means for
+      `BatchConfidence`, and how `Shape.dimensions` (x=length, y=width, z=height) maps onto
+      `BatchSize3D` (width, length, height).
 
-- [ ] store へのクエリを入力とする可視化層を設計する。
-  - [ ] rerun を optional な出力 sink として使うか、matplotlib で自前実装するか決める。 ->> `t4_devkit.viewer.RerunViewer`を使う。
-  - [ ] [OPTIONAL] 元リポジトリの `perception_analyzer3d` / `eda_tool` / `field_analyzer` に相当する解析を、store のクエリとして書き直せるか確認する。
+## P1: metric systems
 
-## P2: 品質
+- [x] `MeanAveragePrecisionSystem` (mAP / APH) — `AveragePrecisionSystem` /
+      `AveragePrecisionHeadingSystem` / `MeanAveragePrecisionSystem`
+- [x] `ClearSystem` (MOTA / MOTP / IDSwitch)
+- [x] `PathDisplacementSystem` (ADE / FDE / MissRate)
+- [x] `ClassificationSystem` (accuracy / precision / recall / F1)
+- [x] `ConfusionMatrixSystem` (the between-class confusion matrix)
+- [x] Decide the `/metrics/*` chunk schema — a scalar metric is fixed at the four `MetricValues`
+      columns (`class_id` / `threshold` / `value` / `support`) and the metric's name is carried by
+      the entity path (`/metrics/<name>`). A metric with structure defines its own archetype
+      (`ConfusionMatrix`) and reuses the same source wiring
+- [ ] `HotaSystem` / `PassFailSystem` (including the critical-object verdict) — on hold
+- [ ] Address the findings in [metrics.md](./metrics.md). The implementations differ from the
+      official benchmark definitions as follows (all pass the current tests, but compatibility is
+      unverified)
+  - [ ] The prediction metrics do not consult `MODE_VALID` / `TIMESTEP_VALID` / `TIME_OFFSET`
+        (padding leaks into ADE / FDE / MissRate, and the time axis is aligned by index)
+  - [ ] APH treats heading similarity as the true-positive count itself, which also changes the
+        denominator of recall (Waymo uses the ordinary true-positive count for recall)
+  - [ ] AP association is a globally optimal Hungarian assignment rather than confidence order
+        (nuScenes matches greedily in descending confidence)
+  - [ ] An identity change across a missing frame is counted as an ID switch
+        (`_count_switches()` only ever receives true-positive rows)
+  - [ ] MOTA is clamped to 0 by `max(0.0, ...)` (CLEAR permits negative values). Under
+        class-agnostic matching, a pair whose classes disagree becomes neither a true positive nor
+        a false positive
+  - [ ] `accuracy` is defined as `TP / (TP + FP + FN)` (Jaccard/IoU), which does not match its name;
+        MissRate is the fraction of all mode × timestep distances over the tolerance, which differs
+        from the per-object definition
 
-- [ ] Ruffに加えてPyrightまたはMypyをCIで実行する。
-- [ ] Python 3.10以降のテストマトリクスを用意する。
-- [ ] `Store` のクエリに chunk 単位のキャッシュが必要か、実データ規模で測ってから決める。
-- [ ] 大規模 scene での `Store.range()` の性能を測る (現状は partition ごとに小さな chunk を作って concat する)。
-- [ ] changelogを追加し、rerunベースのデータモデルへの移行を記載する。
+## P1: coordinate transforms
+
+- [ ] Design a transform system that uses `Chunk.frame_id`.
+  - [ ] Decide whether to carry the equivalent of `HomogeneousMatrix` (`t4_devkit.dataclass`) as a
+        component or as static data.
+  - [ ] Revisit embedding the coordinate frame in the `EntityPath` hierarchy (Rerun's `Transform3D`
+        style).
+
+## P1: offline analysis
+
+- [x] Decide the object that gets persisted. `Recording` is it — a store plus the label and
+      instance registries plus `RecordingMetadata`. `EvaluationRecording` is dropped from the
+      design: an evaluation recording is a `Recording` whose store also holds `/matching/*`
+      and `/metrics/*`, which is a difference in content, not in type.
+- [ ] Persist a whole `Recording` so results can be analyzed and visualized later.
+  - [ ] `write_recording` / `read_recording`, following [offline_analysis.md](./offline_analysis.md).
+  - [ ] Decide the directory and file layout a saved recording uses.
+  - [ ] `InstanceRegistry.to_metadata` / `from_metadata` — still the one registry that
+        cannot round-trip.
+
+## P2: visualization
+
+- [ ] Design a visualization layer whose input is a query against the store.
+  - [ ] Decide between Rerun as an optional output sink and a matplotlib implementation of our own.
+        →> use `t4_devkit.viewer.RerunViewer`.
+  - [ ] [OPTIONAL] Check whether the analyses corresponding to the original repository's
+        `perception_analyzer3d` / `eda_tool` / `field_analyzer` can be rewritten as store queries.
+
+## P2: quality
+
+- [ ] Run Pyright or Mypy in CI alongside Ruff.
+- [ ] Set up a test matrix for Python 3.10 and later.
+- [ ] Decide whether `Store` queries need a per-chunk cache, after measuring at real data scale.
+- [ ] Measure `Store.range()` performance on a large scene (it currently builds a small chunk per
+      partition and concatenates them).
+- [ ] Add a changelog and record the migration to the Rerun-based data model.
