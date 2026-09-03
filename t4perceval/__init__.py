@@ -52,6 +52,7 @@ from t4perceval.label import (
     InstanceRegistry,
     LabelRegistry,
 )
+from t4perceval.recording import Recording, RecordingMetadata, SourceInfo
 
 __all__ = (
     "ANY",
@@ -76,8 +77,11 @@ __all__ = (
     "MatchResults",
     "MetricValues",
     "Predictions3D",
+    "Recording",
+    "RecordingMetadata",
     "SemanticSegmentation2D",
     "SemanticSegmentation3D",
+    "SourceInfo",
     "Store",
     "TimeColumn",
     "TimeKind",
