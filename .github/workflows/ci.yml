@@ -44,11 +44,6 @@ jobs:
       - name: Install the project and its extras
         # `--all-extras` pulls in t4-devkit (a git dependency) and the MCAP stack, so the
         # importers are exercised rather than skipped.
-        #
-        # Deliberately not `--locked`: uv re-resolves when uv.lock is stale rather than
-        # failing, so CI tracks the current dependency set. The trade-off is that lock
-        # drift does not surface here -- a dependency can break the build without any
-        # change in this repository.
         run: uv sync --all-extras
 
       - name: Run the test suite
