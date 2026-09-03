@@ -15,12 +15,15 @@ from t4perceval.core.descriptor import ComponentDescriptor
 __all__ = (
     "CLASS_ID",
     "CONFIDENCE",
+    "COUNT",
+    "ESTIMATION_CLASS_ID",
     "EST_INDEX",
+    "GROUND_TRUTH_CLASS_ID",
     "GT_INDEX",
     "INSTANCE_ID",
     "MASK",
-    "MATCH_STATUS",
     "MATCHING_SCORE",
+    "MATCH_STATUS",
     "METRIC_VALUE",
     "MODE_CONFIDENCE",
     "MODE_VALID",
@@ -34,8 +37,8 @@ __all__ = (
     "SIZE_2D",
     "SUPPORT",
     "THRESHOLD",
-    "TIME_OFFSET",
     "TIMESTEP_VALID",
+    "TIME_OFFSET",
     "VELOCITY",
     "VISIBILITY",
     "WAYPOINTS",
@@ -80,5 +83,8 @@ MATCH_STATUS = ComponentDescriptor("match_status", component_type="BatchMatchSta
 THRESHOLD = ComponentDescriptor("threshold", component_type="BatchThreshold")
 
 # --- metrics -------------------------------------------------------------------------
+GROUND_TRUTH_CLASS_ID = ComponentDescriptor("ground_truth_class_id", component_type="BatchClassId")
+ESTIMATION_CLASS_ID = ComponentDescriptor("estimation_class_id", component_type="BatchClassId")
+COUNT = ComponentDescriptor("count", component_type="BatchCount")
 METRIC_VALUE = ComponentDescriptor("metric_value", component_type="BatchMetricValue")
 SUPPORT = ComponentDescriptor("support", component_type="BatchSupport")

@@ -22,10 +22,19 @@ if TYPE_CHECKING:
 
     from t4perceval.typing import NDArrayI32
 
-__all__ = ("UNKNOWN_CLASS_ID", "ClassInfo", "InstanceRegistry", "LabelRegistry")
+__all__ = (
+    "BACKGROUND_CLASS_ID",
+    "UNKNOWN_CLASS_ID",
+    "ClassInfo",
+    "InstanceRegistry",
+    "LabelRegistry",
+)
 
 #: Class id reserved for "no known class".
 UNKNOWN_CLASS_ID = -1
+
+#: Class id used when one side of a detection confusion-matrix cell has no object.
+BACKGROUND_CLASS_ID = -2
 
 
 @define(frozen=True, slots=True)
@@ -56,6 +65,8 @@ def _as_classes(value: Iterable[ClassInfo]) -> tuple[ClassInfo, ...]:
 
     if UNKNOWN_CLASS_ID in ids:
         raise ValueError(f"class id {UNKNOWN_CLASS_ID} is reserved for the unknown class")
+    if BACKGROUND_CLASS_ID in ids:
+        raise ValueError(f"class id {BACKGROUND_CLASS_ID} is reserved for background")
 
     return classes
 

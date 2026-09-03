@@ -1,9 +1,9 @@
-"""The shared shape of a metric system.
+"""The shared shape and joined-input plumbing of a metric system.
 
-Every metric writes a :class:`~t4perceval.archetype.MetricValues`: the same four columns,
-whatever the metric measures, with the metric's *name* carried by the entity path. That
-uniformity is the point -- a reader can export ``/metrics/ap`` and ``/metrics/mota`` the
-same way, and comparing two runs is one query instead of a traversal per metric family.
+Scalar metrics write a :class:`~t4perceval.archetype.MetricValues`: the same four columns,
+whatever the metric measures, with the metric's *name* carried by the entity path.
+Structured metrics may override result serialization while reusing the source wiring,
+class discovery and reporting-time rules.
 
 A subclass declares which components it needs from each of its three sources and
 implements :meth:`compute`. The base builds the :class:`~t4perceval.system.join.MatchJoin`,
@@ -53,8 +53,9 @@ def nan_mean(values: Sequence[float] | NDArrayF64) -> float:
 
 @define(slots=True)
 class MetricSystem(EntitySystem):
-    """Base for a system that turns match verdicts into metric values.
+    """Base for a system that turns match verdicts into metric results.
 
+    By default subclasses return scalar :class:`MetricValues` rows from :meth:`compute`.
     Sources are ``(matching, estimation, ground_truth)``. The three carry different
     components, so each is validated against its own declaration rather than one shared
     ``REQUIRES``; ``REQUIRES`` itself is what the *matching* source must have, which is

@@ -4,8 +4,16 @@ import numpy as np
 from attrs import define
 
 from t4perceval.core.component import ColumnarComponent
+from t4perceval.label import BACKGROUND_CLASS_ID
 
-__all__ = ("ALL_CLASSES", "BatchMetricValue", "BatchSupport", "BatchThreshold")
+__all__ = (
+    "ALL_CLASSES",
+    "BACKGROUND_CLASS_ID",
+    "BatchCount",
+    "BatchMetricValue",
+    "BatchSupport",
+    "BatchThreshold",
+)
 
 #: ``class_id`` marking a row that aggregates over every class.
 #:
@@ -14,6 +22,17 @@ __all__ = ("ALL_CLASSES", "BatchMetricValue", "BatchSupport", "BatchThreshold")
 #: :class:`~t4perceval.label.LabelRegistry` knows, so a ``-1`` row can only be an
 #: aggregate.
 ALL_CLASSES = -1
+
+
+@define(frozen=True, slots=True)
+class BatchCount(ColumnarComponent):
+    """Non-negative event counts with shape ``(N,)``."""
+
+    DTYPE = np.int64
+
+    def __attrs_post_init__(self) -> None:
+        if np.any(self.values < 0):
+            raise ValueError("BatchCount must contain only non-negative values")
 
 
 @define(frozen=True, slots=True)
