@@ -25,6 +25,7 @@ from t4perceval.archetype import (
     Trackings3D,
     Trajectories3D,
     TrajectoryMode3D,
+    Transform3D,
 )
 from t4perceval.core import (
     ANY,
@@ -92,5 +93,6 @@ __all__ = (
     "Trackings3D",
     "Trajectories3D",
     "TrajectoryMode3D",
+    "Transform3D",
     "concat_chunks",
 )

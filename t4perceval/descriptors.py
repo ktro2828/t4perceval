@@ -33,12 +33,14 @@ __all__ = (
     "POSITION",
     "QUATERNION",
     "ROI",
+    "ROTATION",
     "SIZE",
     "SIZE_2D",
     "SUPPORT",
     "THRESHOLD",
     "TIMESTEP_VALID",
     "TIME_OFFSET",
+    "TRANSLATION",
     "VELOCITY",
     "VISIBILITY",
     "WAYPOINTS",
@@ -66,6 +68,13 @@ VISIBILITY = ComponentDescriptor("visibility", component_type="BatchVisibility")
 
 # --- point clouds --------------------------------------------------------------------
 POINT = ComponentDescriptor("point", component_type="BatchPosition3D")
+
+# --- coordinate transforms -----------------------------------------------------------
+# Deliberately not POSITION/QUATERNION. A transform is a relationship between frames, not
+# a thing in a frame, and separate names stop a system that asks for a 3D position -- a
+# distance filter, say -- from being pointed at a transform entity and appearing to work.
+TRANSLATION = ComponentDescriptor("translation", component_type="BatchPosition3D")
+ROTATION = ComponentDescriptor("rotation", component_type="BatchQuaternion")
 
 # --- trajectories --------------------------------------------------------------------
 WAYPOINTS = ComponentDescriptor("waypoints", component_type="BatchWaypoints3D")
