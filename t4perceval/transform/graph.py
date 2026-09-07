@@ -30,11 +30,21 @@ if TYPE_CHECKING:
     from t4perceval.core.store import Store
     from t4perceval.recording import Recording
 
-__all__ = ("DEFAULT_ROOT", "FrameGraph", "TransformEdge", "transform_edges")
+__all__ = ("DEFAULT_ROOT", "FrameGraph", "TransformEdge", "tf_path", "transform_edges")
 
 #: Where transform entities are filed by convention. Only a convention: an edge is found
 #: by reading a chunk, so a transform recorded anywhere is found with ``root=None``.
 DEFAULT_ROOT: Final = EntityPath.parse("/tf")
+
+
+def tf_path(child: str, *, root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
+    """Return the entity the transforms of one child frame are filed under.
+
+    A convenience, not a convention anything relies on: the child frame is recorded in the
+    ``child_frame_id`` component, so a reader never parses this path. That is what lets a
+    frame name contain a ``/`` -- it simply produces a deeper path here.
+    """
+    return as_entity_path(root) / child
 
 
 @define(frozen=True, slots=True)

@@ -180,3 +180,20 @@ def t4_importer(t4_dataset_root: Path) -> object:
     from t4perceval.importer.t4 import T4Importer
 
     return T4Importer.open(t4_dataset_root)
+
+
+@pytest.fixture(scope="session")
+def rosbag_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A small Autoware bag, generated from ``tests/rosbag_builder.py``."""
+    pytest.importorskip("mcap_ros2")
+    from tests.rosbag_builder import fixture_records, write_bag
+
+    return write_bag(tmp_path_factory.mktemp("bag") / "fixture_0.mcap", fixture_records())
+
+
+@pytest.fixture
+def rosbag_importer(rosbag_path: Path) -> object:
+    """A default importer over the generated bag."""
+    from t4perceval.importer.rosbag import RosbagImporter
+
+    return RosbagImporter.open(rosbag_path)

@@ -23,9 +23,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from t4perceval.archetype.transform import Transform3D
-from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimePoint
-from t4perceval.transform.graph import DEFAULT_ROOT
+from t4perceval.transform.graph import DEFAULT_ROOT, tf_path
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -41,16 +40,6 @@ MAP_FRAME = "map"
 
 #: The ego-vehicle frame, matching the name `t4_devkit` stamps on a transformed box.
 EGO_FRAME = "base_link"
-
-
-def tf_path(child: str, *, root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
-    """Return the entity the transforms of one child frame are filed under.
-
-    A convenience, not a convention anything relies on: the child frame is recorded in the
-    ``child_frame_id`` component, so a reader never parses this path. That is what lets a
-    frame name contain a ``/`` -- it simply produces a deeper path here.
-    """
-    return as_entity_path(root) / child
 
 
 def _pose_values(record: Any) -> tuple[list[float], list[float]]:

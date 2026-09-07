@@ -27,6 +27,7 @@ from t4perceval.transform.graph import (
     DEFAULT_ROOT,
     FrameGraph,
     TransformEdge,
+    tf_path,
     transform_edges,
 )
 from t4perceval.transform.lookup import LookupPolicy, TransformResolver
@@ -42,5 +43,6 @@ __all__ = (
     "identity",
     "interpolate",
     "invert",
+    "tf_path",
     "transform_edges",
 )

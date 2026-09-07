@@ -7,10 +7,14 @@ archetypes, and ECS-style systems. Instead of representing every detected object
 object, it stores homogeneous NumPy columns that can be selected, serialized, and evaluated in
 batches.
 
+<!-- markdownlint-disable MD046 -- an admonition body is indented, not a code block -->
+
 !!! warning "Project status"
 
     This project is under active development. APIs and data layouts may change without backward
     compatibility until the design stabilizes.
+
+<!-- markdownlint-enable MD046 -->
 
 ## Architecture at a glance
 
@@ -42,7 +46,7 @@ The model is split into these layers:
 | `t4perceval.core`      | Entity paths, timelines, chunks, storage, and views                       |
 | `t4perceval.transform` | Coordinate-frame edges: finding the graph, and composing a lookup         |
 | `t4perceval.system`    | Filtering, matching, metrics, and pass/fail evaluation                    |
-| `t4perceval.importer`  | External formats in (the T4 dataset today, a ROS bag later)               |
+| `t4perceval.importer`  | External formats in (the T4 dataset, MCAP ROS bags)                       |
 | `t4perceval.io`        | Arrow and Parquet persistence                                             |
 
 ## Quick example

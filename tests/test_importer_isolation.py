@@ -10,6 +10,8 @@ from __future__ import annotations
 import subprocess
 import sys
 
+import pytest
+
 PROBE = """
 import sys
 import t4perceval
@@ -77,3 +79,44 @@ def test_a_missing_extra_names_the_install_command() -> None:
     )
 
     assert "t4perceval[t4]" in result.stdout
+
+
+def test_the_rosbag_importer_does_pull_in_mcap(rosbag_path) -> None:  # noqa: ANN001
+    # Lazily: importing the package leaves the extra alone, opening a bag loads it.
+    pytest.importorskip("mcap_ros2")
+    probe = (
+        "import sys\n"
+        "from t4perceval.importer.rosbag import BagSource\n"
+        "before = 'mcap' in sys.modules\n"
+        f"BagSource({str(rosbag_path)!r}).topics()\n"
+        "print(before, 'mcap' in sys.modules)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == "False True"
+
+
+def test_a_missing_rosbag_extra_names_the_install_command() -> None:
+    probe = (
+        "import sys\n"
+        "sys.modules['mcap'] = None\n"
+        "sys.modules['mcap.reader'] = None\n"
+        "from t4perceval.importer.rosbag import RosbagImporter\n"
+        "try:\n"
+        "    RosbagImporter.open('nonexistent.mcap')\n"
+        "except ImportError as error:\n"
+        "    print(error)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "t4perceval[rosbag]" in result.stdout

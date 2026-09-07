@@ -84,22 +84,39 @@ The second source. Its output converges on the same `Recording`, but it shares n
 converters with T4: `DetectedObjects` / `TrackedObjects` / `PredictedObjects` are three
 distinct message schemas, unlike the T4 3D archetypes.
 
-- [ ] `t4perceval.importer.rosbag`, decoding through the pure-Python `mcap` +
+- [x] `t4perceval.importer.rosbag`, decoding through the pure-Python `mcap` +
       `mcap-ros2-support` (the `rosbag` extra). MCAP is self-describing, so an Autoware bag
       decodes from its own embedded schemas — no ROS install, no Autoware message packages,
-      and no version pinning against a project that releases independently.
-- [ ] `AUTOWARE_CLASS_NAMES`: `ObjectClassification` is a `uint8` enum, so the mapping goes
+      and no version pinning against a project that releases independently. Only `ros2msg`
+      schemas decode; a `ros2idl` bag (some AWSIM recordings) is refused with a message
+      naming the encoding.
+- [x] `AUTOWARE_CLASS_NAMES`: `ObjectClassification` is a `uint8` enum, so the mapping goes
       `enum -> canonical name -> registry id` in two visible stages rather than baking
-      enum-to-class-id directly.
-- [ ] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
-      semantic location; they are not the same concept.
+      enum-to-class-id directly. The name -> id step moved to `importer/_labels.py`, shared
+      with T4.
+- [x] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
+      semantic location; they are not the same concept. One recording holds one topic at
+      `/estimation/objects`; the topic is provenance (`SourceInfo.topic`).
 - [ ] `t4perceval.align` — associate ground-truth and estimation frames by nearest
       timestamp within a tolerance, one-to-one, producing a shared `FRAME` index. Needed
       because matching takes the _union_ of the two time sets, so mismatched stamps yield
-      all-FP + all-FN frames instead of an error.
-- [ ] Decide what `existence_probability` versus the per-class probability means for
-      `BatchConfidence`, and how `Shape.dimensions` (x=length, y=width, z=height) maps onto
-      `BatchSize3D` (width, length, height).
+      all-FP + all-FN frames instead of an error. A bag's `FRAME` is currently the message
+      index within the topic.
+- [x] Decided: `BatchConfidence` is the top classification's probability by default (what a
+      detector's score becomes, and what driving_log_replayer used), with
+      `ImportOptions(confidence="existence" | "product")` as alternatives; an object with no
+      classification falls back to `existence_probability`. `Shape.dimensions` `(x, y, z)`
+      maps to `BatchSize3D` `(y, x, z)`; a `CYLINDER` is `(x, x, z)`; a `POLYGON` footprint
+      is dropped (no component). A body-frame twist is rotated into `header.frame_id` so
+      `BatchVelocity` shares `position`'s frame.
+- [x] `/tf` samples are logged on `TIMESTAMP` only -- no frame index exists between messages
+      -- and `/tf_static` with `log_static`; a child on both topics, or with two parents, is
+      an error because a child is filed under one entity. Default `tf_scope="selection"`
+      keeps the samples spanning the imported messages plus one bracket sample either side.
+- [ ] Decoding is pure Python: a 60 s Autoware bag imports a detection topic in ~10 s and a
+      `PredictedObjects` topic (up to 100 poses per path) in ~60 s. If that matters, batch
+      `/tf` samples per child into one multi-partition chunk and decode with a CDR reader
+      that returns arrays.
 
 ## P1: metric systems
 

@@ -30,7 +30,7 @@ t4perceval.core       Store / Chunk / Timeline     the mutable log
                       EntityPath / Descriptor      addressing
 t4perceval.geometry   box corners / IoU / planes   vectorized, pairwise
 t4perceval.transform  FrameGraph / resolver         coordinate frames as data
-t4perceval.importer   T4 dataset (ROS bag next)    external formats in
+t4perceval.importer   T4 dataset / MCAP ROS bag    external formats in
 t4perceval.io         Arrow / Parquet              persistence
 t4perceval.label      LabelRegistry                meaning for the integer columns
 t4perceval.recording  Recording                    a log plus what its integers mean
@@ -191,6 +191,38 @@ Pipeline(
 result = setup.into_recording()  # inputs, matches and metrics, with provenance
 ```
 
+### Importing a ROS bag
+
+Requires the `rosbag` extra (`pip install 't4perceval[rosbag]'`). An MCAP bag is decoded from the
+message definitions it embeds, so no ROS installation and no Autoware message packages are needed.
+
+```python
+from t4perceval import TIMESTAMP
+from t4perceval.importer.rosbag import BagSelection, RosbagImporter
+from t4perceval.transform import TransformResolver
+
+importer = RosbagImporter.open("/data/bags/run_0")  # a directory of *.mcap, or one file
+importer.topics()  # the DetectedObjects / TrackedObjects / PredictedObjects topics it holds
+
+# Same rule as above: hand the ground-truth importer this very registry.
+labels = importer.label_registry()  # the Autoware class enum, in enum order
+
+estimation = importer.import_topic(  # -> Recording, one topic at a time
+    labels=labels,
+    selection=BagSelection(topic="/perception/object_recognition/tracking/objects"),
+)
+
+# `/tf_static` becomes static edges and `/tf` temporal ones -- on the TIMESTAMP timeline only,
+# since a sample between two messages has no frame index. Look them up on that axis.
+resolver = TransformResolver.of(estimation, timeline=TIMESTAMP)
+```
+
+The schema decides the archetype (`TrackedObjects` -> `Trackings3D`), `ObjectClassification` maps
+enum -> canonical name -> registry id, `Shape.dimensions` `(x=length, y=width, z=height)` becomes
+`BatchSize3D` `(width, length, height)`, a body-frame twist is rotated into the message frame, and
+`BatchConfidence` is the top classification probability by default
+(`ImportOptions(confidence="existence")` for `existence_probability`).
+
 ### Coordinate frames
 
 A chunk states the frame its rows are in (`frame_id`), and a transform is recorded data like
@@ -279,12 +311,14 @@ static data, lazy views, the label registries, Arrow/Parquet IO, the system prot
 the full filter family (eight filters on a shared `MaskSystem` base, plus `CombineMasksSystem` and
 `masked_view`), the full matching family (six modes on a shared `MatchingSystem` base, with per-class
 `Thresholds` and vectorized geometry in `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR,
-ADE/FDE/MissRate, classification, confusion matrix), the T4 importer with the `Recording` boundary and
-`t4perceval.evaluation`, and coordinate transforms -- static and temporal edges, frame-graph discovery
-from the data, composition through `TransformResolver`, and the cross-frame guard.
+ADE/FDE/MissRate, classification, confusion matrix), the T4 and MCAP/ROS bag importers with the
+`Recording` boundary and `t4perceval.evaluation`, and coordinate transforms -- static and temporal
+edges, frame-graph discovery from the data, composition through `TransformResolver`, and the
+cross-frame guard.
 
-Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, the MCAP/ROS bag
-importer, persisting a whole `Recording`, and a visualization layer. See
+Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, `t4perceval.align`
+for pairing ground-truth and bag frames by timestamp, persisting a whole `Recording`, and a
+visualization layer. See
 [docs/design/en/system.md](docs/design/en/system.md) for where each of those fits on the protocol,
 [docs/TODOs/design.md](docs/TODOs/design.md) for the current list, and
 [docs/TODOs/metrics.md](docs/TODOs/metrics.md) for where the metric implementations differ from the
