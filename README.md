@@ -282,12 +282,15 @@ Only two _different, stated_ frames raise; an unstated frame is not a disagreeme
 
 `benchmarks/compare.py` feeds `autoware_perception_evaluation` (`perception_eval` 1.3.6) and
 `t4perceval` the same synthetic scenes and compares both speed and the metric values themselves.
-The two run in separate processes because `perception_eval` pins NumPy 1; the full report is
-regenerated into [`benchmarks/results/latest.md`](benchmarks/results/latest.md) with:
+The two run in separate processes because `perception_eval` pins NumPy 1.
+
+The full report is regenerated into [`benchmarks/results/latest.md`](benchmarks/results/latest.md) with:
 
 ```bash
 uv run python benchmarks/compare.py --check
 ```
+
+See [benchmarks/README.md](benchmarks/README.md) for the options, what the run does, and its prerequisites.
 
 Scene phases run over 10 frames with 200 objects per frame (median of 5 runs after 2 warm-ups, one
 pinned logical CPU); matching is a single frame.
