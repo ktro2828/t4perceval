@@ -28,6 +28,18 @@ Pose: TypeAlias = "tuple[NDArrayF64, NDArrayF64]"
 """A translation ``(3,)`` and an ``xyzw`` rotation ``(4,)``."""
 
 
+def _writable(vector: NDArrayF64) -> NDArrayF64:
+    """Return a writable float64 copy of a vector about to be passed to SciPy.
+
+    Component arrays are read-only by design, and ``Rotation.apply`` in SciPy 1.17.x
+    rejects a read-only buffer with ``ValueError: buffer source array is read-only``
+    (1.15 and 1.18 accept it). SciPy 1.18 requires Python 3.12, so on 3.11 the 1.17 series
+    is the newest available and the copy -- three floats -- is what keeps the lookup
+    working there.
+    """
+    return np.array(vector, dtype=np.float64)
+
+
 def identity() -> Pose:
     """Return the pose that maps every point to itself."""
     return np.zeros(3), np.array([0.0, 0.0, 0.0, 1.0])
@@ -41,7 +53,7 @@ def invert(pose: Pose) -> Pose:
     """
     translation, rotation = pose
     inverse = Rotation.from_quat(np.asarray(rotation, dtype=np.float64)).inv()
-    return -inverse.apply(np.asarray(translation, dtype=np.float64)), inverse.as_quat()
+    return -inverse.apply(_writable(translation)), inverse.as_quat()
 
 
 def compose(outer: Pose, inner: Pose) -> Pose:
@@ -53,10 +65,7 @@ def compose(outer: Pose, inner: Pose) -> Pose:
     inner_t, inner_q = inner
     outer_r = Rotation.from_quat(np.asarray(outer_q, dtype=np.float64))
     inner_r = Rotation.from_quat(np.asarray(inner_q, dtype=np.float64))
-    translation = outer_r.apply(np.asarray(inner_t, dtype=np.float64)) + np.asarray(
-        outer_t,
-        dtype=np.float64,
-    )
+    translation = outer_r.apply(_writable(inner_t)) + np.asarray(outer_t, dtype=np.float64)
     return translation, (outer_r * inner_r).as_quat()
 
 
