@@ -120,6 +120,10 @@ distinct message schemas, unlike the T4 3D archetypes.
 
 ## P1: metric systems
 
+`benchmarks/compare.py` runs the metric systems and `perception_eval` 1.3.6 on the same
+synthetic scenes and reports speed, memory and per-metric agreement; the divergences below
+are what it classifies as known (`docs/TODOs/metrics.md`).
+
 - [x] `MeanAveragePrecisionSystem` (mAP / APH) — `AveragePrecisionSystem` /
       `AveragePrecisionHeadingSystem` / `MeanAveragePrecisionSystem`
 - [x] `ClearSystem` (MOTA / MOTP / IDSwitch)

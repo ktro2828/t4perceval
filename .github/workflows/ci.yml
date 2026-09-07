@@ -90,10 +90,10 @@ jobs:
         # Pinned to the version .pre-commit-config.yaml uses. Ruff's default rule set
         # widens between releases, so an unpinned run would fail on code that was clean
         # when it was written.
-        run: uvx ruff@0.16.5 check t4perceval tests
+        run: uvx ruff@0.16.5 check t4perceval tests benchmarks
 
       - name: ruff format
-        run: uvx ruff@0.16.5 format --check t4perceval tests
+        run: uvx ruff@0.16.5 format --check t4perceval tests benchmarks
 
   # NOTE: There is no pre-commit job yet. `.pre-commit-config.yaml` has never been run
   # against this repository, and its prettier hook rewrites ~159 lines across five design

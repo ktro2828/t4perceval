@@ -280,21 +280,35 @@ Only two _different, stated_ frames raise; an unstated frame is not a disagreeme
 
 ## Benchmark
 
-Compared with `autoware_perception_evaluation` (`perception_eval`) 1.3.6, the columnar data model
-substantially reduces matching time, construction time, and retained memory.
+`benchmarks/compare.py` feeds `autoware_perception_evaluation` (`perception_eval` 1.3.6) and
+`t4perceval` the same synthetic scenes and compares both speed and the metric values themselves.
+The two run in separate processes because `perception_eval` pins NumPy 1; the full report is
+regenerated into [`benchmarks/results/latest.md`](benchmarks/results/latest.md) with:
 
-| Workload                                   | `perception_eval` | `t4perceval` |   Improvement |
-| :----------------------------------------- | ----------------: | -----------: | ------------: |
-| Center-distance matching, 200 est / 200 GT |        335.698 ms |     1.675 ms | 200.4x faster |
-| Data-model construction, 200 est / 200 GT  |          5.446 ms |     0.045 ms | 119.7x faster |
-| Retained RSS, 20,000 est / 20,000 GT       |          82.8 MiB |      3.8 MiB | 22.1x smaller |
+```bash
+uv run python benchmarks/compare.py --check
+```
 
-The synthetic benchmark uses one pinned logical CPU and reports the median of 15 runs after three
-warm-ups. Input generation and loading are excluded from matching time.
+Scene phases run over 10 frames with 200 objects per frame (median of 5 runs after 2 warm-ups, one
+pinned logical CPU); matching is a single frame.
 
-This is a public matching-path comparison, not an end-to-end dataset benchmark. Assignment also
-differs: `perception_eval` uses greedy matching, while `t4perceval` uses globally optimal linear-sum
-assignment, so the results are not a drop-in comparison of identical algorithms.
+| Workload (200 objects / frame)               | `perception_eval` | `t4perceval` |   Improvement |
+| :------------------------------------------- | ----------------: | -----------: | ------------: |
+| Data-model construction, one frame           |          6.035 ms |     0.069 ms |  87.2x faster |
+| Center-distance matching, one frame          |        339.900 ms |     1.517 ms | 224.1x faster |
+| Detection: mAP + mAPH at 4 thresholds        |       6360.713 ms |    94.074 ms |  67.6x faster |
+| Tracking: CLEAR (MOTA / MOTP / ID switches)  |       3303.261 ms |    19.573 ms | 168.8x faster |
+| Prediction: ADE / FDE / miss rate, top-k 1,3 |       3718.902 ms |    30.701 ms | 121.1x faster |
+| Retained RSS, 20,000 est / 20,000 GT         |          83.7 MiB |      5.2 MiB | 16.0x smaller |
+
+Numerical agreement is checked on two scenes. In the **unambiguous** scene every estimate has exactly
+one feasible ground truth, so `perception_eval`'s greedy assignment and `t4perceval`'s linear-sum
+assignment pick the same pairs: all 133 compared values (per-class and overall AP / APH / mAP / mAPH,
+MOTA / MOTP / ID switches, ADE / FDE / miss rate) agree to within `1e-9` (`1e-8` for APH, which
+`perception_eval` rounds). In the **dense** scene the two differ on 87 values, every one of which is
+classified against a documented divergence -- Hungarian vs confidence-ordered greedy matching, the
+previous-frame MOTP score, heading sign in APH, and how ID switches are counted -- see
+[docs/TODOs/metrics.md](docs/TODOs/metrics.md). `--check` fails on any difference that is not.
 
 ## Development
 

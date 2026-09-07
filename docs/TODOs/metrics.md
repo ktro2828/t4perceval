@@ -71,6 +71,34 @@ This is compatible with the original Autoware implementation, but results can di
 
 Additionally, when class-agnostic matching is enabled, a matched pair with different ground-truth and estimation classes is not counted as a true positive, but the estimation is not counted as a false positive for its predicted class either.
 
+## Divergences from `autoware_perception_evaluation` found by the benchmark
+
+`benchmarks/compare.py` feeds both libraries the same synthetic scene and compares every
+metric value (see `benchmarks/results/latest.md`). In a scene where every estimate has exactly
+one feasible ground truth the two agree to within floating-point noise; a dense scene exposes
+items 3 and 4 above and the three below. None of these is a bug in `t4perceval`; they are
+recorded so the benchmark can classify a difference as known rather than unexplained.
+
+### 6. MOTP uses the previous frame's distance for a continuing pair
+
+`perception_eval`'s `CLEAR` adds the _previous_ frame's matching score when a pair persists
+from one frame to the next (`clear.py`, `tp_matching_score += prev_obj_result...`), whereas
+[`t4perceval/system/metric/tracking.py`](../../t4perceval/system/metric/tracking.py) averages
+the current frame's scores. The two agree only when an object's offset is constant over time.
+
+### 7. APH in `perception_eval` loses the heading sign
+
+`perception_eval` reads a heading through `pyquaternion.Quaternion.radians`, which is the
+rotation _angle_ and therefore `|yaw|` for a rotation about z. `t4perceval` uses the signed yaw.
+A heading error across zero is counted differently, so APH agrees only while every yaw stays
+within one half-turn of the same sign.
+
+### 8. `perception_eval` also counts an ID switch on the estimation side
+
+`perception_eval`'s `_is_id_switched` reports a switch when one estimation id moves to a
+different ground truth, in addition to the ground truth changing estimation ids.
+`t4perceval` counts only the latter, so `id_switch` (and through it MOTA) can be lower.
+
 ## Definition differences
 
 ### Classification accuracy
