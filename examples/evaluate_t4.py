@@ -24,6 +24,8 @@ import sys
 from typing import TYPE_CHECKING
 
 import numpy as np
+from t4_devkit.schema import SensorModality
+from t4_devkit.viewer import RerunViewer, ViewerBuilder
 
 from t4perceval import (
     FRAME,
@@ -38,10 +40,11 @@ from t4perceval import (
     TimePoint,
     TimeRange,
     Trackings3D,
+    Transform3D,
 )
-from t4perceval.descriptors import MASK
+from t4perceval.descriptors import CLASS_ID, INSTANCE_ID, MASK, POSITION, QUATERNION, SIZE, VELOCITY
 from t4perceval.evaluation import build_evaluation_store
-from t4perceval.importer.t4 import SceneSelection, T4Importer
+from t4perceval.importer.t4 import SceneSelection, T4Importer, T4Source
 from t4perceval.system import (
     ApplyMaskSystem,
     FilterByDistanceSystem,
@@ -190,6 +193,13 @@ def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recordin
     """
     store = Store()
     rng = np.random.default_rng(0)
+    stamps = dict(
+        zip(
+            ground_truth.times(GROUND_TRUTH, FRAME).tolist(),
+            ground_truth.times(GROUND_TRUTH, TIMESTAMP).tolist(),
+            strict=True,
+        )
+    )
 
     for frame in ground_truth.times(GROUND_TRUTH, FRAME).tolist():
         view = ground_truth.latest_at(GROUND_TRUTH, timeline=FRAME, at=frame)
@@ -207,7 +217,10 @@ def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recordin
                 confidence=rng.uniform(0.5, 1.0, len(objects)),
                 instance_id=objects.instance_id.values,
             ),
-            at=TimePoint.at(frame=frame),
+            # Both axes, as an importer would: TIMESTAMP is what the viewer's time
+            # slider uses, and what `t4perceval.align` needs if the two sides were ever
+            # produced independently.
+            at=TimePoint.at(frame=frame, timestamp_ns=stamps[frame]),
             frame_id=view.frame_id,
         )
 
@@ -300,17 +313,197 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
     print(f"pipeline recorded: {len(result.metadata.pipeline)} systems")
 
 
-def main(data_root: str) -> None:
+def _viewer_seconds(recording: Recording, path: str) -> dict[int, float]:
+    """Map each FRAME of one entity to the seconds the viewer's time slider uses.
+
+    TIMESTAMP when the stream carries it -- an importer always logs both axes -- and the
+    frame index otherwise, so a hand-built estimation logged on FRAME alone still lines up
+    with the ground truth instead of failing.
+    """
+    frames = recording.times(path, FRAME)
+    stamps = recording.times(path, TIMESTAMP)
+    if len(stamps) == len(frames):
+        return {int(f): int(t) / 1e9 for f, t in zip(frames, stamps, strict=True)}
+    return {int(f): float(f) for f in frames}
+
+
+def _viewer_frame(frame_id: str | None, role: str) -> str:
+    """Where one stream's boxes hang in the viewer's entity tree.
+
+    `render_box3ds` always prefixes `map` and `render_ego` logs the map->base_link
+    transform, so rows already in `map` sit directly under it while rows in `base_link`
+    have to hang below that transform. The trailing role is what keeps the two streams
+    apart -- logged to the same entity path, one would overwrite the other.
+    """
+    if frame_id in (None, "map"):
+        return role
+    return f"{frame_id}/{role}"
+
+
+def _render_calibration(
+    viewer: RerunViewer,
+    recording: Recording,
+    source: T4Source | None = None,
+) -> int:
+    """Draw each sensor's frame, from the extrinsics the recording already carries.
+
+    The importer records every ``base_link -> <channel>`` calibration as a *static*
+    ``Transform3D`` edge, so the poses come out of the recording itself -- no dataset
+    handle needed, and it works just as well for a recording restored from disk.
+
+    Intrinsics are the exception: they are not part of t4perceval's data model, because
+    nothing in the evaluation pipeline consumes them. Pass the importer's ``source`` to
+    add camera pinholes on top; without it every sensor is drawn as a bare set of axes.
+    """
+    calibrations = {} if source is None else source.extrinsics()
+    rendered = 0
+
+    for edge in FrameGraph.of(recording).edges:
+        # Only the fixed ego->sensor edges. The temporal map->base_link one is the ego
+        # pose, already rendered, and re-logging it here as static would pin the vehicle
+        # in place for the whole scene.
+        if not edge.is_static or edge.parent != "base_link":
+            continue
+
+        pose = Transform3D.from_chunk(recording.static_chunks(edge.entity_path)[0])
+        is_camera = source is not None and source.is_camera(edge.child)
+
+        viewer.render_calibration(
+            channel=edge.child,
+            modality=SensorModality.CAMERA if is_camera else SensorModality.LIDAR,
+            translation=pose.translation.value,
+            rotation=np.roll(pose.rotation.value, 1),
+            camera_intrinsic=(calibrations[edge.child].camera_intrinsic if is_camera else None),
+        )
+        rendered += 1
+
+    return rendered
+
+
+def _render_boxes(viewer: RerunViewer, recording: Recording, path: str, role: str) -> int:
+    """Log one stream's 3D boxes, one frame at a time."""
+    seconds = _viewer_seconds(recording, path)
+    rendered = 0
+
+    for frame in recording.times(path, FRAME).tolist():
+        view = recording.latest_at(path, timeline=FRAME, at=int(frame))
+        if not len(view):
+            continue
+
+        instances = view.component(INSTANCE_ID)
+        velocity = view.component(VELOCITY)
+
+        viewer.render_box3ds(
+            seconds[int(frame)],
+            _viewer_frame(view.frame_id, role),
+            centers=view.component(POSITION).values,
+            # t4perceval stores quaternions xyzw (SciPy's convention); the viewer hands
+            # rotations to pyquaternion, which reads wxyz. Rolling by one is the whole
+            # conversion -- get it wrong and every box is silently mis-oriented.
+            rotations=np.roll(view.component(QUATERNION).values, 1, axis=1),
+            # Both sides agree on (width, length, height), so `size` passes straight
+            # through.
+            sizes=view.component(SIZE).values,
+            class_ids=[int(value) for value in view.component(CLASS_ID).values],
+            velocities=None if velocity is None else velocity.values,
+            uuids=(
+                None if instances is None else list(recording.instances.decode(instances.values))
+            ),
+        )
+        rendered += len(view)
+
+    return rendered
+
+
+def visualize(
+    ground_truth: Recording,
+    estimation: Recording,
+    *,
+    source: T4Source | None = None,
+    save_dir: str | None = None,
+) -> None:
+    """Render both streams into Rerun through t4-devkit's viewer.
+
+    Spawns the Rerun viewer, or writes ``<save_dir>/t4perceval.rrd`` when ``save_dir`` is
+    given -- which is what you want on a headless machine.
+
+    The two streams land on separate entity paths, so they can be toggled independently
+    in the viewer:
+
+        map/base_link                      the ego pose, per frame
+        map/base_link/<channel>            each sensor's calibration, static
+        map/base_link/ground_truth/box
+        map/base_link/estimation/box
+
+    ``source`` is optional and only adds camera pinholes -- see :func:`_render_calibration`.
+    """
+    # `class_id` columns are integers; this is the mapping that gives them names in the
+    # viewer's legend. It is the same registry both recordings were encoded with.
+    label2id = {info.name: info.class_id for info in ground_truth.labels.classes}
+    viewer = (
+        ViewerBuilder()
+        .with_labels(label2id)
+        .with_spatial3d()
+        .build("t4perceval", save_dir=save_dir)
+    )
+
+    # The ego pose is what makes base_link-relative boxes land in the right place: it is
+    # logged as the map->base_link transform every box entity below it inherits.
+    if "base_link" in FrameGraph.of(ground_truth).frames():
+        resolver = TransformResolver.of(ground_truth, timeline=FRAME)
+        seconds = _viewer_seconds(ground_truth, GROUND_TRUTH)
+        for frame, at in sorted(seconds.items()):
+            ego = resolver.lookup(target_frame="map", source_frame="base_link", at=frame)
+            viewer.render_ego(
+                seconds=at,
+                translation=ego.translation.value,
+                rotation=np.roll(ego.rotation.value, 1),
+            )
+        print(f"ego poses : {len(seconds)}")
+
+    print(f"sensors   : {_render_calibration(viewer, ground_truth, source)}")
+    print(f"gt boxes  : {_render_boxes(viewer, ground_truth, GROUND_TRUTH, 'ground_truth')}")
+    print(f"est boxes : {_render_boxes(viewer, estimation, ESTIMATION, 'estimation')}")
+    if save_dir is not None:
+        print(f"written   : {save_dir}/t4perceval.rrd  (open with `rerun <file>`)")
+
+
+def main(data_root: str, *, viewer: str | None = None) -> None:
     print(f"dataset: {data_root}")
     importer = T4Importer.open(data_root)
 
     labels = inspect(importer)
     ground_truth = import_scene(importer, labels)
     coordinate_frames(ground_truth)
-    evaluate(ground_truth, fake_estimation(ground_truth))
+
+    estimation = fake_estimation(ground_truth)
+    evaluate(ground_truth, estimation)
+
+    if viewer is not None:
+        banner("5. Visualize")
+        visualize(
+            ground_truth,
+            estimation,
+            source=importer.source,
+            save_dir=None if viewer == "spawn" else viewer,
+        )
 
 
 if __name__ == "__main__":
     if not sys.argv[1:]:
-        raise SystemExit("no data root specified")
-    main(sys.argv[1])
+        raise SystemExit(
+            "usage: evaluate_t4.py <data_root> [--visualize [SAVE_DIR]]\n"
+            "  --visualize            spawn the Rerun viewer\n"
+            "  --visualize SAVE_DIR   write SAVE_DIR/t4perceval.rrd instead (headless)"
+        )
+
+    argv = sys.argv[1:]
+    show = "--visualize" in argv
+    where = None
+    if show:
+        index = argv.index("--visualize")
+        rest = argv[index + 1 :]
+        where = rest[0] if rest else "spawn"
+        argv = argv[:index]
+
+    main(argv[0], viewer=where)
