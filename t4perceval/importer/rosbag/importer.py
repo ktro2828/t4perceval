@@ -110,7 +110,7 @@ class FrameRef:
 class RosbagImporter:
     """Imports object topics of an MCAP bag into recordings.
 
-    Args:
+    Attributes:
         source: The bag to read.
         options: How to perform the import.
     """

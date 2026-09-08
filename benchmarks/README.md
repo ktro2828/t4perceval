@@ -50,7 +50,7 @@ metrics for two agreement scenes and prints one JSON line, which the coordinator
   expected to agree (tolerance `1e-9`; `1e-8` for APH, which `perception_eval` rounds).
 - **dense** -- random positions, per-frame noise, label confusion and missed frames. Used for the
   timing tables and for the divergence report, where each difference is classified against a
-  documented item in [`docs/TODOs/metrics.md`](../docs/TODOs/metrics.md); anything unclassified is
+  documented item in [`docs/development/metric-divergences.md`](../docs/development/metric-divergences.md); anything unclassified is
   a mismatch and fails `--check`.
 
 Both sides of a scene share their frame indices by construction (frame `i` of the estimation is

@@ -1,4 +1,8 @@
-# Offline Evaluation Analysis
+# Persistent recordings
+
+The design for saving a whole evaluation and reopening it later. Not implemented; the decision is
+recorded as [ADR 0004](./design-decisions/0004-persistent-recording.md), and what you can do today
+is in [Persistence](../user-guide/persistence.md).
 
 The architecture already supports analysis while the evaluation process is alive: inputs, filter
 masks, matching results, and metrics remain in the `Store`. What is missing is a way to save and

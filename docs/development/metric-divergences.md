@@ -1,4 +1,12 @@
-# Metrics Implementation Review
+# Metric divergences
+
+Where the metric implementations differ from the standard or official benchmark definitions, and
+from `autoware_perception_evaluation`.
+
+This page is the authority the [benchmark](./benchmarks.md) checks against: `compare.py --check`
+classifies every numerical difference from `perception_eval` against the numbered items below and
+fails on any that is not here. An unexplained divergence is a regression; an explained one is a
+design decision.
 
 ## Conclusion
 
@@ -10,7 +18,7 @@ No implementation changes were made as part of this review.
 
 ### 1. Prediction metrics ignore validity masks and time offsets
 
-[`t4perceval/system/metric/prediction.py`](../../t4perceval/system/metric/prediction.py) does not require or use `MODE_VALID`, `TIMESTEP_VALID`, or `TIME_OFFSET`.
+[`t4perceval/system/metric/prediction.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/prediction.py) does not require or use `MODE_VALID`, `TIMESTEP_VALID`, or `TIME_OFFSET`.
 
 Consequently:
 
@@ -22,7 +30,7 @@ This conflicts with the trajectory archetype documentation, which states that pa
 
 ### 2. APH differs from the Waymo definition
 
-[`t4perceval/system/metric/detection.py`](../../t4perceval/system/metric/detection.py) treats heading similarity as a fractional true-positive count and uses that value for both recall and precision.
+[`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py) treats heading similarity as a fractional true-positive count and uses that value for both recall and precision.
 
 In the Waymo APH definition:
 
@@ -35,7 +43,7 @@ This behavior is compatible with the corresponding implementation in `autoware_p
 
 ### 3. AP matching is not performed in confidence order
 
-The current pipeline first fixes all associations using a globally optimal Hungarian assignment in [`t4perceval/system/matching.py`](../../t4perceval/system/matching.py), then ranks the resulting match verdicts by confidence in [`t4perceval/system/metric/detection.py`](../../t4perceval/system/metric/detection.py).
+The current pipeline first fixes all associations using a globally optimal Hungarian assignment in [`t4perceval/system/matching.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/matching.py), then ranks the resulting match verdicts by confidence in [`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py).
 
 nuScenes processes predictions in confidence order and matches each prediction to the closest ground truth that is still available. See the [official nuScenes implementation](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/eval/detection/algo.py).
 
@@ -50,7 +58,7 @@ The current Hungarian assignment can make the low-confidence prediction the true
 
 ### 4. An identity change across a missing frame is counted as an ID switch
 
-[`ClearSystem._count_switches()`](../../t4perceval/system/metric/tracking.py) only receives rows that were counted as true positives. Frames where the object was missed disappear before switch counting.
+[`ClearSystem._count_switches()`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/tracking.py) only receives rows that were counted as true positives. Frames where the object was missed disappear before switch counting.
 
 For example:
 
@@ -65,7 +73,7 @@ This conflicts with the method documentation, which says that only the immediate
 
 ### 5. MOTA is clamped to zero
 
-[`t4perceval/system/metric/tracking.py`](../../t4perceval/system/metric/tracking.py) applies `max(0.0, ...)` to MOTA. Standard CLEAR MOTA permits negative values.
+[`t4perceval/system/metric/tracking.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/tracking.py) applies `max(0.0, ...)` to MOTA. Standard CLEAR MOTA permits negative values.
 
 This is compatible with the original Autoware implementation, but results can differ from other CLEAR metric implementations.
 
@@ -83,7 +91,7 @@ recorded so the benchmark can classify a difference as known rather than unexpla
 
 `perception_eval`'s `CLEAR` adds the _previous_ frame's matching score when a pair persists
 from one frame to the next (`clear.py`, `tp_matching_score += prev_obj_result...`), whereas
-[`t4perceval/system/metric/tracking.py`](../../t4perceval/system/metric/tracking.py) averages
+[`t4perceval/system/metric/tracking.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/tracking.py) averages
 the current frame's scores. The two agree only when an object's offset is constant over time.
 
 ### 7. APH in `perception_eval` loses the heading sign
@@ -103,7 +111,7 @@ different ground truth, in addition to the ground truth changing estimation ids.
 
 ### Classification accuracy
 
-The accuracy reported by [`t4perceval/system/metric/classification.py`](../../t4perceval/system/metric/classification.py) is:
+The accuracy reported by [`t4perceval/system/metric/classification.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/classification.py) is:
 
 ```text
 TP / (TP + FP + FN)

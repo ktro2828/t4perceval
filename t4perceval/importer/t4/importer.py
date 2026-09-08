@@ -122,7 +122,7 @@ class FrameRef:
 class T4Importer:
     """Imports T4 scenes into recordings.
 
-    Args:
+    Attributes:
         source: The dataset to read.
         options: How to perform the import.
     """

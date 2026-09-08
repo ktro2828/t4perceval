@@ -4,7 +4,8 @@ MD024:
   siblings_only: true
 MD033: false
 MD041: false
-# Admonition bodies (`!!! note` + a 4-space indented paragraph) read to markdownlint as indented
-# code blocks, which would make every fenced block after one "inconsistent". Fenced is the style.
-MD046:
-  style: fenced
+# Admonition bodies (`!!! note` + a 4-space indented paragraph) and content tabs (`=== "..."`)
+# read to markdownlint as indented code blocks, so MD046 fires on every one of them. Both are
+# ordinary prose in this documentation, and per-block `markdownlint-disable` comments would
+# outnumber the admonitions themselves. Fenced is still the style for actual code blocks.
+MD046: false

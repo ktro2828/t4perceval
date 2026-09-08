@@ -4,26 +4,134 @@ site_description = "Component-oriented perception evaluation for the T4 dataset"
 repo_url = "https://github.com/ktro2828/t4perceval"
 repo_name = "ktro2828/t4perceval"
 docs_dir = "docs"
+
+# The navigation is organised by user intent, not by the Python package hierarchy. A
+# package-shaped nav requires a reader to already understand the architecture before they
+# can tell which page to open; only the API reference follows the implementation.
 nav = [
     { "Overview" = "index.md" },
-    { "日本語" = [
-        { "データモデル" = "design/ja/data_model.md" },
-        { "システム設計" = "design/ja/system.md" },
-        { "移行ガイド" = "design/ja/migration.md" },
+    { "Getting started" = [
+        { "Installation" = "getting-started/installation.md" },
+        { "Quick start" = "getting-started/quickstart.md" },
+        { "First evaluation" = "getting-started/first-evaluation.md" },
     ] },
-    { "English" = [
-        { "Data model" = "design/en/data_model.md" },
-        { "System design" = "design/en/system.md" },
-        { "Migration guide" = "design/en/migration.md" },
+    { "Concepts" = [
+        { "Overview" = "concepts/overview.md" },
+        { "Data model" = "concepts/data-model.md" },
+        { "Entity, component, archetype" = "concepts/entity-component-archetype.md" },
+        { "Store" = "concepts/store.md" },
+        { "Timeline" = "concepts/timeline.md" },
+        { "Coordinate system" = "concepts/coordinate-system.md" },
+        { "Evaluation pipeline" = "concepts/evaluation-pipeline.md" },
+    ] },
+    { "User guide" = [
+        { "Logging data" = "user-guide/logging-data.md" },
+        { "Querying data" = "user-guide/querying-data.md" },
+        { "Filtering" = "user-guide/filtering.md" },
+        { "Matching" = "user-guide/matching.md" },
+        { "Metrics" = "user-guide/metrics.md" },
+        { "Transforms" = "user-guide/transforms.md" },
+        { "Dataset importers" = "user-guide/dataset-importers.md" },
+        { "Persistence" = "user-guide/persistence.md" },
+        { "Offline analysis" = "user-guide/offline-analysis.md" },
+    ] },
+    { "Evaluation" = [
+        { "Detection 3D" = "evaluation/detection-3d.md" },
+        { "Detection 2D" = "evaluation/detection-2d.md" },
+        { "Tracking" = "evaluation/tracking.md" },
+        { "Prediction" = "evaluation/prediction.md" },
+        { "Segmentation 3D" = "evaluation/segmentation-3d.md" },
+    ] },
+    { "Recipes" = [
+        { "Evaluate model output" = "recipes/evaluate-model-output.md" },
+        { "Evaluate a T4 dataset" = "recipes/evaluate-t4-dataset.md" },
+        { "Evaluate an MCAP ROS bag" = "recipes/evaluate-rosbag.md" },
+        { "Align frames by timestamp" = "recipes/align-frames.md" },
+        { "Analyse a finished evaluation" = "recipes/offline-analysis.md" },
+        { "Custom filter" = "recipes/custom-filter.md" },
+        { "Custom matcher" = "recipes/custom-matcher.md" },
+        { "Custom metric" = "recipes/custom-metric.md" },
+        { "Custom importer" = "recipes/custom-importer.md" },
+    ] },
+    { "Components" = [
+        { "Overview" = "components/index.md" },
+        { "Geometry" = "components/geometry.md" },
+        { "Object" = "components/object.md" },
+        { "Transform" = "components/transform.md" },
+        { "Metrics" = "components/metrics.md" },
+    ] },
+    { "Archetypes" = [
+        { "Overview" = "archetypes/index.md" },
+        { "Detections3D" = "archetypes/detection-3d.md" },
+        { "Detections2D" = "archetypes/detection-2d.md" },
+        { "Trackings2D / Trackings3D" = "archetypes/tracking.md" },
+        { "Predictions3D" = "archetypes/prediction.md" },
+        { "Trajectories3D" = "archetypes/trajectory.md" },
+        { "Classifications2D" = "archetypes/classification.md" },
+        { "SemanticSegmentation" = "archetypes/segmentation.md" },
+        { "Transform3D" = "archetypes/transform-3d.md" },
+        { "MatchResults" = "archetypes/matching.md" },
+        { "MetricValues / ConfusionMatrix" = "archetypes/metrics.md" },
+    ] },
+    { "API reference" = [
+        { "Overview" = "reference/api/index.md" },
+        { "core" = "reference/api/core.md" },
+        { "component" = "reference/api/component.md" },
+        { "archetype" = "reference/api/archetype.md" },
+        { "system" = "reference/api/system.md" },
+        { "geometry" = "reference/api/geometry.md" },
+        { "transform" = "reference/api/transform.md" },
+        { "label" = "reference/api/label.md" },
+        { "recording" = "reference/api/recording.md" },
+        { "evaluation" = "reference/api/evaluation.md" },
+        { "align" = "reference/api/align.md" },
+        { "importer" = "reference/api/importer.md" },
+        { "io" = "reference/api/io.md" },
+    ] },
+    { "Development" = [
+        { "Architecture" = "development/architecture.md" },
+        { "Design principles" = "development/design-principles.md" },
+        { "Serialization format" = "development/serialization-format.md" },
+        { "Benchmarks" = "development/benchmarks.md" },
+        { "Extending components" = "development/extending-components.md" },
+        { "Extending archetypes" = "development/extending-archetypes.md" },
+        { "Extending systems" = "development/extending-systems.md" },
+        { "Contributing" = "development/contributing.md" },
+        { "Roadmap" = "development/roadmap.md" },
+        { "Metric divergences" = "development/metric-divergences.md" },
+        { "Persistent recordings" = "development/persistent-recordings.md" },
+        { "Design decisions" = [
+            { "Overview" = "development/design-decisions/index.md" },
+            { "0001 ECS data model" = "development/design-decisions/0001-ecs-data-model.md" },
+            { "0002 Arrow storage" = "development/design-decisions/0002-arrow-storage.md" },
+            { "0003 Coordinate frames as data" = "development/design-decisions/0003-coordinate-system.md" },
+            { "0004 Persistent recordings" = "development/design-decisions/0004-persistent-recording.md" },
+        ] },
+        { "Design documents (English)" = [
+            { "Data model" = "development/design/en/data_model.md" },
+            { "System design" = "development/design/en/system.md" },
+            { "Migration guide" = "development/design/en/migration.md" },
+        ] },
+        { "設計ドキュメント (日本語)" = [
+            { "データモデル" = "development/design/ja/data_model.md" },
+            { "システム設計" = "development/design/ja/system.md" },
+            { "移行ガイド" = "development/design/ja/migration.md" },
+        ] },
     ] },
 ]
 
 [project.theme]
 features = [
+    "content.code.copy",
     "navigation.footer",
+    "navigation.indexes",
     "navigation.sections",
+    "navigation.tabs",
     "navigation.top",
+    "navigation.tracking",
     "search.highlight",
+    "search.suggest",
+    "toc.follow",
 ]
 
 [[project.theme.palette]]
@@ -41,3 +149,29 @@ primary = "indigo"
 accent = "indigo"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
+
+# The API reference is rendered from the docstrings themselves, so a signature change
+# cannot silently leave the docs behind.
+[project.plugins.mkdocstrings.config]
+default_handler = "python"
+
+[project.plugins.mkdocstrings.config.handlers.python]
+paths = ["."]
+
+[project.plugins.mkdocstrings.config.handlers.python.options]
+docstring_style = "google"
+docstring_section_style = "table"
+filters = ["!^_"]
+heading_level = 2
+inherited_members = true
+members_order = "source"
+merge_init_into_class = true
+separate_signature = true
+show_root_heading = true
+show_root_full_path = false
+show_signature_annotations = true
+show_source = false
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+signature_crossrefs = true
+summary = true

@@ -220,100 +220,100 @@ RSS increase after constructing 20,000 estimation and 20,000 ground-truth object
 
 50 objects per frame, 10 frames. 46 match, 87 documented divergences, 0 unexplained mismatches.
 
-| Task       | Metric    | Threshold / k | Class      | perception_eval | t4perceval | abs diff | Status     | Reason                                                                        |
-| :--------- | :-------- | :------------ | :--------- | --------------: | ---------: | -------: | :--------- | :---------------------------------------------------------------------------- |
-| detection  | ap        | 1             | ALL\*      |        0.632612 |   0.627291 | 5.32e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 1             | motorbike  |        0.593556 |   0.572508 | 2.10e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 1             | truck      |        0.697245 |   0.686364 | 1.09e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 2             | ALL\*      |        0.685764 |   0.682611 | 3.15e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 2             | car        |        0.608602 |   0.602422 | 6.18e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 2             | motorbike  |        0.698879 |   0.696291 | 2.59e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 2             | truck      |        0.733966 |   0.723817 | 1.01e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 4             | ALL\*      |        0.720981 |   0.708777 | 1.22e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 4             | bicycle    |        0.736087 |   0.734044 | 2.04e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 4             | bus        |        0.717173 |   0.702125 | 1.50e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 4             | motorbike  |        0.742436 |   0.730050 | 1.24e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | 4             | truck      |        0.767565 |   0.723817 | 4.37e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | mean          | bicycle    |        0.533987 |   0.533476 | 5.11e-04 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | mean          | bus        |        0.606004 |   0.602242 | 3.76e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | mean          | car        |        0.510014 |   0.508469 | 1.54e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | mean          | motorbike  |        0.537847 |   0.528841 | 9.01e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | ap        | mean          | truck      |        0.586797 |   0.570603 | 1.62e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 0.5           | ALL\*      |        0.168481 |   0.166378 | 2.10e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 0.5           | bicycle    |        0.105914 |   0.104418 | 1.50e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 0.5           | motorbike  |        0.102325 |   0.097980 | 4.34e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 0.5           | pedestrian |        0.215049 |   0.208416 | 6.63e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 0.5           | truck      |        0.116513 |   0.116370 | 1.43e-04 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | ALL\*      |        0.568658 |   0.559980 | 8.68e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | bicycle    |        0.525468 |   0.516201 | 9.27e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | bus        |        0.638121 |   0.638127 | 6.56e-06 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | car        |        0.490671 |   0.489362 | 1.31e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | motorbike  |        0.538285 |   0.518312 | 2.00e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | pedestrian |        0.606571 |   0.596602 | 9.97e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 1             | truck      |        0.612835 |   0.601274 | 1.16e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | ALL\*      |        0.616385 |   0.609622 | 6.76e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | bicycle    |        0.608404 |   0.607554 | 8.50e-04 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | bus        |        0.638121 |   0.638127 | 6.56e-06 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | car        |        0.544033 |   0.537506 | 6.53e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | motorbike  |        0.626740 |   0.623532 | 3.21e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | pedestrian |        0.623393 |   0.613235 | 1.02e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 2             | truck      |        0.657620 |   0.637777 | 1.98e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | ALL\*      |        0.641121 |   0.627988 | 1.31e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | bicycle    |        0.650682 |   0.637402 | 1.33e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | bus        |        0.651886 |   0.638127 | 1.38e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | car        |        0.584613 |   0.584835 | 2.22e-04 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | motorbike  |        0.654796 |   0.643426 | 1.14e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | pedestrian |        0.627042 |   0.626360 | 6.82e-04 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | 4             | truck      |        0.677710 |   0.637777 | 3.99e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | bicycle    |        0.472617 |   0.466394 | 6.22e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | bus        |        0.550036 |   0.546600 | 3.44e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | car        |        0.454596 |   0.452693 | 1.90e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | motorbike  |        0.480536 |   0.470813 | 9.72e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | pedestrian |        0.518014 |   0.511153 | 6.86e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | aph       | mean          | truck      |        0.516169 |   0.498300 | 1.79e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | map       | -             | ALL        |        0.558686 |   0.553517 | 5.17e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| detection  | maph      | -             | ALL        |        0.498662 |   0.490992 | 7.67e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k1            | ALL\*      |        0.407643 |   0.432763 | 2.51e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k1            | bus        |        0.355287 |   0.452553 | 9.73e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k1            | car        |        0.352784 |   0.406237 | 5.35e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k3            | ALL\*      |        0.406816 |   0.431113 | 2.43e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k3            | bus        |        0.357055 |   0.448774 | 9.17e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | ade       | k3            | car        |        0.351712 |   0.405776 | 5.41e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k1            | ALL\*      |        0.674339 |   0.716480 | 4.21e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k1            | bus        |        0.593822 |   0.752573 | 1.59e-01 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k1            | car        |        0.589044 |   0.683139 | 9.41e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k3            | ALL\*      |        0.688972 |   0.727453 | 3.85e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k3            | bus        |        0.591935 |   0.730237 | 1.38e-01 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | fde       | k3            | car        |        0.587193 |   0.679777 | 9.26e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k1            | ALL\*      |        0.008647 |   0.015438 | 6.79e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k1            | bus        |        0.000000 |   0.024876 | 2.49e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k1            | car        |        0.002646 |   0.018519 | 1.59e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k3            | ALL\*      |        0.008505 |   0.015296 | 6.79e-03 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k3            | bus        |        0.000000 |   0.024876 | 2.49e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| prediction | miss_rate | k3            | car        |        0.000882 |   0.016755 | 1.59e-02 | documented | hungarian-vs-greedy (docs/TODOs/metrics.md #3)                                |
-| tracking   | id_switch | 1             | ALL\*      |       11.000000 |  18.000000 | 7.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | id_switch | 1             | bus        |        1.000000 |   5.000000 | 4.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | id_switch | 1             | car        |        0.000000 |   4.000000 | 4.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | id_switch | 1             | pedestrian |        5.000000 |   4.000000 | 1.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | ALL\*      |        0.572000 |   0.468000 | 1.04e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | bicycle    |        0.587500 |   0.487500 | 1.00e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | bus        |        0.650000 |   0.487500 | 1.63e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | car        |        0.455556 |   0.333333 | 1.22e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | motorbike  |        0.487500 |   0.412500 | 7.50e-02 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | pedestrian |        0.562500 |   0.512500 | 5.00e-02 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | mota      | 1             | truck      |        0.688889 |   0.577778 | 1.11e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/TODOs/metrics.md #4, #8) |
-| tracking   | motp      | 1             | ALL\*      |        0.450919 |   0.459187 | 8.27e-03 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | bicycle    |        0.446841 |   0.477781 | 3.09e-02 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | bus        |        0.479838 |   0.456529 | 2.33e-02 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | car        |        0.397113 |   0.404322 | 7.21e-03 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | motorbike  |        0.499978 |   0.496681 | 3.30e-03 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | pedestrian |        0.398366 |   0.444679 | 4.63e-02 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
-| tracking   | motp      | 1             | truck      |        0.479472 |   0.475195 | 4.28e-03 | documented | motp-previous-score (docs/TODOs/metrics.md #6)                                |
+| Task       | Metric    | Threshold / k | Class      | perception_eval | t4perceval | abs diff | Status     | Reason                                                                                         |
+| :--------- | :-------- | :------------ | :--------- | --------------: | ---------: | -------: | :--------- | :--------------------------------------------------------------------------------------------- |
+| detection  | ap        | 1             | ALL\*      |        0.632612 |   0.627291 | 5.32e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 1             | motorbike  |        0.593556 |   0.572508 | 2.10e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 1             | truck      |        0.697245 |   0.686364 | 1.09e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 2             | ALL\*      |        0.685764 |   0.682611 | 3.15e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 2             | car        |        0.608602 |   0.602422 | 6.18e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 2             | motorbike  |        0.698879 |   0.696291 | 2.59e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 2             | truck      |        0.733966 |   0.723817 | 1.01e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 4             | ALL\*      |        0.720981 |   0.708777 | 1.22e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 4             | bicycle    |        0.736087 |   0.734044 | 2.04e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 4             | bus        |        0.717173 |   0.702125 | 1.50e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 4             | motorbike  |        0.742436 |   0.730050 | 1.24e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | 4             | truck      |        0.767565 |   0.723817 | 4.37e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | mean          | bicycle    |        0.533987 |   0.533476 | 5.11e-04 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | mean          | bus        |        0.606004 |   0.602242 | 3.76e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | mean          | car        |        0.510014 |   0.508469 | 1.54e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | mean          | motorbike  |        0.537847 |   0.528841 | 9.01e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | ap        | mean          | truck      |        0.586797 |   0.570603 | 1.62e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 0.5           | ALL\*      |        0.168481 |   0.166378 | 2.10e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 0.5           | bicycle    |        0.105914 |   0.104418 | 1.50e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 0.5           | motorbike  |        0.102325 |   0.097980 | 4.34e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 0.5           | pedestrian |        0.215049 |   0.208416 | 6.63e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 0.5           | truck      |        0.116513 |   0.116370 | 1.43e-04 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | ALL\*      |        0.568658 |   0.559980 | 8.68e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | bicycle    |        0.525468 |   0.516201 | 9.27e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | bus        |        0.638121 |   0.638127 | 6.56e-06 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | car        |        0.490671 |   0.489362 | 1.31e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | motorbike  |        0.538285 |   0.518312 | 2.00e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | pedestrian |        0.606571 |   0.596602 | 9.97e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 1             | truck      |        0.612835 |   0.601274 | 1.16e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | ALL\*      |        0.616385 |   0.609622 | 6.76e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | bicycle    |        0.608404 |   0.607554 | 8.50e-04 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | bus        |        0.638121 |   0.638127 | 6.56e-06 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | car        |        0.544033 |   0.537506 | 6.53e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | motorbike  |        0.626740 |   0.623532 | 3.21e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | pedestrian |        0.623393 |   0.613235 | 1.02e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 2             | truck      |        0.657620 |   0.637777 | 1.98e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | ALL\*      |        0.641121 |   0.627988 | 1.31e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | bicycle    |        0.650682 |   0.637402 | 1.33e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | bus        |        0.651886 |   0.638127 | 1.38e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | car        |        0.584613 |   0.584835 | 2.22e-04 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | motorbike  |        0.654796 |   0.643426 | 1.14e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | pedestrian |        0.627042 |   0.626360 | 6.82e-04 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | 4             | truck      |        0.677710 |   0.637777 | 3.99e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | bicycle    |        0.472617 |   0.466394 | 6.22e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | bus        |        0.550036 |   0.546600 | 3.44e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | car        |        0.454596 |   0.452693 | 1.90e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | motorbike  |        0.480536 |   0.470813 | 9.72e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | pedestrian |        0.518014 |   0.511153 | 6.86e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | aph       | mean          | truck      |        0.516169 |   0.498300 | 1.79e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | map       | -             | ALL        |        0.558686 |   0.553517 | 5.17e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| detection  | maph      | -             | ALL        |        0.498662 |   0.490992 | 7.67e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k1            | ALL\*      |        0.407643 |   0.432763 | 2.51e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k1            | bus        |        0.355287 |   0.452553 | 9.73e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k1            | car        |        0.352784 |   0.406237 | 5.35e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k3            | ALL\*      |        0.406816 |   0.431113 | 2.43e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k3            | bus        |        0.357055 |   0.448774 | 9.17e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | ade       | k3            | car        |        0.351712 |   0.405776 | 5.41e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k1            | ALL\*      |        0.674339 |   0.716480 | 4.21e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k1            | bus        |        0.593822 |   0.752573 | 1.59e-01 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k1            | car        |        0.589044 |   0.683139 | 9.41e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k3            | ALL\*      |        0.688972 |   0.727453 | 3.85e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k3            | bus        |        0.591935 |   0.730237 | 1.38e-01 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | fde       | k3            | car        |        0.587193 |   0.679777 | 9.26e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k1            | ALL\*      |        0.008647 |   0.015438 | 6.79e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k1            | bus        |        0.000000 |   0.024876 | 2.49e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k1            | car        |        0.002646 |   0.018519 | 1.59e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k3            | ALL\*      |        0.008505 |   0.015296 | 6.79e-03 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k3            | bus        |        0.000000 |   0.024876 | 2.49e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| prediction | miss_rate | k3            | car        |        0.000882 |   0.016755 | 1.59e-02 | documented | hungarian-vs-greedy (docs/development/metric-divergences.md #3)                                |
+| tracking   | id_switch | 1             | ALL\*      |       11.000000 |  18.000000 | 7.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | id_switch | 1             | bus        |        1.000000 |   5.000000 | 4.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | id_switch | 1             | car        |        0.000000 |   4.000000 | 4.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | id_switch | 1             | pedestrian |        5.000000 |   4.000000 | 1.00e+00 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | ALL\*      |        0.572000 |   0.468000 | 1.04e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | bicycle    |        0.587500 |   0.487500 | 1.00e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | bus        |        0.650000 |   0.487500 | 1.63e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | car        |        0.455556 |   0.333333 | 1.22e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | motorbike  |        0.487500 |   0.412500 | 7.50e-02 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | pedestrian |        0.562500 |   0.512500 | 5.00e-02 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | mota      | 1             | truck      |        0.688889 |   0.577778 | 1.11e-01 | documented | idsw-across-missed-frame, idsw-estimation-side (docs/development/metric-divergences.md #4, #8) |
+| tracking   | motp      | 1             | ALL\*      |        0.450919 |   0.459187 | 8.27e-03 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | bicycle    |        0.446841 |   0.477781 | 3.09e-02 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | bus        |        0.479838 |   0.456529 | 2.33e-02 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | car        |        0.397113 |   0.404322 | 7.21e-03 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | motorbike  |        0.499978 |   0.496681 | 3.30e-03 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | pedestrian |        0.398366 |   0.444679 | 4.63e-02 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
+| tracking   | motp      | 1             | truck      |        0.479472 |   0.475195 | 4.28e-03 | documented | motp-previous-score (docs/development/metric-divergences.md #6)                                |
 
 ## Notes
 
 - Timed t4perceval pipeline phases rebuild a `Store` from prebuilt input chunks on every call (a few microseconds), because a second run would append metric rows at the same reporting time.
 - Rows marked `*` are not reported directly by one library and were derived with the other's aggregation formula (perception_eval has no per-threshold all-class AP; t4perceval reports CLEAR and displacement per class only).
 - perception_eval's `inf` sentinels (CLEAR with no ground truth or no true positive) are read as `nan`.
-- Documented divergences refer to the numbered items in `docs/TODOs/metrics.md`. Only the dense scene may exercise them; a difference in the unambiguous scene is a mismatch.
+- Documented divergences refer to the numbered items in `docs/development/metric-divergences.md`. Only the dense scene may exercise them; a difference in the unambiguous scene is a mismatch.
 - perception_eval matches greedily in confidence order and pairs objects across labels in a second pass; t4perceval solves a linear-sum assignment per frame. The unambiguous scene is constructed so both pick the same pairs.

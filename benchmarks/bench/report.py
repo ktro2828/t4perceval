@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-METRICS_DOC = "docs/TODOs/metrics.md"
+METRICS_DOC = "docs/development/metric-divergences.md"
 
 #: Absolute tolerance by key prefix; the first matching prefix wins.
 TOLERANCES: tuple[tuple[str, float], ...] = (

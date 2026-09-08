@@ -1,94 +1,80 @@
 # t4perceval
 
-Component-oriented perception evaluation for the [T4 dataset](https://github.com/tier4/t4-devkit).
+[![docs](https://img.shields.io/badge/docs-t4perceval-4051b5)](https://github.com/ktro2828/t4perceval)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+
+**Component-oriented perception evaluation for the [T4 dataset](https://github.com/tier4/t4-devkit).**
 
 A redesign of [`autoware_perception_evaluation`](https://github.com/tier4/autoware_perception_evaluation)
-around [rerun](https://github.com/rerun-io/rerun)'s data model: data lives at an **entity path**, is made
-of **component** columns, is bundled into **archetypes**, stored as **chunks**, indexed along
+around [rerun](https://github.com/rerun-io/rerun)'s data model: data lives at an **entity path**, is
+made of **component** columns, is bundled into **archetypes**, stored as **chunks**, indexed along
 **timelines** inside a **store**, and transformed by **systems**.
 
 The point of the redesign is that an evaluation task stops being a value to branch on. There is no
-`EvaluationTask` enum and no single config dict; a task _is_ the set of components present plus the
-pipeline you compose.
+`EvaluationTask` enum and no single config dict — **a task is the set of components present plus the
+pipeline you compose**.
 
-## Design documents
+> [!WARNING]
+> Under active development. APIs and data layouts may change without backward compatibility until
+> the design stabilizes.
 
-|              | 日本語                                           | English                                          |
-| :----------- | :----------------------------------------------- | :----------------------------------------------- |
-| Data model   | [ja/data_model.md](docs/design/ja/data_model.md) | [en/data_model.md](docs/design/en/data_model.md) |
-| System layer | [ja/system.md](docs/design/ja/system.md)         | [en/system.md](docs/design/en/system.md)         |
-| Migration    | [ja/migration.md](docs/design/ja/migration.md)   | [en/migration.md](docs/design/en/migration.md)   |
+## What it solves
 
-## Layers
+`autoware_perception_evaluation` modelled one detected object as one Python object with twenty-plus
+fields, most of them `None` for any given task. Four problems followed, and this package is the
+answer to all four:
+
+| Problem                                                              | What `t4perceval` does                                                            |
+| :------------------------------------------------------------------- | :-------------------------------------------------------------------------------- |
+| Per-object Python loops                                              | one frame is a set of NumPy columns; metrics are vectorized                       |
+| An `EvaluationTask` enum branching through config, matching, metrics | a system declares the components it needs and runs against anything carrying them |
+| Filter and matching intermediates discarded                          | every stage writes its result back as a queryable entity                          |
+| Plausible-but-wrong numbers                                          | cross-frame comparison, bad pipeline order and registry mismatches all raise      |
+
+## Supported evaluation tasks
+
+| Task            | Matching                                                              | Metrics                                   |
+| :-------------- | :-------------------------------------------------------------------- | :---------------------------------------- |
+| Detection 3D    | centre distance, centre distance BEV, plane distance, IoU BEV, IoU 3D | AP, APH, mAP, mAPH, confusion matrix      |
+| Detection 2D    | ROI IoU                                                               | AP, mAP, classification, confusion matrix |
+| Tracking        | any 3D or 2D matcher                                                  | MOTA, MOTP, ID switches                   |
+| Prediction      | any 3D matcher, on the current pose                                   | ADE, FDE, miss rate                       |
+| Segmentation 3D | _not applicable_                                                      | _not implemented yet_                     |
+
+Inputs come from your own arrays, from a **T4 dataset**, or from an **MCAP ROS bag**.
+
+## Install
 
 ```bash
-t4perceval.system     System / Pipeline            the "S" of ECS
-                      filter / matching            mask and pair up objects
-t4perceval.core       Store / Chunk / Timeline     the mutable log
-                      Archetype / Component        the data model
-                      EntityPath / Descriptor      addressing
-t4perceval.geometry   box corners / IoU / planes   vectorized, pairwise
-t4perceval.transform  FrameGraph / resolver         coordinate frames as data
-t4perceval.importer   T4 dataset / MCAP ROS bag    external formats in
-t4perceval.io         Arrow / Parquet              persistence
-t4perceval.label      LabelRegistry                meaning for the integer columns
-t4perceval.recording  Recording                    a log plus what its integers mean
-t4perceval.align      FrameAlignment / pair_times  GT and estimation frames on one FRAME axis
+pip install 'git+https://github.com/ktro2828/t4perceval'
 ```
 
-`importer` converts an external representation into this one; `io` moves an already-native
-recording to and from storage. Reading a saved recording is `io`; reading a dataset is
-`importer`.
+Importers are optional extras — the evaluation core never imports them:
 
-## Data shapes
+```bash
+pip install 't4perceval[t4]'       # read a T4 dataset
+pip install 't4perceval[rosbag]'   # read an MCAP ROS bag (no ROS installation needed)
+```
 
-Every component is one column of `N` rows with a fixed per-row shape and dtype.
-
-| Component                                           | Shape          | dtype          | Notes                                      |
-| :-------------------------------------------------- | :------------- | :------------- | :----------------------------------------- |
-| `BatchPosition3D` / `BatchVelocity` / `BatchSize3D` | `(N, 3)`       | `f64`          | `BatchSize3D` is `(width, length, height)` |
-| `BatchPosition2D` / `BatchSize2D`                   | `(N, 2)`       | `f64`          |                                            |
-| `BatchQuaternion`                                   | `(N, 4)`       | `f64`          | `xyzw` order (SciPy's convention)          |
-| `BatchRoi`                                          | `(N, 4)`       | `i32`          | `(x_min, y_min, height, width)`            |
-| `BatchClassId`                                      | `(N,)`         | `i32`          | meaning comes from `LabelRegistry`         |
-| `BatchConfidence`                                   | `(N,)`         | `f64`          | constrained to `[0, 1]`                    |
-| `BatchInstanceId`                                   | `(N,)`         | `i64`          | interned by `InstanceRegistry`             |
-| `BatchNumPoints` / `BatchPixel`                     | `(N,)`         | `i32`          |                                            |
-| `BatchVisibility` / `BatchMatchStatus`              | `(N,)`         | `i8`           | ordered enums                              |
-| `BatchMask`                                         | `(N,)`         | `bool`         | a filter's verdict                         |
-| `BatchWaypoints3D`                                  | `(N, M, T, 3)` | `f64`          | `M` modes, `T` timesteps                   |
-| `BatchModeConfidence` / `BatchModeValid`            | `(N, M)`       | `f64` / `bool` |                                            |
-| `BatchTimestepValid`                                | `(N, M, T)`    | `bool`         |                                            |
-| `BatchTimeOffset`                                   | `(N, T)`       | `i64`          | nanoseconds, strictly increasing           |
-
-Columns are always **read-only** and never share memory with a writable array you passed in.
+Python 3.10+.
 
 ## Usage
 
 ```python
-import numpy as np
-
 from t4perceval import (
     FRAME,
     Detections3D,
-    MatchResults,
-    InstanceRegistry,
     LabelRegistry,
+    MatchResults,
+    MetricValues,
     Store,
     TimePoint,
     TimeRange,
 )
-from t4perceval.descriptors import MASK
-from t4perceval.io import write_parquet
-from t4perceval.system import (
-    CenterDistanceMatchingSystem,
-    FilterByDistanceSystem,
-    Pipeline,
-    SystemContext,
-)
+from t4perceval.system import Pipeline, SystemContext, average_precision_sweep
 
-labels = LabelRegistry.from_names(["car", "bicycle", "pedestrian", "motorbike"])
-instances = InstanceRegistry()
+labels = LabelRegistry.from_names(["car", "pedestrian"])
 store = Store()
 
 # One frame of objects is one columnar batch, not a list of objects.
@@ -118,203 +104,48 @@ store.log(
 )
 
 # The task is the pipeline. Each stage writes its result back into the store.
-distance_filter = FilterByDistanceSystem.on("/estimation/objects", max_distance=40.0)
-pipeline = Pipeline(
-    [
-        distance_filter,
-        CenterDistanceMatchingSystem.between(
-            "/estimation/objects",
-            "/ground_truth/objects",
-            threshold=1.0,
-        ),
-    ],
-)
-pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
+Pipeline(
+    average_precision_sweep("/estimation/objects", "/ground_truth/objects", thresholds=[1.0, 2.0])
+).run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 
 # Aggregate over a whole scene...
 scene = store.range(
-    "/matching/center_distance",
-    timeline=FRAME,
-    time_range=TimeRange.everything(),
+    "/matching/center_distance/0", timeline=FRAME, time_range=TimeRange.everything()
 ).materialize(MatchResults)
 print(scene.num_tp, scene.num_fp, scene.num_fn)  # 1 1 1
 
 # ...or ask about one frame, from the same store, with no recomputation.
-frame_0 = store.range(
-    "/matching/center_distance",
-    timeline=FRAME,
-    time_range=TimeRange.single(0),
-).materialize(MatchResults)
-print(frame_0.num_tp, frame_0.num_fp, frame_0.num_fn)  # 1 1 1
-
-# The filter's verdict is queryable data, not a discarded intermediate.
-mask = store.range(
-    distance_filter.target,
-    timeline=FRAME,
-    time_range=TimeRange.everything(),
-).component(MASK)
-print(mask.values)  # [ True False]
-
-# Anything in the store persists with its dtypes and shapes pinned by the schema.
-write_parquet(
-    scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "matching.parquet"
+print(
+    store.range("/metrics/map", timeline=FRAME, time_range=TimeRange.everything())
+    .materialize(MetricValues)
+    .aggregate
 )
 ```
 
-### Importing a T4 dataset
+Every intermediate is still there afterwards — the filter masks, the matching verdicts, the
+per-threshold AP — so "why is this number low?" is a query rather than a re-run.
 
-Requires the `t4` extra (`pip install 't4perceval[t4]'`).
+Importing a dataset is two more lines:
 
 ```python
 from t4perceval.evaluation import build_evaluation_store
 from t4perceval.importer.t4 import T4Importer
-from t4perceval.system import Pipeline
-from t4perceval.system.preset import average_precision_sweep
 
-importer = T4Importer.open("tests/data/t4dataset")
+importer = T4Importer.open("/data/t4dataset")
+labels = importer.label_registry()  # hand this same registry to every source
+ground_truth = importer.import_scene(labels=labels)
 
-# The registry is an input, not something each importer invents. Class ids are assigned in
-# first-seen order, so two sources that each derive their own registry are both valid and
-# silently incompatible -- and the disagreement shows up as plausible numbers, not an error.
-labels = importer.label_registry()
-
-ground_truth = importer.import_scene(labels=labels)  # -> Recording
-
-# A Recording is read-only: `Pipeline.run` writes its results back into the store it reads
-# from, so the entities an evaluation needs are materialized into a fresh one first. Only
-# what you name moves, which is what keeps a saved result about the evaluation.
 setup = build_evaluation_store(ground_truth, estimation)
-Pipeline(
-    average_precision_sweep("/estimation/objects", "/ground_truth/objects", thresholds=[1.0])
-).run(setup.context(), TimeRange.everything())
-
-result = setup.into_recording()  # inputs, matches and metrics, with provenance
 ```
-
-### Importing a ROS bag
-
-Requires the `rosbag` extra (`pip install 't4perceval[rosbag]'`). An MCAP bag is decoded from the
-message definitions it embeds, so no ROS installation and no Autoware message packages are needed.
-
-```python
-from t4perceval import TIMESTAMP
-from t4perceval.importer.rosbag import BagSelection, RosbagImporter
-from t4perceval.transform import TransformResolver
-
-importer = RosbagImporter.open("/data/bags/run_0")  # a directory of *.mcap, or one file
-importer.topics()  # the DetectedObjects / TrackedObjects / PredictedObjects topics it holds
-
-# Same rule as above: hand the ground-truth importer this very registry.
-labels = importer.label_registry()  # the Autoware class enum, in enum order
-
-estimation = importer.import_topic(  # -> Recording, one topic at a time
-    labels=labels,
-    selection=BagSelection(topic="/perception/object_recognition/tracking/objects"),
-)
-
-# `/tf_static` becomes static edges and `/tf` temporal ones -- on the TIMESTAMP timeline only,
-# since a sample between two messages has no frame index. Look them up on that axis.
-resolver = TransformResolver.of(estimation, timeline=TIMESTAMP)
-```
-
-The schema decides the archetype (`TrackedObjects` -> `Trackings3D`), `ObjectClassification` maps
-enum -> canonical name -> registry id, `Shape.dimensions` `(x=length, y=width, z=height)` becomes
-`BatchSize3D` `(width, length, height)`, a body-frame twist is rotated into the message frame, and
-`BatchConfidence` is the top classification probability by default
-(`ImportOptions(confidence="existence")` for `existence_probability`).
-
-### Aligning frames
-
-A T4 scene numbers its frames by sample, a bag by message, so two recordings imported separately
-share only their `TIMESTAMP` axis. Matching evaluates the union of both `FRAME` sets, so unrelated
-indices would score as all-FP and all-FN frames rather than fail. `t4perceval.align` pairs the frames
-first: every ground-truth frame takes the nearest estimation frame within a tolerance, one-to-one, and
-the estimation's `FRAME` values are rewritten to the ground truth's.
-
-```python
-from t4perceval.align import AlignOptions
-
-setup = build_evaluation_store(
-    ground_truth,
-    estimation,
-    align=AlignOptions(tolerance_ns=75_000_000),  # 75 ms, the incumbent's default
-)
-setup.metadata.tags  # ("align.pairs", "87"), ("align.unmatched_reference", "3"), ...
-```
-
-Estimation frames no ground-truth frame claimed leave the evaluated set. Ground-truth frames no
-estimation answered stay and score as all-FN; `AlignOptions(unmatched_reference="drop")` removes them
-instead, which is what `autoware_perception_evaluation` does. `offset_ns` corrects a known clock skew.
-The same steps are available separately as `align_frames`, `reindex_frames` and `drop_frames`.
-
-### Coordinate frames
-
-A chunk states the frame its rows are in (`frame_id`), and a transform is recorded data like
-everything else -- one edge of the frame graph, split the way ROS splits a `TransformStamped`: the
-chunk's `frame_id` is the **parent**, `child_frame_id` is the **child**. Static (a calibration) and
-temporal (an ego pose) are the same archetype; `static` says only that the value does not depend on
-a timeline.
-
-`Transform3D` is the one archetype whose components are **mono** -- it describes a single
-relationship, not `N` objects -- so its fields are values rather than columns:
-
-```python
-pose = Transform3D(
-    translation=[1.2, 0.0, 1.8], rotation=[0.0, 0.0, 0.0, 1.0], child_frame_id="lidar"
-)
-pose.translation.value  # array([1.2, 0. , 1.8])
-pose.child_frame_id.name  # 'lidar'
-```
-
-Storage stays columnar: a mono value is widened into its `Batch*` counterpart on the way into a
-chunk, so a range query over three ego samples still returns a three-row column.
-
-```python
-from t4perceval.transform import TransformResolver, transform_edges
-
-# The T4 importer records the scene's tree: `map -> base_link` per keyframe from `ego_pose`,
-# and a static `base_link -> <channel>` per sensor from `calibrated_sensor`.
-print(sorted(edge.frames for edge in transform_edges(ground_truth)))
-# [('base_link', 'CAM_BACK'), ('base_link', 'CAM_FRONT'), ('base_link', 'LIDAR_TOP'),
-#  ('map', 'base_link')]
-
-# Static and temporal edges compose in one graph:
-#   T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
-resolver = TransformResolver.of(ground_truth, timeline=FRAME)
-pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
-print(pose.translation.value)  # [10.  0.  2.]
-```
-
-Edges are found by reading the chunks, not by parsing entity paths, so where a transform is filed is
-a filing decision and a frame name may contain a `/`. A temporal edge picks its sample with a
-`LookupPolicy` (`LATEST`, `EXACT`, `NEAREST`, `INTERPOLATE`); an unreachable frame raises rather than
-quietly resolving to identity.
-
-Nothing rewrites an entity's rows into another frame yet, so the system layer refuses to compare
-geometry across frames instead of silently producing plausible numbers:
-
-```text
-ValueError: Cannot compare geometry across coordinate frames: /estimation/objects in 'base_link',
-/ground_truth/objects in 'map'. Bring the inputs into one frame first.
-```
-
-Every matcher is covered through `MatchingSystem`, and every geometric metric through `MatchJoin`.
-Only two _different, stated_ frames raise; an unstated frame is not a disagreement, and
-`check_frames=False` opts out per system.
 
 ## Benchmark
 
 `benchmarks/compare.py` feeds `autoware_perception_evaluation` (`perception_eval` 1.3.6) and
 `t4perceval` the same synthetic scenes and compares both speed and the metric values themselves.
-The two run in separate processes because `perception_eval` pins NumPy 1.
-
-The full report is regenerated into [`benchmarks/results/latest.md`](benchmarks/results/latest.md) with:
 
 ```bash
 uv run python benchmarks/compare.py --check
 ```
-
-See [benchmarks/README.md](benchmarks/README.md) for the options, what the run does, and its prerequisites.
 
 Scene phases run over 10 frames with 200 objects per frame (median of 5 runs after 2 warm-ups, one
 pinned logical CPU); matching is a single frame.
@@ -328,38 +159,72 @@ pinned logical CPU); matching is a single frame.
 | Prediction: ADE / FDE / miss rate, top-k 1,3 |       3718.902 ms |    30.701 ms | 121.1x faster |
 | Retained RSS, 20,000 est / 20,000 GT         |          83.7 MiB |      5.2 MiB | 16.0x smaller |
 
-Numerical agreement is checked on two scenes. In the **unambiguous** scene every estimate has exactly
-one feasible ground truth, so `perception_eval`'s greedy assignment and `t4perceval`'s linear-sum
-assignment pick the same pairs: all 133 compared values (per-class and overall AP / APH / mAP / mAPH,
-MOTA / MOTP / ID switches, ADE / FDE / miss rate) agree to within `1e-9` (`1e-8` for APH, which
-`perception_eval` rounds). In the **dense** scene the two differ on 87 values, every one of which is
-classified against a documented divergence -- Hungarian vs confidence-ordered greedy matching, the
-previous-frame MOTP score, heading sign in APH, and how ID switches are counted -- see
-[docs/TODOs/metrics.md](docs/TODOs/metrics.md). `--check` fails on any difference that is not.
+Numerical agreement is checked on two scenes. On the **unambiguous** scene all 133 compared values
+agree to within `1e-9`. On the **dense** scene the two differ on 87 values, every one of which is
+classified against a [documented divergence](docs/development/metric-divergences.md); `--check`
+fails on any difference that is not.
+
+Full report: [`benchmarks/results/latest.md`](benchmarks/results/latest.md) ·
+options and prerequisites: [`benchmarks/README.md`](benchmarks/README.md) ·
+narrative: [docs/development/benchmarks.md](docs/development/benchmarks.md).
+
+## Documentation
+
+Run `uv run zensical serve` for the full site, or read the sources under [`docs/`](docs/).
+
+|                                                                                 |                                                   |
+| :------------------------------------------------------------------------------ | :------------------------------------------------ |
+| [Installation](docs/getting-started/installation.md)                            | extras, and the development setup                 |
+| [Quick start](docs/getting-started/quickstart.md)                               | the five things the library is made of            |
+| [First evaluation](docs/getting-started/first-evaluation.md)                    | the smallest complete workflow                    |
+| [Concepts](docs/concepts/overview.md)                                           | the mental model, and why the APIs look like this |
+| [User guide](docs/user-guide/logging-data.md)                                   | logging, querying, filtering, matching, metrics   |
+| [Evaluation tasks](docs/evaluation/detection-3d.md)                             | inputs, required components, complete examples    |
+| [Recipes](docs/recipes/evaluate-model-output.md)                                | model output, T4 dataset, ROS bag, custom systems |
+| [Components](docs/components/index.md) & [Archetypes](docs/archetypes/index.md) | the schema catalogue                              |
+| [API reference](docs/reference/api/index.md)                                    | generated from the docstrings                     |
+| [Development](docs/development/architecture.md)                                 | architecture, ADRs, and how to extend it          |
+
+The long-form design documents are available in both languages:
+
+|                      | 日本語                                                   | English                                                    |
+| :------------------- | :------------------------------------------------------- | :--------------------------------------------------------- |
+| Data model           | [データモデル](docs/development/design/ja/data_model.md) | [Data model](docs/development/design/en/data_model.md)     |
+| Systems and pipeline | [システム設計](docs/development/design/ja/system.md)     | [System design](docs/development/design/en/system.md)      |
+| Migration            | [移行ガイド](docs/development/design/ja/migration.md)    | [Migration guide](docs/development/design/en/migration.md) |
 
 ## Development
 
 ```bash
-uv sync
+uv sync --group dev --all-extras
 uv run pytest tests -q
-ruff check t4perceval tests && ruff format --check t4perceval tests
+uv run ruff check t4perceval tests && uv run ruff format --check t4perceval tests
+uv run zensical serve
 ```
+
+See [Contributing](docs/development/contributing.md).
 
 ## Status
 
-Implemented: the data model (`core`), all component and archetype types, the store with timelines and
-static data, lazy views, the label registries, Arrow/Parquet IO, the system protocol with `Pipeline`,
-the full filter family (eight filters on a shared `MaskSystem` base, plus `CombineMasksSystem` and
-`masked_view`), the full matching family (six modes on a shared `MatchingSystem` base, with per-class
-`Thresholds` and vectorized geometry in `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR,
-ADE/FDE/MissRate, classification, confusion matrix), the T4 and MCAP/ROS bag importers with the
-`Recording` boundary and `t4perceval.evaluation`, `t4perceval.align` for pairing ground-truth and
-estimation frames by timestamp, and coordinate transforms -- static and temporal edges, frame-graph
-discovery from the data, composition through `TransformResolver`, and the cross-frame guard.
+**Implemented.** The data model (`core`), all component and archetype types, the store with
+timelines and static data, lazy views, the label registries, Arrow/Parquet IO, the system protocol
+with `Pipeline`, the full filter family (eight filters on a shared `MaskSystem` base, plus
+`CombineMasksSystem`, `ApplyMaskSystem` and `masked_view`), the full matching family (six modes on a
+shared `MatchingSystem` base, with per-class `Thresholds` and vectorized geometry in
+`t4perceval.geometry`), the metric systems (mAP/APH, CLEAR, ADE/FDE/MissRate, classification,
+confusion matrix), the T4 and MCAP/ROS bag importers with the `Recording` boundary and
+`t4perceval.evaluation`, `t4perceval.align` for pairing ground-truth and estimation frames by
+timestamp, and coordinate transforms — static and temporal edges, frame-graph discovery from the
+data, composition through `TransformResolver`, and the cross-frame guard.
 
-Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, persisting a whole
-`Recording`, and a visualization layer. See
-[docs/design/en/system.md](docs/design/en/system.md) for where each of those fits on the protocol,
-[docs/TODOs/design.md](docs/TODOs/design.md) for the current list, and
-[docs/TODOs/metrics.md](docs/TODOs/metrics.md) for where the metric implementations differ from the
-official benchmark definitions.
+**Next.** `HotaSystem` and pass/fail, a system that materializes a transformed entity, persisting a
+whole `Recording`, segmentation metrics, and a visualization layer.
+
+See [the roadmap](docs/development/roadmap.md) for the current list,
+[System design](docs/development/design/en/system.md) for where each of those fits on the protocol,
+and [Metric divergences](docs/development/metric-divergences.md) for where the metric
+implementations differ from the official benchmark definitions.
+
+## License
+
+[Apache License 2.0](LICENSE).

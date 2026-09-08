@@ -1,7 +1,8 @@
-# TODO
+# Roadmap
 
-The data model and the system layer are designed and implemented. See [docs/design/](../design/)
-for the design itself.
+What is done, and what is next. The data model and the system layer are designed and implemented;
+see the [design documents](./design/) for the design itself, [Architecture](./architecture.md) for
+the layer map, and [Design decisions](./design-decisions/index.md) for the individual calls.
 
 ## Ground rules
 
@@ -43,15 +44,18 @@ for the design itself.
       ground-truth class. Filters express the same thing by composition through
       `CombineMasksSystem`, because not every filter system requires `CLASS_ID`
 - [x] Design documents (ja / en) — data_model / system / migration
-- [x] `README.md` states the purpose, the data shapes and a usage example
+- [x] `README.md` states the purpose, the supported tasks, and a usage example
 - [x] Update the `pyproject.toml` description
+- [x] Documentation organised by user intent — getting started, concepts, user guide, evaluation
+      tasks, recipes, the component and archetype catalogues, a generated API reference, and this
+      development section
 
 ## P0: dataloader (or data importer)
 
 Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers converge on.
 
 - [x] Implement an importer on top of `t4_devkit.T4Devkit`. See "Dataloader design" in
-      [data_model.md](../design/en/data_model.md).
+      [data_model.md](./design/en/data_model.md).
   - [x] Load by dataset root / revision.
   - [x] Narrow by scene, sample and sensor channel.
   - [x] Convert `Box3D` into `Detections3D` / `Trackings3D` / `Predictions3D` and `Box2D`
@@ -131,7 +135,7 @@ distinct message schemas, unlike the T4 3D archetypes.
 
 `benchmarks/compare.py` runs the metric systems and `perception_eval` 1.3.6 on the same
 synthetic scenes and reports speed, memory and per-metric agreement; the divergences below
-are what it classifies as known (`docs/TODOs/metrics.md`).
+are what it classifies as known (`docs/development/metric-divergences.md`).
 
 - [x] `MeanAveragePrecisionSystem` (mAP / APH) — `AveragePrecisionSystem` /
       `AveragePrecisionHeadingSystem` / `MeanAveragePrecisionSystem`
@@ -144,7 +148,7 @@ are what it classifies as known (`docs/TODOs/metrics.md`).
       the entity path (`/metrics/<name>`). A metric with structure defines its own archetype
       (`ConfusionMatrix`) and reuses the same source wiring
 - [ ] `HotaSystem` / `PassFailSystem` (including the critical-object verdict) — on hold
-- [ ] Address the findings in [metrics.md](./metrics.md). The implementations differ from the
+- [ ] Address the findings in [metric-divergences.md](./metric-divergences.md). The implementations differ from the
       official benchmark definitions as follows (all pass the current tests, but compatibility is
       unverified)
   - [ ] The prediction metrics do not consult `MODE_VALID` / `TIMESTEP_VALID` / `TIME_OFFSET`
@@ -176,7 +180,7 @@ Transforms are recorded data plus an explicit interpretation step, never hidden 
       could not express a frame name containing `/`, and tied the graph to where it was
       filed. `static` now means only "not on a timeline", so a calibration is `log_static`
       and an ego pose is `log` -- same archetype. Recorded in
-      [data_model.md](../design/en/data_model.md); the old claims are struck through there
+      [data_model.md](./design/en/data_model.md); the old claims are struck through there
       rather than deleted.
 - [x] Mono components. `Transform3D` describes one relationship, not N objects, so its
       fields are `Position3D` / `Quaternion` / `FrameId` -- values, not columns, with
@@ -234,7 +238,7 @@ child_frame_id)` out of the chunks, so nothing parses an entity path. A chunk wi
       design: an evaluation recording is a `Recording` whose store also holds `/matching/*`
       and `/metrics/*`, which is a difference in content, not in type.
 - [ ] Persist a whole `Recording` so results can be analyzed and visualized later.
-  - [ ] `write_recording` / `read_recording`, following [offline_analysis.md](./offline_analysis.md).
+  - [ ] `write_recording` / `read_recording`, following [persistent-recordings.md](./persistent-recordings.md).
   - [ ] Decide the directory and file layout a saved recording uses.
   - [ ] `InstanceRegistry.to_metadata` / `from_metadata` — still the one registry that
         cannot round-trip.
@@ -255,3 +259,12 @@ child_frame_id)` out of the chunks, so nothing parses an entity path. A chunk wi
 - [ ] Measure `Store.range()` performance on a large scene (it currently builds a small chunk per
       partition and concatenates them).
 - [ ] Add a changelog and record the migration to the Rerun-based data model.
+
+## P2: documentation
+
+- [ ] Segmentation metrics, and an [evaluation page](../evaluation/segmentation-3d.md) that stops
+      saying "not implemented yet".
+- [ ] A worked example of bringing two recordings into one coordinate frame, once a system
+      materializes a transformed entity.
+- [ ] Doctest or execute the documentation examples in CI, so a signature change breaks the build
+      rather than the reader.
