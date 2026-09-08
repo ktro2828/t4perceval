@@ -30,6 +30,7 @@ from t4_devkit.viewer import RerunViewer, ViewerBuilder
 from t4perceval import (
     FRAME,
     TIMESTAMP,
+    ConfusionMatrix,
     LabelRegistry,
     MatchResults,
     MetricValues,
@@ -47,6 +48,7 @@ from t4perceval.evaluation import build_evaluation_store
 from t4perceval.importer.t4 import SceneSelection, T4Importer, T4Source
 from t4perceval.system import (
     ApplyMaskSystem,
+    ConfusionMatrixSystem,
     FilterByDistanceSystem,
     Pipeline,
     average_precision_sweep,
@@ -259,33 +261,61 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
     # Narrow both sides identically, and *materialize*: recall divides by the ground-truth
     # count, so the denominator has to be the filtered set rather than a mask over it.
     narrowing = []
+    max_distance = 50.0
     for path in (GROUND_TRUTH, ESTIMATION):
-        near = FilterByDistanceSystem.on(path, max_distance=50.0)
+        near = FilterByDistanceSystem.on(path, max_distance=max_distance)
         narrowing += [near, ApplyMaskSystem.of(path, near.target)]
     Pipeline(narrowing).run(ctx, SCENE)
 
-    kept = setup.store.range(f"{GROUND_TRUTH}/filter/distance", timeline=FRAME, time_range=SCENE)
-    mask = kept.component(MASK)
-    print(f"within 50 m: {mask.num_selected} of {len(mask)} ground-truth objects")
+    gt_mask = setup.store.range(
+        f"{GROUND_TRUTH}/filter/distance", timeline=FRAME, time_range=SCENE
+    ).component(MASK)
+    est_mask = setup.store.range(
+        f"{ESTIMATION}/filter/distance", timeline=FRAME, time_range=SCENE
+    ).component(MASK)
+
+    print(
+        f"within {max_distance} m:\n"
+        f"  GT=  {gt_mask.num_selected}/{len(gt_mask)} objects\n"
+        f"  EST=  {est_mask.num_selected}/{len(est_mask)} objects"
+    )
 
     # `average_precision_sweep` is a plain function returning a list of systems -- ordinary
     # data you can print, edit or extend, not a config value to branch on.
+    thresholds = [0.5, 1.0, 2.0, 4.0]
     systems = average_precision_sweep(
         f"{ESTIMATION}/kept",
         f"{GROUND_TRUTH}/kept",
-        thresholds=[0.5, 1.0, 2.0, 4.0],
+        thresholds=thresholds,
         heading=True,
     )
+
+    # One confusion matrix per matching run, indexed like the sweep indexes its own targets.
+    # The default target is shared, and the store *appends*: four systems writing to one
+    # entity would concatenate their cells and quadruple every count.
+    for index in range(len(thresholds)):
+        systems.append(
+            ConfusionMatrixSystem.on(
+                f"/matching/center_distance/{index}",
+                f"{ESTIMATION}/kept",
+                f"{GROUND_TRUTH}/kept",
+                target=f"/metrics/confusion_matrix/{index}",
+            )
+        )
+
     Pipeline(systems).run(ctx, SCENE)
 
-    matches = setup.store.range(
-        "/matching/center_distance/1", timeline=FRAME, time_range=SCENE
-    ).materialize(MatchResults)
-    print(f"at 1.0 m   : TP={matches.num_tp}  FP={matches.num_fp}  FN={matches.num_fn}")
+    print("\nTP/FP/FN:")
+    for index, threshold in enumerate(thresholds):
+        matches = setup.store.range(
+            f"/matching/center_distance/{index}", timeline=FRAME, time_range=SCENE
+        ).materialize(MatchResults)
+        print(f"  @{threshold} m : TP={matches.num_tp}  FP={matches.num_fp}  FN={matches.num_fn}")
 
-    for path in ("/metrics/map", "/metrics/maph"):
+    print("\nmAP/mAPH:")
+    for name, path in (("mAP", "/metrics/map"), ("mAPH", "/metrics/maph")):
         values = setup.store.range(path, timeline=FRAME, time_range=SCENE).materialize(MetricValues)
-        print(f"{path:<12}: {values.aggregate:.4f}")
+        print(f"    {name:<4}: {values.aggregate:.4f}")
 
     per_class = setup.store.range("/metrics/map", timeline=FRAME, time_range=SCENE).materialize(
         MetricValues
@@ -303,7 +333,19 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
     width = max((len(name) for name, _, _ in scored), default=0)
     print("\nper class (support > 0):")
     for name, value, support in sorted(scored, key=lambda row: -row[2]):
-        print(f"  {name:<{width}}  {value:.4f}  ({support} objects)")
+        print(f"    {name:<{width}}  {value:.4f}  ({support} objects)")
+
+    # Ground truth down the rows, estimation across the columns. The trailing `background`
+    # column holds false negatives and the `background` row false positives. The sweep's
+    # matcher is class-aware, so a misclassification is already an FP plus an FN and every
+    # off-diagonal class cell stays zero -- pass `class_agnostic=True` to the sweep to see
+    # which classes get confused with which.
+    for index, threshold in enumerate(thresholds):
+        confusion = setup.store.range(
+            f"/metrics/confusion_matrix/{index}", timeline=FRAME, time_range=SCENE
+        ).materialize(ConfusionMatrix)
+        print(f"\nconfusion matrix @{threshold} m (rows: GT, columns: EST):")
+        _print_confusion_matrix(ground_truth.labels, confusion)
 
     # Every intermediate is still queryable -- masks, verdicts, per-threshold AP.
     print(f"\nentities produced: {len(setup.store.entity_paths())}")
@@ -311,6 +353,19 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
     # Freeze the whole thing, provenance included.
     result = setup.into_recording(pipeline=systems)
     print(f"pipeline recorded: {len(result.metadata.pipeline)} systems")
+
+
+def _print_confusion_matrix(labels: LabelRegistry, confusion: ConfusionMatrix) -> None:
+    """Print a dense confusion matrix with class names on both axes."""
+    class_ids = [info.class_id for info in labels.classes]
+    matrix = confusion.as_matrix(class_ids)
+    names = [labels.name(class_id) for class_id in class_ids] + ["background"]
+    width = max(len(name) for name in names)
+    cell = max(width, len(str(int(matrix.max()))) if matrix.size else 1)
+
+    print(f"  {'':<{width}}  " + "  ".join(f"{name:>{cell}}" for name in names))
+    for name, row in zip(names, matrix, strict=True):
+        print(f"  {name:<{width}}  " + "  ".join(f"{int(count):>{cell}}" for count in row))
 
 
 def _viewer_seconds(recording: Recording, path: str) -> dict[int, float]:
