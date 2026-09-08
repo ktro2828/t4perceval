@@ -1,0 +1,56 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # Pages accepts one deployment at a time, so two pushes in quick succession race and
+  # the loser fails in `deploy-pages`. Queue rather than cancel: a cancelled run leaves
+  # Pages serving the older build, which is the outcome this workflow exists to avoid.
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: build and deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install the documentation toolchain
+        # `docs` rather than `dev`: mkdocstrings renders the API reference through
+        # griffe, which parses the source statically, so the package does not have to be
+        # importable and t4-devkit is not needed. `--only-dev` would install the project
+        # and clone and build that git dependency on every push -- 69 packages instead of
+        # 25, for a build that never imports any of them.
+        run: uv sync --only-group docs --no-install-project
+
+      - name: Build the site
+        # `--no-sync` because the step above deliberately did not install the project;
+        # a plain `uv run` would put it back.
+        run: uv run --no-sync zensical build --clean
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - uses: actions/deploy-pages@v5
+        id: deployment

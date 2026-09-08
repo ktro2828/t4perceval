@@ -34,12 +34,20 @@ rosbag = [
 # Split out so the core-only CI job can install a test runner without also pulling in
 # the importer's optional dependencies -- which would defeat the point of that job.
 test = ["pytest>=8.4.0"]
-dev = [
-    { include-group = "test" },
+
+# Likewise for the docs build. mkdocstrings reads the source statically through griffe,
+# so rendering the API reference needs neither the package importable nor t4-devkit --
+# and the Pages job would otherwise clone and build that git dependency on every push.
+docs = [
     "zensical",
     # The API reference is rendered from the docstrings themselves rather than
     # hand-copied, so a signature change cannot silently leave the docs behind.
     "mkdocstrings[python]>=0.27",
+]
+
+dev = [
+    { include-group = "test" },
+    { include-group = "docs" },
     "t4-devkit @ git+https://github.com/tier4/t4-devkit@v0.8.0",
 ]
 

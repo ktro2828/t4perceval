@@ -33,8 +33,22 @@ uv run zensical serve      # live preview
 uv run zensical build --clean
 ```
 
-The [API reference](../reference/api/index.md) is rendered from docstrings via mkdocstrings, so a
-signature change updates it automatically. Everything else is written by hand.
+For documentation-only work the `docs` group is enough, and installs 25 packages instead of the dev
+group's 69:
+
+```console
+uv sync --only-group docs --no-install-project
+uv run --no-sync zensical serve
+```
+
+That works because mkdocstrings renders the [API reference](../reference/api/index.md) through
+griffe, which parses the source **statically** -- the package does not have to be importable. A
+signature or docstring change therefore updates the reference automatically. Everything else is
+written by hand.
+
+`.github/workflows/docs.yml` builds with exactly those two commands and publishes `site/` to GitHub
+Pages on every push to `main`, so a docs change is live once it merges. It can also be re-run by
+hand from the Actions tab.
 
 When you add a page, add it to the `nav` in `zensical.toml`. The navigation is organised by **user
 intent**, not by the Python package hierarchy -- see [the index](../index.md#how-this-documentation-is-organised)
