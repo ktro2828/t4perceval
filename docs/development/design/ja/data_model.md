@@ -424,7 +424,7 @@ archetype の field converter が戻すときに狭める。この分担は本�
 scene.range("/tf/base_link", timeline=FRAME, time_range=EVERYTHING).component(TRANSLATION)
 # 3 行の BatchPosition3D — ego の軌跡
 
-Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_TOP")[0]).translation.value
+Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_CONCAT")[0]).translation.value
 # array([0., 0., 2.]) — 1 行は 1 つの値に戻る
 ```
 
@@ -490,7 +490,7 @@ registry に intern してメタデータとして運ぶ。座標系名は辺ご
 from t4perceval.transform import FrameGraph, TransformResolver, transform_edges
 
 transform_edges(recording)  # -> (TransformEdge(parent, child, entity_path, is_static), ...)
-FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_TOP", ...)
+FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_CONCAT", ...)
 ```
 
 探索は chunk を**読む**。以前の設計は entity path の一覧だけからグラフを列挙できたが、それはもう
@@ -510,7 +510,7 @@ chunk は dict 参照 1 回で飛ばされ、持つ chunk は 1 行 1 辺であ�
 
 ```python
 resolver = TransformResolver.of(recording, timeline=FRAME)
-resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 # T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
 ```
 

@@ -57,10 +57,10 @@ and a static write keeps its `frame_id`, so nothing about the edge is lost.
 ```text
    map ──────(temporal: ego pose per frame)────▶ base_link
                                                      │
-                                    ┌────────────────┼────────────────┐
-                        (static)    │     (static)   │    (static)    │
-                                    ▼                ▼                ▼
-                                LIDAR_TOP        CAM_FRONT        CAM_BACK
+                                 ┌───────────────────┼───────────────────┐
+                     (static)    │       (static)    │       (static)    │
+                                 ▼                   ▼                   ▼
+                            LIDAR_CONCAT         CAM_FRONT           CAM_BACK
 ```
 
 ## Discovery and composition
@@ -73,10 +73,10 @@ from t4perceval.transform import TransformResolver, transform_edges
 
 sorted(edge.frames for edge in transform_edges(recording))
 # [('base_link', 'CAM_BACK'), ('base_link', 'CAM_FRONT'),
-#  ('base_link', 'LIDAR_TOP'), ('map', 'base_link')]
+#  ('base_link', 'LIDAR_CONCAT'), ('map', 'base_link')]
 
 resolver = TransformResolver.of(recording, timeline=FRAME)
-pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+pose = resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 pose.translation.value  # array([10.,  0.,  2.])
 ```
 

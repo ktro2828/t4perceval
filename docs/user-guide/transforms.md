@@ -49,12 +49,12 @@ from t4perceval.transform import FrameGraph, transform_edges
 
 sorted(edge.frames for edge in transform_edges(recording))
 # [('base_link', 'CAM_BACK'), ('base_link', 'CAM_FRONT'),
-#  ('base_link', 'LIDAR_TOP'), ('map', 'base_link')]
+#  ('base_link', 'LIDAR_CONCAT'), ('map', 'base_link')]
 
 graph = FrameGraph.of(recording)
 graph.frames()  # every frame named by an edge
-graph.edge("base_link", "LIDAR_TOP")  # the edge, or None
-graph.path(target_frame="map", source_frame="LIDAR_TOP")  # the hops
+graph.edge("base_link", "LIDAR_CONCAT")  # the edge, or None
+graph.path(target_frame="map", source_frame="LIDAR_CONCAT")  # the hops
 ```
 
 `transform_edges` and `FrameGraph.of` accept a `Store` or a `Recording`.
@@ -66,7 +66,7 @@ from t4perceval import FRAME
 from t4perceval.transform import TransformResolver
 
 resolver = TransformResolver.of(recording, timeline=FRAME)
-pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+pose = resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 
 pose.translation.value  # array([10.,  0.,  2.])
 pose.rotation.value  # xyzw

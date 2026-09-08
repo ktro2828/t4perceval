@@ -443,7 +443,7 @@ holds batch columns:
 scene.range("/tf/base_link", timeline=FRAME, time_range=EVERYTHING).component(TRANSLATION)
 # BatchPosition3D of 3 rows -- the ego's path
 
-Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_TOP")[0]).translation.value
+Transform3D.from_chunk(scene.static_chunks("/tf/LIDAR_CONCAT")[0]).translation.value
 # array([0., 0., 2.]) -- one row narrows back to one value
 ```
 
@@ -509,7 +509,7 @@ pinned to `string` rather than inferred, because inference on an object array de
 from t4perceval.transform import FrameGraph, TransformResolver, transform_edges
 
 transform_edges(recording)  # -> (TransformEdge(parent, child, entity_path, is_static), ...)
-FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_TOP", ...)
+FrameGraph.of(recording).frames()  # -> ("map", "base_link", "LIDAR_CONCAT", ...)
 ```
 
 Discovery _reads_ the chunks -- the earlier design enumerated the graph from the list of entity paths
@@ -531,7 +531,7 @@ the direction it was recorded in -- exact, for a rigid transform -- and composes
 
 ```python
 resolver = TransformResolver.of(recording, timeline=FRAME)
-resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 # T_map_lidar(t) = T_map_base_link(t) @ T_base_link_lidar
 ```
 

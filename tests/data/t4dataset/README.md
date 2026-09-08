@@ -10,8 +10,8 @@ Copied from [`tier4/t4-devkit`](https://github.com/tier4/t4-devkit),
 `tests/sample/t4dataset/annotation/`, at commit `a36f6967` (`v0.8.0`).
 Both projects are licensed under Apache-2.0.
 
-The upstream `status.json` records that the data is synthetic: *"All data files are
-placeholders and do not contain real sensor data."* There is no real sensor data, no
+The upstream `status.json` records that the data is synthetic: _"All data files are
+placeholders and do not contain real sensor data."_ There is no real sensor data, no
 personal data, and no map-licensing exposure here.
 
 ## What was and was not copied
@@ -24,10 +24,21 @@ The `1/` directory is a version directory. `t4_devkit.load_metadata` matches
 subdirectories against `r".*/\d+$"` and raises a `DeprecationWarning` when it finds none,
 so this layout both mirrors a real T4 release and keeps the test run warning-free.
 
+## The one edit
+
+Upstream names its lidar `LIDAR_TOP`. Here it is **`LIDAR_CONCAT`**, in `sensor.json` and
+in the `sample_data.json` filenames that reference it — a plain rename, no other field
+touched.
+
+A T4 release annotates against the concatenated point cloud it publishes as
+`LIDAR_CONCAT`, which is why that is `SceneSelection.channel_3d`'s default. Keeping the
+fixture on upstream's single-sensor name would mean every test here opting out of that
+default, so the default itself would go untested. Re-apply this rename when re-vendoring.
+
 ## Why this fixture
 
-For 84 KB it covers, with no editing, the cases that would otherwise need hand-built
-input:
+For 84 KB it covers, with no editing beyond the channel rename above, the cases that
+would otherwise need hand-built input:
 
 - a three-sample `next` chain whose **last frame has zero 3D and zero 2D annotations**
 - **mixed finite and NaN velocity within one frame** (the car is estimable, the

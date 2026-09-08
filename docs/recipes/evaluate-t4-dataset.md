@@ -41,7 +41,7 @@ labels.names
 ground_truth = importer.import_scene(labels=labels)  # -> Recording
 
 [str(p) for p in ground_truth.entity_paths()]
-# ['/tf/base_link', '/ground_truth/objects', '/tf/CAM_BACK', '/tf/CAM_FRONT', '/tf/LIDAR_TOP']
+# ['/tf/base_link', '/ground_truth/objects', '/tf/CAM_BACK', '/tf/CAM_FRONT', '/tf/LIDAR_CONCAT']
 ```
 
 Objects land at `/ground_truth/objects`, plus the scene's transform tree. To narrow:
@@ -178,7 +178,7 @@ The scene's frame graph comes along for free:
 from t4perceval.transform import TransformResolver
 
 resolver = TransformResolver.of(ground_truth, timeline=FRAME)
-resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 ```
 
 ## Where to go next

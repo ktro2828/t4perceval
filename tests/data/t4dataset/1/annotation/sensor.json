@@ -1,7 +1,7 @@
 [
   {
     "token": "0132c9748dfe2777a146807f8a95a6c4",
-    "channel": "LIDAR_TOP",
+    "channel": "LIDAR_CONCAT",
     "modality": "lidar"
   },
   {

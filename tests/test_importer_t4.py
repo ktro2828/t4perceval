@@ -156,7 +156,7 @@ class TestCameras:
 class TestCoordinateFrames:
     @pytest.mark.parametrize(
         ("coords", "expected"),
-        [("map", "map"), ("base_link", "base_link"), ("sensor", "LIDAR_TOP")],
+        [("map", "map"), ("base_link", "base_link"), ("sensor", "LIDAR_CONCAT")],
     )
     def test_the_frame_is_recorded_on_the_chunk(
         self,
@@ -172,7 +172,7 @@ class TestCoordinateFrames:
     def test_sensor_coordinates_move_the_boxes(self, t4_dataset_root: Path) -> None:
         source = T4Source(t4_dataset_root)
         frames = source.frames(source.resolve_scene(None))
-        token = frames[0].data["LIDAR_TOP"]
+        token = frames[0].data["LIDAR_CONCAT"]
 
         in_map = source.boxes3d(token, coords="map")[0].position
         in_sensor = source.boxes3d(token, coords="sensor")[0].position
@@ -185,7 +185,7 @@ class TestCoordinateFrames:
         # would end up in different frames with nothing to say so.
         source = T4Source(t4_dataset_root)
         frames = source.frames(source.resolve_scene(None))
-        token = frames[0].data["LIDAR_TOP"]
+        token = frames[0].data["LIDAR_CONCAT"]
 
         box = next(
             candidate
@@ -253,7 +253,7 @@ class TestProvenance:
 
         assert source.kind == "t4"
         assert source.entity_path == "/ground_truth/objects"
-        assert dict(source.extra)["channel_3d"] == "LIDAR_TOP"
+        assert dict(source.extra)["channel_3d"] == "LIDAR_CONCAT"
 
     def test_the_registry_is_fingerprinted(self, scene: Recording) -> None:
         assert scene.metadata.labels_fingerprint == scene.labels.fingerprint()
@@ -311,7 +311,7 @@ class TestTransforms:
         # through `frame_id` and its child through the `child_frame_id` column.
         assert {edge.frames for edge in transform_edges(scene)} == {
             ("map", "base_link"),
-            ("base_link", "LIDAR_TOP"),
+            ("base_link", "LIDAR_CONCAT"),
             ("base_link", "CAM_FRONT"),
             ("base_link", "CAM_BACK"),
         }
@@ -320,7 +320,7 @@ class TestTransforms:
         by_child = {edge.child: edge for edge in transform_edges(scene)}
 
         assert by_child["base_link"].is_static is False
-        assert by_child["LIDAR_TOP"].is_static is True
+        assert by_child["LIDAR_CONCAT"].is_static is True
 
     def test_ego_poses_are_recorded_per_frame(self, scene: Recording) -> None:
         # A `Transform3D` is one edge, so a scene of poses is read as a column rather than
@@ -337,10 +337,10 @@ class TestTransforms:
     def test_an_extrinsic_needs_no_time_at_all(self, scene: Recording) -> None:
         # It is not on a timeline, so there is no sample time to invent and no window a
         # range query could start after.
-        chunk = scene.static_chunks("/tf/LIDAR_TOP")[0]
+        chunk = scene.static_chunks("/tf/LIDAR_CONCAT")[0]
 
-        assert scene.static_frame_id("/tf/LIDAR_TOP") == "base_link"
-        assert scene.times("/tf/LIDAR_TOP", FRAME).tolist() == []
+        assert scene.static_frame_id("/tf/LIDAR_CONCAT") == "base_link"
+        assert scene.times("/tf/LIDAR_CONCAT", FRAME).tolist() == []
         # One row in, one value out: the archetype narrows the stored columns back.
         assert Transform3D.from_chunk(chunk).translation.value.tolist() == [0.0, 0.0, 2.0]
 
@@ -349,11 +349,11 @@ class TestTransforms:
             channel: Transform3D.from_chunk(
                 scene.static_chunks(f"/tf/{channel}")[0],
             ).translation.value.tolist()
-            for channel in ("LIDAR_TOP", "CAM_FRONT", "CAM_BACK")
+            for channel in ("LIDAR_CONCAT", "CAM_FRONT", "CAM_BACK")
         }
 
         assert offsets == {
-            "LIDAR_TOP": [0.0, 0.0, 2.0],
+            "LIDAR_CONCAT": [0.0, 0.0, 2.0],
             "CAM_FRONT": [1.5, 0.0, 1.8],
             "CAM_BACK": [-1.5, 0.0, 1.8],
         }
@@ -378,10 +378,10 @@ class TestTransforms:
         # The static calibration and the temporal ego pose take part in one graph.
         resolver = TransformResolver.of(scene, timeline=FRAME)
 
-        pose = resolver.lookup(target_frame="map", source_frame="LIDAR_TOP", at=1)
+        pose = resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 
         assert pose.translation.value.tolist() == [10.0, 0.0, 2.0]
-        assert pose.child_frame_id.name == "LIDAR_TOP"
+        assert pose.child_frame_id.name == "LIDAR_CONCAT"
 
     def test_they_can_be_switched_off(self, t4_dataset_root: Path) -> None:
         importer = T4Importer.open(t4_dataset_root, options=ImportOptions(transforms=False))

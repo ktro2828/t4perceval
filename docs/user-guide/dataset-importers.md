@@ -39,7 +39,7 @@ What lands in the recording:
 ```python
 [str(p) for p in recording.entity_paths()]
 # ['/tf/base_link', '/ground_truth/objects',
-#  '/tf/CAM_BACK', '/tf/CAM_FRONT', '/tf/LIDAR_TOP']
+#  '/tf/CAM_BACK', '/tf/CAM_FRONT', '/tf/LIDAR_CONCAT']
 
 [str(t) for t in recording.timelines()]
 # ['frame', 'timestamp_ns']
@@ -60,13 +60,27 @@ recording = importer.import_scene(
     selection=SceneSelection(
         scene=0,  # a token, an index, or None for the first
         samples=slice(0, 50),  # a slice or an explicit list
-        channel_3d="LIDAR_TOP",  # which sensor's keyframes define the frames
+        channel_3d="LIDAR_CONCAT",  # which channel's keyframes define the frames
         channels_2d=("CAM_FRONT",),  # cameras to import 2D boxes from
     ),
 )
 
 for recording in importer.import_scenes(labels=labels):
     ...
+```
+
+`channel_3d` defaults to `"LIDAR_CONCAT"`, the concatenated point cloud a T4 release annotates
+against. An individual sensor is one _input_ to that cloud, not the cloud itself, so a dataset that
+publishes its lidar under another name has to say so:
+
+```python
+importer.import_scene(labels=labels, selection=SceneSelection(channel_3d="LIDAR_FRONT"))
+```
+
+An unknown channel raises rather than falling back to whatever else the dataset holds:
+
+```text
+KeyError: "Unknown channel 'LIDAR_FRONT'; this dataset has ['LIDAR_CONCAT', 'CAM_FRONT', 'CAM_BACK']"
 ```
 
 ### Import options
@@ -166,7 +180,7 @@ Every recording carries where it came from:
 recording.metadata.sources
 # (SourceInfo(kind='t4', uri='/data/t4dataset/1', version='1',
 #             scene='cacaf846...', topic=None, entity_path='/ground_truth/objects',
-#             extra=(('channel_3d', 'LIDAR_TOP'), ('coords', 'base_link'),
+#             extra=(('channel_3d', 'LIDAR_CONCAT'), ('coords', 'base_link'),
 #                    ('kind_3d', 'trackings'), ('frames', '3'))),)
 ```
 

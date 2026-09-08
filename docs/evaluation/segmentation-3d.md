@@ -35,7 +35,7 @@ store.log(
         class_id=labels.encode(["car", "car"]),  # (N,)   i32
     ),
     at=TimePoint.at(frame=0),
-    frame_id="LIDAR_TOP",
+    frame_id="LIDAR_CONCAT",
 )
 ```
 
@@ -129,7 +129,7 @@ store.log(
         class_id=labels.encode(["road", "car", "car"]),
     ),
     at=TimePoint.at(frame=0),
-    frame_id="LIDAR_TOP",
+    frame_id="LIDAR_CONCAT",
 )
 store.log(
     "/estimation/points",
@@ -138,7 +138,7 @@ store.log(
         class_id=labels.encode(["road", "car", "road"]),
     ),
     at=TimePoint.at(frame=0),
-    frame_id="LIDAR_TOP",
+    frame_id="LIDAR_CONCAT",
 )
 
 per_class_iou(store, "/estimation/points", "/ground_truth/points", [0, 1], at=0)

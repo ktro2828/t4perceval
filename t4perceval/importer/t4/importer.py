@@ -60,7 +60,7 @@ class SceneSelection:
     samples: slice | Sequence[int] | None = None
     """Positions in the scene's sample chain, or ``None`` for all of them."""
 
-    channel_3d: str | None = "LIDAR_TOP"
+    channel_3d: str | None = "LIDAR_CONCAT"
     """Channel the 3D boxes are fetched through. ``None`` skips the 3D import."""
 
     channels_2d: tuple[str, ...] = field(default=(), converter=tuple)
