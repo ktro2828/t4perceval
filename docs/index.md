@@ -39,15 +39,16 @@ row -- parent in the chunk's `frame_id`, child in a column -- not state held out
 
 The model is split into these layers:
 
-| Layer                  | Responsibility                                                            |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `t4perceval.component` | Typed, column-oriented values such as positions, labels, and trajectories |
-| `t4perceval.archetype` | Validated bundles of related components                                   |
-| `t4perceval.core`      | Entity paths, timelines, chunks, storage, and views                       |
-| `t4perceval.transform` | Coordinate-frame edges: finding the graph, and composing a lookup         |
-| `t4perceval.system`    | Filtering, matching, metrics, and pass/fail evaluation                    |
-| `t4perceval.importer`  | External formats in (the T4 dataset, MCAP ROS bags)                       |
-| `t4perceval.io`        | Arrow and Parquet persistence                                             |
+| Layer                  | Responsibility                                                              |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `t4perceval.component` | Typed, column-oriented values such as positions, labels, and trajectories   |
+| `t4perceval.archetype` | Validated bundles of related components                                     |
+| `t4perceval.core`      | Entity paths, timelines, chunks, storage, and views                         |
+| `t4perceval.transform` | Coordinate-frame edges: finding the graph, and composing a lookup           |
+| `t4perceval.system`    | Filtering, matching, metrics, and pass/fail evaluation                      |
+| `t4perceval.align`     | Pairing ground-truth and estimation frames by timestamp onto one FRAME axis |
+| `t4perceval.importer`  | External formats in (the T4 dataset, MCAP ROS bags)                         |
+| `t4perceval.io`        | Arrow and Parquet persistence                                               |
 
 ## Quick example
 

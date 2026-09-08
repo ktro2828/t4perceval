@@ -18,7 +18,6 @@ pipeline you compose.
 | Data model   | [ja/data_model.md](docs/design/ja/data_model.md) | [en/data_model.md](docs/design/en/data_model.md) |
 | System layer | [ja/system.md](docs/design/ja/system.md)         | [en/system.md](docs/design/en/system.md)         |
 | Migration    | [ja/migration.md](docs/design/ja/migration.md)   | [en/migration.md](docs/design/en/migration.md)   |
-| Naming       | —                                                | [en/naming.md](docs/design/en/naming.md)         |
 
 ## Layers
 
@@ -34,6 +33,7 @@ t4perceval.importer   T4 dataset / MCAP ROS bag    external formats in
 t4perceval.io         Arrow / Parquet              persistence
 t4perceval.label      LabelRegistry                meaning for the integer columns
 t4perceval.recording  Recording                    a log plus what its integers mean
+t4perceval.align      FrameAlignment / pair_times  GT and estimation frames on one FRAME axis
 ```
 
 `importer` converts an external representation into this one; `io` moves an already-native
@@ -223,6 +223,30 @@ enum -> canonical name -> registry id, `Shape.dimensions` `(x=length, y=width, z
 `BatchConfidence` is the top classification probability by default
 (`ImportOptions(confidence="existence")` for `existence_probability`).
 
+### Aligning frames
+
+A T4 scene numbers its frames by sample, a bag by message, so two recordings imported separately
+share only their `TIMESTAMP` axis. Matching evaluates the union of both `FRAME` sets, so unrelated
+indices would score as all-FP and all-FN frames rather than fail. `t4perceval.align` pairs the frames
+first: every ground-truth frame takes the nearest estimation frame within a tolerance, one-to-one, and
+the estimation's `FRAME` values are rewritten to the ground truth's.
+
+```python
+from t4perceval.align import AlignOptions
+
+setup = build_evaluation_store(
+    ground_truth,
+    estimation,
+    align=AlignOptions(tolerance_ns=75_000_000),  # 75 ms, the incumbent's default
+)
+setup.metadata.tags  # ("align.pairs", "87"), ("align.unmatched_reference", "3"), ...
+```
+
+Estimation frames no ground-truth frame claimed leave the evaluated set. Ground-truth frames no
+estimation answered stay and score as all-FN; `AlignOptions(unmatched_reference="drop")` removes them
+instead, which is what `autoware_perception_evaluation` does. `offset_ns` corrects a known clock skew.
+The same steps are available separately as `align_frames`, `reindex_frames` and `drop_frames`.
+
 ### Coordinate frames
 
 A chunk states the frame its rows are in (`frame_id`), and a transform is recorded data like
@@ -329,13 +353,12 @@ the full filter family (eight filters on a shared `MaskSystem` base, plus `Combi
 `masked_view`), the full matching family (six modes on a shared `MatchingSystem` base, with per-class
 `Thresholds` and vectorized geometry in `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR,
 ADE/FDE/MissRate, classification, confusion matrix), the T4 and MCAP/ROS bag importers with the
-`Recording` boundary and `t4perceval.evaluation`, and coordinate transforms -- static and temporal
-edges, frame-graph discovery from the data, composition through `TransformResolver`, and the
-cross-frame guard.
+`Recording` boundary and `t4perceval.evaluation`, `t4perceval.align` for pairing ground-truth and
+estimation frames by timestamp, and coordinate transforms -- static and temporal edges, frame-graph
+discovery from the data, composition through `TransformResolver`, and the cross-frame guard.
 
-Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, `t4perceval.align`
-for pairing ground-truth and bag frames by timestamp, persisting a whole `Recording`, and a
-visualization layer. See
+Next: `HotaSystem` and pass/fail, a system that materializes a transformed entity, persisting a whole
+`Recording`, and a visualization layer. See
 [docs/design/en/system.md](docs/design/en/system.md) for where each of those fits on the protocol,
 [docs/TODOs/design.md](docs/TODOs/design.md) for the current list, and
 [docs/TODOs/metrics.md](docs/TODOs/metrics.md) for where the metric implementations differ from the

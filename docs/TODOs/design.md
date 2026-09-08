@@ -97,11 +97,20 @@ distinct message schemas, unlike the T4 3D archetypes.
 - [x] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
       semantic location; they are not the same concept. One recording holds one topic at
       `/estimation/objects`; the topic is provenance (`SourceInfo.topic`).
-- [ ] `t4perceval.align` — associate ground-truth and estimation frames by nearest
+- [x] `t4perceval.align` — associate ground-truth and estimation frames by nearest
       timestamp within a tolerance, one-to-one, producing a shared `FRAME` index. Needed
       because matching takes the _union_ of the two time sets, so mismatched stamps yield
-      all-FP + all-FN frames instead of an error. A bag's `FRAME` is currently the message
-      index within the topic.
+      all-FP + all-FN frames instead of an error. Decided: **ground-truth driven** — each
+      reference frame takes its nearest estimation frame within 75 ms (the incumbent's
+      `threshold_min_time`), conflicts go to the smaller distance, leftover estimation frames
+      leave the evaluated set; unmatched reference frames stay as all-FN by default
+      (`unmatched_reference="drop"` for the incumbent's skip); `offset_ns` for clock skew.
+      The greedy nearest pairing is the stable matching, not the largest one.
+      `build_evaluation_store(..., align=AlignOptions())` runs it and tags the setup.
+- [ ] Ground-truth interpolation to the estimation stamp (the incumbent's
+      `interpolate_ground_truth`: position / velocity lerp, orientation slerp, shape copied),
+      and an order-preserving assignment for the rare case where nearest-wins leaves a pair
+      on the table.
 - [x] Decided: `BatchConfidence` is the top classification's probability by default (what a
       detector's score becomes, and what driving_log_replayer used), with
       `ImportOptions(confidence="existence" | "product")` as alternatives; an object with no

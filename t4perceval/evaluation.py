@@ -12,6 +12,10 @@ than what happened to be loaded.
 Moving an entity is close to free -- chunks are frozen and their arrays read-only, so the
 new store references the same objects. Three things do *not* ride along with a chunk and
 are handled explicitly here: static columns, per-path log order, and the registries.
+
+Nor does anything here check that the two sources number their frames alike. Two recordings
+imported separately usually do not, and :mod:`t4perceval.align` is the step that pairs them by
+timestamp; :func:`build_evaluation_store` runs it when asked to through ``align=``.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from typing import TYPE_CHECKING
 
 from attrs import define, evolve, field
 
+from t4perceval.align import AlignOptions, align_recordings
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import FRAME
@@ -29,7 +34,7 @@ from t4perceval.recording import RecordingMetadata
 from t4perceval.system.base import SystemContext
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from t4perceval.core.entity import EntityPath, EntityPathLike
     from t4perceval.core.timeline import Timeline
@@ -114,6 +119,7 @@ def build_evaluation_store_from(
     *,
     reconcile: bool = False,
     require_same_frame_id: bool = True,
+    tags: Mapping[str, str] | None = None,
 ) -> EvaluationSetup:
     """Materialize several recordings into one evaluation store.
 
@@ -123,6 +129,8 @@ def build_evaluation_store_from(
             the first source's registry instead of raising.
         require_same_frame_id: Whether a coordinate-frame mismatch between sources is an
             error.
+        tags: Free-form provenance to stamp on the setup's metadata. The sources' own tags
+            do not travel: they describe each source, not the evaluation.
 
     Returns:
         A setup whose store holds exactly the named entities.
@@ -170,6 +178,7 @@ def build_evaluation_store_from(
             sources=tuple(source for spec in sources for source in spec.recording.metadata.sources),
             labels_fingerprint=labels.fingerprint(),
             frame_id=sources[0].recording.metadata.frame_id,
+            tags=tuple(tags.items()) if tags else (),
         ),
     )
 
@@ -184,11 +193,31 @@ def build_evaluation_store(
     query_target: EntityPathLike | None = None,
     reconcile: bool = False,
     require_same_frame_id: bool = True,
+    align: AlignOptions | None = None,
 ) -> EvaluationSetup:
     """Materialize a ground-truth and an estimation recording into one store.
 
     Sugar over :func:`build_evaluation_store_from` for the two-source case.
+
+    Args:
+        align: When given, pair the two recordings' frames by timestamp first -- see
+            :func:`t4perceval.align.align_recordings` -- so the query's ``FRAME`` axis is the
+            reference's. The pairing is recorded in the setup's metadata tags. Without it the
+            two ``FRAME`` axes are taken as already agreeing.
     """
+    tags: dict[str, str] = {}
+    if align is not None:
+        aligned = align_recordings(
+            reference,
+            query,
+            options=align,
+            reference_path=reference_path,
+            query_path=query_path,
+        )
+        reference, query = aligned.reference, aligned.query
+        tags = dict(aligned.query.metadata.tags)
+        tags = {key: value for key, value in tags.items() if key.startswith("align.")}
+
     return build_evaluation_store_from(
         (
             SourceSpec.of(reference, reference_path, reference_target, role="reference"),
@@ -196,6 +225,7 @@ def build_evaluation_store(
         ),
         reconcile=reconcile,
         require_same_frame_id=require_same_frame_id,
+        tags=tags,
     )
 
 

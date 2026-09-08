@@ -336,6 +336,28 @@ from t4perceval.system.base import require_same_frame, resolve_frame
 system である — passthrough な system が自分の運ぶ列を宣言できないため。それまで、入力を 1 つの
 座標系に揃えるのは呼び出し側の仕事であり、この検知がその代替案をもっともらしく見せないための砦である。
 
+## フレームの整列
+
+座標系の検知には、時間軸に同じ形の穴がある。`MatchingSystem` は 2 つの entity の時刻を
+`ctx.timeline` 上で _和集合_ にして評価し、片側にしかない時刻はもう片側で空の view になる — 全 FP
+または全 FN の frame であって、エラーではない。両方の recording が frame を同じ規則で番号付けして
+いればこれで正しいが、そうでなければ間違う。T4 scene の `FRAME` は sample の添字、bag の `FRAME`
+はメッセージの添字で、数値としては重なるのに意味は何も共有していない。
+
+`t4perceval.align` はこの穴を system の中ではなく store を組み立てる前に閉じる。入力についての
+観察ではなく、入力についての決定だからである。参照側 (ground truth) の各 frame が、`TIMESTAMP` で
+許容誤差内に最も近い照会側 (推定) の frame を最大 1 つ取る。競合は距離の小さい方が勝つ。照会側の
+recording は `FRAME` の値を参照側の番号に書き換えられ、誰にも取られなかった frame を除いた形で
+返る。`TIMESTAMP` には触れないので、その軸での評価は元のスタンプをそのまま見る。`FRAME` を持たない
+chunk (bag の `/tf` サンプル) はそのまま通る。何も答えのなかった参照側の frame は既定では残り —
+そこで何も推定されなかったことは結果の一部である — `unmatched_reference="drop"` で取り除くことも
+できる。後者は、75 ms 以内に ground truth のないメッセージを飛ばす元パッケージの挙動に当たる。
+
+整列は recording に対する導出である。触れていない chunk、ラベルレジストリ、そして同一の
+`InstanceRegistry` を共有する新しい `Recording` を返し、自分自身をメタデータの tag
+(`align.tolerance_ns`, `align.pairs`, `align.unmatched_reference`, ...) に記録する。
+`build_evaluation_store(..., align=AlignOptions(...))` がこれを実行し、tag を setup へ運ぶ。
+
 ## 未実装 system の配置
 
 以下は同じ protocol 上に載る。predicate やコスト計算だけが違う。指標 system は `HotaSystem` を

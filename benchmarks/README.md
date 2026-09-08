@@ -53,6 +53,11 @@ metrics for two agreement scenes and prints one JSON line, which the coordinator
   documented item in [`docs/TODOs/metrics.md`](../docs/TODOs/metrics.md); anything unclassified is
   a mismatch and fails `--check`.
 
+Both sides of a scene share their frame indices by construction (frame `i` of the estimation is
+frame `i` of the ground truth, stamped at `i × 500 ms`), so `t4perceval.align` is not part of
+the benchmark: perception_eval's manager-free scoring has no counterpart to pair against, and its
+own association (`get_ground_truth_now_frame`, estimation-driven, many-to-one) is a different rule.
+
 ## Layout
 
 | File                            | Role                                                                      |

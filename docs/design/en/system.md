@@ -344,6 +344,29 @@ This is a guard, not a fix. Resolving a transform _is_ implemented --
 passthrough system cannot yet declare the columns it carries. Until it can, bringing the inputs into
 one frame is the caller's job and this guard is what stops the alternative from looking plausible.
 
+## Aligning frames
+
+The coordinate-frame guard has a sibling gap on the time axis. `MatchingSystem` evaluates the
+_union_ of the two entities' times on `ctx.timeline`, and a time present on one side only produces
+an empty view on the other -- an all-FP or all-FN frame, not an error. That is right when both
+recordings number their frames alike, and wrong when they do not: a T4 scene's `FRAME` is its sample
+index, a bag's is its message index, and the two overlap numerically while meaning nothing in common.
+
+`t4perceval.align` closes the gap before the store is assembled rather than inside a system, because
+it is a decision about the inputs, not an observation about them. Every reference (ground-truth)
+frame takes at most one query (estimation) frame, the nearest by `TIMESTAMP` within a tolerance;
+conflicts go to the smaller distance; the query recording comes back with its `FRAME` values rewritten
+to the reference's and its unclaimed frames removed. `TIMESTAMP` is left alone, so an evaluation on
+that axis still sees the original stamps, and chunks without a `FRAME` (a bag's `/tf` samples) pass
+through untouched. Reference frames nothing answered stay by default -- that nothing was estimated
+there is part of the result -- or are dropped with `unmatched_reference="drop"`, which is what the
+original package does by skipping messages with no ground truth within 75 ms.
+
+The pairing is a derivation over recordings: it returns new `Recording`s that share the untouched
+chunks, the label registry and the very same `InstanceRegistry`, and it records itself in the
+metadata tags (`align.tolerance_ns`, `align.pairs`, `align.unmatched_reference`, ...).
+`build_evaluation_store(..., align=AlignOptions(...))` runs it and carries the tags into the setup.
+
 ## Where the remaining systems fit
 
 All of the following sit on the same protocol; only the predicate or cost computation differs. The

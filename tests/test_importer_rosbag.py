@@ -17,8 +17,9 @@ from t4perceval import (
     Transform3D,
 )
 from t4perceval.descriptors import CLASS_ID, CONFIDENCE, INSTANCE_ID, SIZE, TRANSLATION, VELOCITY
+from t4perceval.align import AlignOptions
 from t4perceval.evaluation import build_evaluation_store
-from t4perceval.system import Pipeline
+from t4perceval.system import CenterDistanceMatchingSystem, Pipeline
 from t4perceval.system.preset import average_precision_sweep
 from t4perceval.transform import TransformResolver, transform_edges
 
@@ -284,6 +285,28 @@ class TestEvaluation:
 
         assert (matches.num_tp, matches.num_fp, matches.num_fn) == (3, 0, 0)
         assert metrics.aggregate == pytest.approx(1.0)
+
+    def test_a_self_match_survives_alignment(self, trackings: Recording) -> None:
+        # Pairing a recording with itself by timestamp is the identity on its frames.
+        setup = build_evaluation_store(
+            trackings,
+            trackings,
+            reference_path=OBJECTS,
+            reference_target="/ground_truth/objects",
+            align=AlignOptions(),
+        )
+        Pipeline(
+            [CenterDistanceMatchingSystem.between(OBJECTS, "/ground_truth/objects", threshold=1.0)],
+        ).run(setup.context(), EVERYTHING)
+
+        matches = setup.store.range(
+            "/matching/center_distance",
+            timeline=FRAME,
+            time_range=EVERYTHING,
+        ).materialize(MatchResults)
+
+        assert (matches.num_tp, matches.num_fp, matches.num_fn) == (3, 0, 0)
+        assert dict(setup.metadata.tags)["align.pairs"] == "3"
 
 
 class TestTransforms:
