@@ -214,14 +214,3 @@ write_parquet(chunk, "matching.parquet", labels=labels)
 chunk, labels = read_parquet("matching.parquet")
 result = MatchResults.from_chunk(chunk)
 ```
-
-## Removed APIs
-
-| Removed                                                                  | Replacement                                                                                                                 |
-| :----------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-| the `t4perceval.dataclass` package                                       | `t4perceval.core` / `t4perceval.component` / `t4perceval.archetype`                                                         |
-| `Header(timestamp_ns, frame_id)`                                         | `TimePoint` (time) plus `Chunk.frame_id` (coordinate frame)                                                                 |
-| the `BatchDetection3D → BatchTracking3D → BatchPrediction3D` inheritance | each archetype declares its components explicitly                                                                           |
-| `BatchTrajectory3D` as a three-array component                           | promoted to an archetype; the columns split into `BatchWaypoints3D` / `BatchModeConfidence` / `BatchTimeOffset` and friends |
-| `BatchTrajectory3D.positions` / `.confidences` / `.time_offsets_ns`      | `.waypoints` / `.mode_confidence` / `.time_offset`                                                                          |
-| per-component `from_array()` / `as_array()`                              | kept, as base implementations on `ColumnarComponent`                                                                        |

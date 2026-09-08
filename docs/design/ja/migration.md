@@ -214,14 +214,3 @@ write_parquet(chunk, "matching.parquet", labels=labels)
 chunk, labels = read_parquet("matching.parquet")
 result = MatchResults.from_chunk(chunk)
 ```
-
-## 廃止された API
-
-| 廃止                                                                | 代替                                                                                             |
-| :------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------- |
-| `t4perceval.dataclass` パッケージ                                   | `t4perceval.core` / `t4perceval.component` / `t4perceval.archetype`                              |
-| `Header(timestamp_ns, frame_id)`                                    | `TimePoint` (時刻) + `Chunk.frame_id` (座標系)                                                   |
-| `BatchDetection3D → BatchTracking3D → BatchPrediction3D` の継承     | 各 archetype が component を明示的に宣言                                                         |
-| `BatchTrajectory3D` (3 配列を持つ component)                        | archetype に昇格。列は `BatchWaypoints3D` / `BatchModeConfidence` / `BatchTimeOffset` などに分解 |
-| `BatchTrajectory3D.positions` / `.confidences` / `.time_offsets_ns` | `.waypoints` / `.mode_confidence` / `.time_offset`                                               |
-| 各 component の `from_array()` / `as_array()`                       | 残置 (`ColumnarComponent` の基底実装)                                                            |
