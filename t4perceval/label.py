@@ -339,3 +339,42 @@ class InstanceRegistry:
     def decode(self, instance_ids: Sequence[int]) -> tuple[str, ...]:
         """Return the UUIDs of a column of instance ids."""
         return tuple(self.uuid(int(instance_id)) for instance_id in instance_ids)
+
+    def __eq__(self, other: object) -> bool:
+        """Two registries are equal when they interned the same UUIDs in the same order.
+
+        Order matters: the integers in an ``INSTANCE_ID`` column index this order, so two
+        registries holding the same UUIDs in different positions decode the same column to
+        different identities. Defining equality by content makes the registry unhashable,
+        which is right for something mutable.
+        """
+        if not isinstance(other, InstanceRegistry):
+            return NotImplemented
+        return self._by_id == other._by_id
+
+    # -- metadata round-trip ----------------------------------------------------------
+
+    def to_metadata(self) -> dict[str, object]:
+        """Return a JSON-compatible mapping, matching :meth:`LabelRegistry.to_metadata`.
+
+        A positional list: the index of a UUID *is* its instance id, because ids are
+        handed out as ``len(self)`` at interning time. The list cannot express a gap or an
+        id that disagrees with its position, so a reader has nothing to reconcile.
+        """
+        return {"uuids": list(self._by_id)}
+
+    @classmethod
+    def from_metadata(cls, metadata: Mapping[str, object]) -> Self:
+        """Rebuild a registry from :meth:`to_metadata`.
+
+        Raises:
+            ValueError: When a UUID is listed twice. :meth:`intern` would silently hand
+                back the earlier id and shift every later one, so the repeat is refused.
+        """
+        registry = cls()
+        for uuid in metadata.get("uuids") or ():  # type: ignore[union-attr]
+            text = str(uuid)
+            if text in registry:
+                raise ValueError(f"InstanceRegistry metadata repeats instance uuid {text!r}")
+            registry.intern(text)
+        return registry

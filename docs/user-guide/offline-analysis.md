@@ -118,20 +118,16 @@ Nothing is recomputed for any of them.
 
 ## Persisting a run
 
-Today an evaluation's results live only as long as the process; whole-recording persistence is not
-implemented. See [Persistence](persistence.md#what-is-not-there-yet) for what you can save per
-chunk in the meantime, and
-[Persistent recordings](../development/persistent-recordings.md) for the design.
-
-Once it exists, the shape will be:
-
 ```python
+from t4perceval.io import read_recording, write_recording
+
 write_recording(setup.into_recording(pipeline=systems), "result.t4eval")
 recording = read_recording("result.t4eval")
 ```
 
-and every query on this page will work unchanged against the reopened recording, because
-`Recording` already exposes the same read surface as `Store`.
+Every query on this page works unchanged against the reopened recording: `Recording` exposes the
+same read surface as `Store`, and the `.t4eval` format preserves everything those queries depend on
+-- log order included. See [Persistence](persistence.md#saving-a-whole-recording).
 
 ## Where to go next
 

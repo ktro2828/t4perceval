@@ -163,21 +163,27 @@ extra cost -- nothing is recomputed.
 
 ## Saving the answers
 
-Whole-recording persistence is not implemented yet. Write the entities you care about as Parquet,
-with the registry alongside:
+Save the whole recording rather than the answers: every query on this page then works unchanged
+against the reopened directory, and nothing has to be recomputed to ask a new one later.
 
 ```python
-import json
-from pathlib import Path
-from t4perceval.io import write_parquet
+from t4perceval.io import read_recording, write_recording
 
-Path("run/labels.json").write_text(json.dumps(labels.to_metadata()))
-for path in ("/metrics/map", "/matching/center_distance/0"):
-    chunk = store.range(path, timeline=FRAME, time_range=scene).to_chunk()
-    write_parquet(chunk, f"run/{path.strip('/').replace('/', '_')}.parquet", labels=labels)
+write_recording(setup.into_recording(pipeline=systems), "run.t4eval")
+recording = read_recording("run.t4eval")
+recording.range("/metrics/map", timeline=FRAME, time_range=scene).materialize(MetricValues)
 ```
 
-See [Persistence](../user-guide/persistence.md#what-is-not-there-yet).
+To hand one entity to an Arrow tool instead, `write_parquet` still writes a single chunk:
+
+```python
+from t4perceval.io import write_parquet
+
+chunk = store.range("/metrics/map", timeline=FRAME, time_range=scene).to_chunk()
+write_parquet(chunk, "run/metrics_map.parquet", labels=labels)
+```
+
+See [Persistence](../user-guide/persistence.md#saving-a-whole-recording).
 
 ## Where to go next
 

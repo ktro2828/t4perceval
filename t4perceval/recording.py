@@ -106,6 +106,14 @@ class RecordingMetadata:
     """
 
     format_version: int = field(default=1, kw_only=True)
+    """Version of the ``.t4eval`` recording format this metadata was last written in.
+
+    Stamped by :func:`~t4perceval.io.write_recording` with its own
+    :data:`~t4perceval.io.RECORDING_FORMAT_VERSION`, the way :meth:`Recording.of` stamps
+    the label fingerprint -- so a reopened recording reports the version of the file it
+    came from. Independent of the per-chunk Arrow ``SCHEMA_VERSION``.
+    """
+
     t4perceval_version: str = field(default="", converter=str, kw_only=True)
     created_at_ns: int = field(default=0, converter=int, kw_only=True)
     sources: tuple[SourceInfo, ...] = field(default=(), converter=tuple, kw_only=True)

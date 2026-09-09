@@ -125,23 +125,23 @@ This keeps the storage layout independent of `EntityPath` semantics.
 
 ### Required work
 
-- [ ] Define the `.t4eval` format, and the directory and file layout a saved recording uses
-- [ ] Define the manifest schema
-- [ ] Add format versioning, carried by the format itself and separate from the chunk
+- [x] Define the `.t4eval` format, and the directory and file layout a saved recording uses
+- [x] Define the manifest schema
+- [x] Add format versioning, carried by the format itself and separate from the chunk
       `SCHEMA_VERSION`
-- [ ] `InstanceRegistry.to_metadata()` / `from_metadata()` — still the one registry that cannot
+- [x] `InstanceRegistry.to_metadata()` / `from_metadata()` — still the one registry that cannot
       round-trip
-- [ ] Preserve the label registry
-- [ ] Preserve entity paths
-- [ ] Preserve timelines
-- [ ] Preserve partition offsets
-- [ ] Preserve `frame_id`, on temporal and static chunks alike
-- [ ] Preserve static chunks
-- [ ] Preserve temporal chunk insertion order
-- [ ] Preserve evaluation-derived entities (`/matching/*`, `/metrics/*`) alongside the raw inputs
-- [ ] `write_recording()`
-- [ ] `read_recording()`
-- [ ] Full round-trip tests
+- [x] Preserve the label registry
+- [x] Preserve entity paths
+- [x] Preserve timelines
+- [x] Preserve partition offsets
+- [x] Preserve `frame_id`, on temporal and static chunks alike
+- [x] Preserve static chunks
+- [x] Preserve temporal chunk insertion order
+- [x] Preserve evaluation-derived entities (`/matching/*`, `/metrics/*`) alongside the raw inputs
+- [x] `write_recording()`
+- [x] `read_recording()`
+- [x] Full round-trip tests
 
 The invariant to test:
 

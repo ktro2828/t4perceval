@@ -160,11 +160,17 @@ result.metadata.tags
 The result holds the inputs, the masks, the matching results and the metrics -- everything the
 evaluation touched and nothing it did not.
 
-!!! warning "It cannot be saved yet"
+Save it as a `.t4eval` directory and every query works unchanged after reopening -- log order,
+static data, registries and provenance all come back:
 
-    Whole-recording persistence is not implemented. See
-    [Persistence](../user-guide/persistence.md#what-is-not-there-yet) for what you can write per
-    chunk in the meantime.
+```python
+from t4perceval.io import read_recording, write_recording
+
+write_recording(result, "result.t4eval")
+result = read_recording("result.t4eval")
+```
+
+See [Persistence](../user-guide/persistence.md#saving-a-whole-recording).
 
 ## Coordinate frames
 

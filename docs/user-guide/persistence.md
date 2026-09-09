@@ -1,6 +1,7 @@
 # Persistence
 
-What can be saved today, what a `Recording` is, and what is still missing.
+What a `Recording` is, how one chunk maps onto Arrow, and how a whole recording is saved and
+reopened.
 
 ## Recording: a log plus what its integers mean
 
@@ -42,7 +43,7 @@ recording.with_metadata(notes="baseline run, model v3")
 
 ## Arrow and Parquet
 
-Persistence is **per chunk** today.
+One chunk at a time:
 
 ```python
 from t4perceval.io import chunk_from_table, chunk_to_table, read_parquet, write_parquet
@@ -72,37 +73,45 @@ scene = store.range(
 write_parquet(scene.to_chunk("/matching/center_distance", at=TimePoint.at(frame=0)), "m.parquet")
 ```
 
-## What is not there yet
+## Saving a whole recording
 
-**A whole recording cannot be saved and reopened.** There is no `write_recording` /
-`read_recording`, so an evaluation's inputs, masks, verdicts and metrics survive only as long as the
-process. Saving each chunk by hand loses log order, which `latest_at` depends on when two chunks
-share a time, and loses the registries unless you persist them separately.
-
-The design for it -- a directory format with a manifest, preserving chunk order, static columns,
-timelines, `frame_id` and both registries -- is written up in
-[Persistent recordings](../development/persistent-recordings.md) and recorded as
-[ADR 0004](../development/design-decisions/0004-persistent-recording.md).
-
-Until then, the practical options are:
-
-- Keep the process alive and query the store (see [Offline analysis](offline-analysis.md)).
-- Write the entities you care about as individual Parquet files, and persist
-  `labels.to_metadata()` alongside them.
+`write_recording` / `read_recording` save a `Recording` as a `.t4eval` directory and reopen it:
 
 ```python
-import json
-from pathlib import Path
+from t4perceval.io import read_recording, write_recording
 
-Path("run/labels.json").write_text(json.dumps(labels.to_metadata()))
-for path in ("/metrics/map", "/matching/center_distance"):
-    chunk = store.range(path, timeline=FRAME, time_range=TimeRange.everything()).to_chunk()
-    write_parquet(chunk, f"run/{path.strip('/').replace('/', '_')}.parquet", labels=labels)
+write_recording(recording, "result.t4eval")
+recording = read_recording("result.t4eval")
 ```
 
-`LabelRegistry.from_metadata` reads it back.
+Everything the store held comes back -- every temporal chunk in the order it was logged, static
+chunks with their own `frame_id`, every timeline and partition offset, both registries and the
+metadata -- so any query written against the live store answers identically against the reopened
+recording. That includes `latest_at` on two chunks that share a time: the most recently logged one
+still wins, because the manifest records the log order that saving chunks one by one would lose.
+
+```text
+result.t4eval/
+  manifest.json     format version, provenance, both registries, chunks in log order
+  chunks/
+    000000.parquet  one chunk per file, readable on its own by any Arrow tool
+    000001.parquet
+    ...
+```
+
+`write_recording` refuses an existing directory unless `exist_ok=True`; then it overwrites
+`manifest.json` and the chunk files it produces and leaves anything else alone. It returns the
+directory, so `read_recording(write_recording(recording, path))` composes. The one thing it changes
+in what it writes is `metadata.format_version`, stamped with the format version it produced.
+
+The registries live in the manifest only. A chunk file lifted out of the directory carries no label
+registry, and `read_recording` refuses one that does -- there is a single authority for what a class
+id means. The layout is described in
+[Serialization format](../development/serialization-format.md#a-whole-recording) and the decision
+in [ADR 0004](../development/design-decisions/0004-persistent-recording.md).
 
 ## Where to go next
 
 - [Offline analysis](offline-analysis.md) -- querying a finished run.
-- [Serialization format](../development/serialization-format.md) -- how a chunk maps onto Arrow.
+- [Serialization format](../development/serialization-format.md) -- how a chunk maps onto Arrow,
+  and how a recording is laid out on disk.

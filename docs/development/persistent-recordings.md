@@ -1,8 +1,17 @@
 # Persistent recordings
 
-The design for saving a whole evaluation and reopening it later. Not implemented; the decision is
-recorded as [ADR 0004](./design-decisions/0004-persistent-recording.md), and what you can do today
-is in [Persistence](../user-guide/persistence.md).
+The design for saving a whole evaluation and reopening it later. The decision is recorded as
+[ADR 0004](./design-decisions/0004-persistent-recording.md); using it is in
+[Persistence](../user-guide/persistence.md#saving-a-whole-recording).
+
+!!! note "Status"
+
+    Sections 1, 3 and the format half of 6 are implemented: `t4perceval.io.write_recording` /
+    `read_recording`, `InstanceRegistry.to_metadata` / `from_metadata`, and the round-trip and
+    error tests in `tests/test_recording_io.py`. Section 2 is covered by the existing
+    `RecordingMetadata` (the `EvaluationRecording` below was dropped in favour of `Recording`).
+    Sections 4 and 5, and the CLI in the MVP, are deferred until usage patterns emerge -- see the
+    [roadmap's non-goals](./roadmap.md#non-goals-for-now).
 
 The architecture already supports analysis while the evaluation process is alive: inputs, filter
 masks, matching results, and metrics remain in the `Store`. What is missing is a way to save and

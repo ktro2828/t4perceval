@@ -88,14 +88,74 @@ Three things belong to the **store**, not to a chunk, and so are not in the file
 2. **Which entity a file belongs to** -- the metadata has the path, but nothing indexes files by it.
 3. **The instance registry.** Only the label registry travels.
 
-That is why saving a whole evaluation is not just "write every chunk". See
-[Persistent recordings](persistent-recordings.md) for the design, and
-[ADR 0004](design-decisions/0004-persistent-recording.md) for the decision.
+That is why saving a whole evaluation is not just "write every chunk", and why the recording format
+below exists. The decision is [ADR 0004](design-decisions/0004-persistent-recording.md).
+
+## A whole recording
+
+`write_recording` / `read_recording` in `t4perceval.io` save a `Recording` as a directory:
+
+```text
+result.t4eval/
+├── manifest.json
+└── chunks/
+    ├── 000000.parquet
+    ├── 000001.parquet
+    └── ...
+```
+
+Each chunk file is exactly what `write_parquet` produces -- **without** a label registry. The
+manifest carries what a chunk cannot:
+
+```json
+{
+  "format": "t4eval",
+  "format_version": 1,
+  "metadata": {
+    "format_version": 1,
+    "t4perceval_version": "0.1.0",
+    "sources": []
+  },
+  "labels": { "prefix": "autoware", "classes": [], "aliases": {} },
+  "instances": { "uuids": ["a1b2...", "c3d4..."] },
+  "chunks": [
+    {
+      "id": 0,
+      "entity_path": "/ground_truth/objects",
+      "file": "chunks/000000.parquet",
+      "is_static": false
+    }
+  ]
+}
+```
+
+| Key              | What it is                                                                                                                                                                                                                                                                       |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`         | The magic value `"t4eval"`, so pointing at some other `manifest.json` is its own error.                                                                                                                                                                                          |
+| `format_version` | `RECORDING_FORMAT_VERSION`; validated on read. Independent of the chunk `SCHEMA_VERSION`, which every file checks for itself.                                                                                                                                                    |
+| `metadata`       | `RecordingMetadata.to_json()`, verbatim -- with `format_version` stamped to the value above.                                                                                                                                                                                     |
+| `labels`         | `LabelRegistry.to_metadata()`. The single authority; a chunk file carrying its own registry is refused.                                                                                                                                                                          |
+| `instances`      | `InstanceRegistry.to_metadata()`: a positional list whose index _is_ the instance id.                                                                                                                                                                                            |
+| `chunks`         | An **ordered** array -- the order is the log order. `id` is the array index, written out so a reordered manifest is caught. `entity_path` and `is_static` repeat what the chunk file says, so the manifest is inspectable without opening Parquet; the reader checks they agree. |
+
+Entity paths are never used as filenames; the manifest is the index. Keys the reader does not know
+are ignored, so additive fields need no version bump.
+
+**Log order is per entity.** A live store records the order chunks were logged to each entity and
+the order entities were first seen, but no global sequence across entities -- nothing observable
+depends on one. The writer therefore lists every entity's temporal chunks, then every entity's
+static chunks, each in log order, walking `entity_paths()`; the reader replays them with
+`send_chunk`. That reproduces `entity_paths()`, `timelines()`, `chunks()`, `static_chunks()`, the
+`static()` fold, `latest_at` tie-breaking and `range` ordering exactly.
+
+The writer needs only the read surface of `Recording`; the reader rebuilds the store and hands it
+back through the `Recording` constructor, so the metadata comes back verbatim rather than being
+re-stamped.
 
 ## Compatibility
 
-`SCHEMA_VERSION` is `1`. A reader rejects a table with no `t4perceval` metadata key rather than
-guessing:
+`SCHEMA_VERSION` is `1`, and so is `RECORDING_FORMAT_VERSION`. A reader rejects a table with no
+`t4perceval` metadata key rather than guessing:
 
 ```text
 ValueError: Table is missing the 't4perceval' schema metadata written by chunk_to_table()

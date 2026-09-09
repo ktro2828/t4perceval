@@ -154,6 +154,43 @@ class TestInstanceRegistry:
         assert str(InstanceRegistry().encode(["a"]).dtype) == "int64"
 
 
+class TestInstanceMetadata:
+    def test_round_trips_in_order(self) -> None:
+        registry = InstanceRegistry()
+        registry.encode(["zebra", "apple", "mango"])
+
+        restored = InstanceRegistry.from_metadata(registry.to_metadata())
+
+        assert restored == registry
+        assert restored.decode([0, 1, 2]) == ("zebra", "apple", "mango")
+
+    def test_round_trips_an_empty_registry(self) -> None:
+        restored = InstanceRegistry.from_metadata(InstanceRegistry().to_metadata())
+
+        assert len(restored) == 0
+        assert restored.intern("a") == 0
+
+    def test_is_positional(self) -> None:
+        registry = InstanceRegistry()
+        registry.encode(["b", "a"])
+
+        assert registry.to_metadata() == {"uuids": ["b", "a"]}
+
+    def test_rejects_a_repeated_uuid(self) -> None:
+        with pytest.raises(ValueError, match="repeats instance uuid 'a'"):
+            InstanceRegistry.from_metadata({"uuids": ["a", "b", "a"]})
+
+    def test_equality_is_by_content_and_order(self) -> None:
+        first, second, reordered = InstanceRegistry(), InstanceRegistry(), InstanceRegistry()
+        first.encode(["a", "b"])
+        second.encode(["a", "b"])
+        reordered.encode(["b", "a"])
+
+        assert first == second
+        assert first != reordered
+        assert first != ["a", "b"]
+
+
 class TestFingerprint:
     """The check that two sources agree about what a class id means."""
 

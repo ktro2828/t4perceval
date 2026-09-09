@@ -20,7 +20,7 @@ The four sections mirror the documentation:
 
 from __future__ import annotations
 
-import sys
+import argparse
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -46,6 +46,7 @@ from t4perceval import (
 from t4perceval.descriptors import CLASS_ID, INSTANCE_ID, MASK, POSITION, QUATERNION, SIZE, VELOCITY
 from t4perceval.evaluation import build_evaluation_store
 from t4perceval.importer.t4 import SceneSelection, T4Importer, T4Source
+from t4perceval.io import read_recording, write_recording
 from t4perceval.system import (
     ApplyMaskSystem,
     ConfusionMatrixSystem,
@@ -237,7 +238,7 @@ def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recordin
     )
 
 
-def evaluate(ground_truth: Recording, estimation: Recording) -> None:
+def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None:
     """Filter, match and score -- the shape every detection evaluation takes."""
     banner("4. Evaluate")
 
@@ -250,7 +251,7 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
         print("`sample_annotation.json` is populated and it produces real numbers.")
         print("For point-wise labels see docs/evaluation/segmentation-3d.md -- the")
         print("archetypes exist, the metric systems do not yet.")
-        return
+        return None
 
     # A Recording is read-only and `Pipeline.run` writes results back into the store it
     # reads from, so the entities an evaluation needs are materialized into a fresh,
@@ -353,6 +354,52 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> None:
     # Freeze the whole thing, provenance included.
     result = setup.into_recording(pipeline=systems)
     print(f"pipeline recorded: {len(result.metadata.pipeline)} systems")
+    return result
+
+
+def persist(result: Recording, save_dir: str) -> None:
+    """Save the evaluation as a ``.t4eval``, reopen it, and ask it the same questions.
+
+    Nothing is recomputed: the verdicts and metric values come back off disk, and every
+    query written against the live store answers identically against the reopened
+    recording. That is the property the format exists for.
+    """
+    banner("5. Persist")
+
+    # Rerunning the example overwrites its own previous output.
+    path = write_recording(result, save_dir, exist_ok=True)
+    print(f"written   : {path}  ({len(list((path / 'chunks').glob('*.parquet')))} chunk files)")
+
+    reopened = read_recording(path)
+    print(
+        f"reopened  : {len(reopened.entity_paths())} entities, "
+        f"{len(reopened.instances)} instances, "
+        f"{len(reopened.metadata.pipeline)} systems in the pipeline"
+    )
+
+    live, back = _summary(result), _summary(reopened)
+    for key, value in back.items():
+        print(f"  {key:<22}: {value}")
+    print(f"\nidentical to the live store: {live == back}")
+
+
+def _summary(recording: Recording) -> dict[str, str]:
+    """The numbers section 4 printed, asked of a recording rather than a store."""
+    summary: dict[str, str] = {}
+    matchings = sorted(
+        str(path)
+        for path in recording.entity_paths()
+        if str(path).startswith("/matching/center_distance/")
+    )
+    for path in matchings:
+        matches = recording.range(path, timeline=FRAME, time_range=SCENE).materialize(MatchResults)
+        summary[f"TP/FP/FN @{path.rsplit('/', 1)[1]}"] = (
+            f"{matches.num_tp}/{matches.num_fp}/{matches.num_fn}"
+        )
+    for name, path in (("mAP", "/metrics/map"), ("mAPH", "/metrics/maph")):
+        values = recording.range(path, timeline=FRAME, time_range=SCENE).materialize(MetricValues)
+        summary[name] = f"{values.aggregate:.4f}"
+    return summary
 
 
 def _print_confusion_matrix(labels: LabelRegistry, confusion: ConfusionMatrix) -> None:
@@ -523,7 +570,7 @@ def visualize(
         print(f"written   : {save_dir}/t4perceval.rrd  (open with `rerun <file>`)")
 
 
-def main(data_root: str, *, viewer: str | None = None) -> None:
+def main(data_root: str, *, viewer: str | None = None, save: str | None = None) -> None:
     print(f"dataset: {data_root}")
     importer = T4Importer.open(data_root)
 
@@ -532,10 +579,13 @@ def main(data_root: str, *, viewer: str | None = None) -> None:
     coordinate_frames(ground_truth)
 
     estimation = fake_estimation(ground_truth)
-    evaluate(ground_truth, estimation)
+    result = evaluate(ground_truth, estimation)
+
+    if save is not None and result is not None:
+        persist(result, save)
 
     if viewer is not None:
-        banner("5. Visualize")
+        banner("6. Visualize")
         visualize(
             ground_truth,
             estimation,
@@ -544,21 +594,28 @@ def main(data_root: str, *, viewer: str | None = None) -> None:
         )
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Import a T4 dataset scene, evaluate a synthetic estimation against it, "
+        "and optionally persist or visualize the result.",
+    )
+    parser.add_argument("data_root", help="root directory of the T4 dataset")
+    parser.add_argument(
+        "--save",
+        metavar="DIR",
+        help="write the evaluation to DIR (a .t4eval recording) and reopen it",
+    )
+    parser.add_argument(
+        "--visualize",
+        nargs="?",
+        const="spawn",
+        metavar="SAVE_DIR",
+        help="spawn the Rerun viewer; with SAVE_DIR, write SAVE_DIR/t4perceval.rrd "
+        "instead (headless)",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    if not sys.argv[1:]:
-        raise SystemExit(
-            "usage: evaluate_t4.py <data_root> [--visualize [SAVE_DIR]]\n"
-            "  --visualize            spawn the Rerun viewer\n"
-            "  --visualize SAVE_DIR   write SAVE_DIR/t4perceval.rrd instead (headless)"
-        )
-
-    argv = sys.argv[1:]
-    show = "--visualize" in argv
-    where = None
-    if show:
-        index = argv.index("--visualize")
-        rest = argv[index + 1 :]
-        where = rest[0] if rest else "spawn"
-        argv = argv[:index]
-
-    main(argv[0], viewer=where)
+    args = parse_args()
+    main(args.data_root, viewer=args.visualize, save=args.save)

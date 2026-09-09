@@ -2,8 +2,9 @@
 
 ## Status
 
-**Proposed.** Not implemented. `Recording` and `RecordingMetadata` exist; `write_recording` and
-`read_recording` do not.
+**Accepted.** Implemented as `t4perceval.io.write_recording` / `read_recording`
+(`t4perceval/io/recording.py`), recording format version 1. The higher-level analysis API and the CLI
+sketched in the MVP are deferred; see the [roadmap](../roadmap.md#non-goals-for-now).
 
 ## Context
 
@@ -48,7 +49,19 @@ and the metadata already on `RecordingMetadata`.
 
 `InstanceRegistry` gains `to_metadata()` / `from_metadata()`, matching `LabelRegistry`.
 
-The format carries its **own** version, separate from the chunk `SCHEMA_VERSION`.
+The format carries its **own** version, separate from the chunk `SCHEMA_VERSION`. It is the
+existing `RecordingMetadata.format_version`, stamped by the writer the way `Recording.of` stamps
+the label fingerprint, and mirrored at the top of the manifest where the reader validates it.
+
+Two clarifications settled while implementing:
+
+- **"Log order" is per entity.** A store records the order chunks were logged to each entity and
+  the order entities were first seen, but no global sequence across entities, and nothing observable
+  depends on one. The manifest lists every entity's temporal chunks and then every entity's static
+  chunks, each in log order; replaying that reproduces every query's answer.
+- **The registries live in the manifest only.** Chunk files are written without a label registry, and
+  a file that carries one is refused on read, so there is exactly one authority for what a class id
+  means.
 
 ## Rationale
 
@@ -121,11 +134,13 @@ class of problem.
 - Whether the pipeline description in the manifest stays informational, or becomes enough to
   _reconstruct_ the systems. Reconstructing arbitrary custom systems from serialized configuration
   is a later feature at best.
-- Whether a higher-level `EvaluationAnalysis` API ships with the format or after it.
-- Whether a CLI (`t4perceval inspect`, `metrics`, `errors`) belongs in this package.
+- ~~Whether a higher-level `EvaluationAnalysis` API ships with the format or after it.~~ After it,
+  and only for queries that prove common; `recording.range` / `latest_at` are the interface for
+  now ([roadmap](../roadmap.md#non-goals-for-now)).
+- Whether a CLI (`t4perceval inspect`, `metrics`, `errors`) belongs in this package. Deferred.
 
 ## Where it is written down
 
 The full plan, including the proposed MVP, is in
-[Persistent recordings](../persistent-recordings.md). The gap it fills is described in
-[Persistence](../../user-guide/persistence.md#what-is-not-there-yet).
+[Persistent recordings](../persistent-recordings.md); using it is described in
+[Persistence](../../user-guide/persistence.md#saving-a-whole-recording).
