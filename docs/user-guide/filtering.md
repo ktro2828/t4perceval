@@ -186,7 +186,7 @@ result stores refer to the rows both of them see.
     ```
 
     Two pipelines still work; they are a choice, not a requirement. See
-    [Evaluation pipeline](../concepts/evaluation-pipeline.md#validation) for what `Pipeline` knows
+    [Evaluation pipeline](../concepts/evaluation-pipeline.md#pipeline) for what `Pipeline` knows
     about a passthrough target.
 
 ## A complete narrowing stage

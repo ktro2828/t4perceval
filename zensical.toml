@@ -153,13 +153,13 @@ toggle.name = "Switch to light mode"
 
 # The API reference is rendered from the docstrings themselves, so a signature change
 # cannot silently leave the docs behind.
-[project.plugins.mkdocstrings.config]
+[project.plugins.mkdocstrings]
 default_handler = "python"
 
-[project.plugins.mkdocstrings.config.handlers.python]
+[project.plugins.mkdocstrings.handlers.python]
 paths = ["."]
 
-[project.plugins.mkdocstrings.config.handlers.python.options]
+[project.plugins.mkdocstrings.handlers.python.options]
 docstring_style = "google"
 docstring_section_style = "table"
 filters = ["!^_"]
