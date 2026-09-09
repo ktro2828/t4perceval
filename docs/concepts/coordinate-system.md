@@ -97,8 +97,9 @@ A temporal edge picks its sample with a `LookupPolicy` -- `LATEST`, `EXACT`, `NE
 
 ## The cross-frame guard
 
-Nothing rewrites an entity's rows into another frame yet. Rather than silently producing plausible
-numbers, the system layer refuses to compare geometry across frames:
+Rather than silently producing plausible numbers, the system layer refuses to compare geometry
+across frames; `TransformEntitySystem` is the explicit stage that brings one side over (see
+[Transforms](../user-guide/transforms.md#expressing-an-entity-in-another-frame)):
 
 ```text
 ValueError: Cannot compare geometry across coordinate frames: /estimation/objects in 'base_link',

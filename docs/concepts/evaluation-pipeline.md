@@ -6,14 +6,20 @@ needs and what it produces, and runs against any entity that carries the right c
 ```python
 class MySystem:
     REQUIRES: tuple[ComponentDescriptor, ...]  # must be present on each source
-    PROVIDES: tuple[ComponentDescriptor, ...]  # written to the target
+    PROVIDES: tuple[ComponentDescriptor, ...] | Passthrough  # written to the target
 
     sources: tuple[EntityPath, ...]  # what it reads
     target: EntityPath  # what it writes
     targets: tuple[EntityPath, ...]  # every path it writes
 
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]: ...  # per source
     def __call__(self, ctx: SystemContext, at: int | TimeRange) -> Iterable[Chunk]: ...
 ```
+
+`PROVIDES` is a tuple when the system knows what it writes -- a mask, a match result -- and a
+`Passthrough(source, adds=..., drops=...)` when it carries its source's columns through, as
+`ApplyMaskSystem` and `TransformEntitySystem` do. `requires_for` defaults to `REQUIRES` for every
+source; a system whose sources play different roles overrides it.
 
 That is what replaces the `EvaluationTask` enum and the single `evaluation_config_dict` of the
 original package. **An evaluation task is not a value to branch on -- it is the set of components
@@ -105,12 +111,18 @@ ValueError: /estimation/objects is missing required component(s): instance_id
 
 `Pipeline.run` sends every produced chunk into `ctx.store` and returns them in production order.
 
-!!! note "Two runs for a materialized filter"
+What `Pipeline` knows about a source decides how its consumer is checked:
 
-    `ApplyMaskSystem` copies whatever columns its source holds, so it cannot declare `PROVIDES`, and
-    the up-front check would reject a matcher reading its target. Run the narrowing and the
-    evaluation as two pipelines. See
-    [Filtering](../user-guide/filtering.md#materializing-a-filtered-set).
+| The source is...   | Because...                                                                | Consumer checked... |
+| :----------------- | :------------------------------------------------------------------------ | :------------------ |
+| **known**          | an earlier system declared its columns, or passed through something known | up front            |
+| **opaque**         | an earlier system passed through a store-sourced or opaque entity         | at run time         |
+| **from the store** | nothing in the pipeline writes it                                         | at run time         |
+
+A passthrough of a known set inherits it, minus `drops`, plus `adds` -- so a consumer that needs a
+column the passthrough drops is still rejected up front. That is why a materialized filter and the
+matcher that reads it can share one pipeline: `/estimation/objects/kept` is opaque, and the matcher's
+needs are checked by `require()` when it runs.
 
 ## Presets are plain functions
 

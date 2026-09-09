@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 __all__ = (
     "EntitySystem",
+    "Passthrough",
     "Pipeline",
     "System",
     "SystemContext",
@@ -55,17 +56,59 @@ class SystemContext:
     instances: InstanceRegistry | None = field(default=None, kw_only=True)
 
 
+@define(frozen=True, slots=True)
+class Passthrough:
+    """A ``PROVIDES`` contract for a system that carries its source's columns through.
+
+    A mask applier or a frame transform writes whatever its source holds, which cannot be
+    enumerated where the class is defined. Declaring ``()`` instead told :class:`Pipeline`
+    the target held *nothing*, so every consumer was rejected and a materialized filter had
+    to be its own pipeline run. This says what is actually true: the target carries the
+    columns of ``sources[source]``, minus ``drops``, plus ``adds``.
+
+    When the source's columns are known -- an earlier system in the pipeline declared them
+    -- the target's are known too, and consumers are checked up front. When they are not --
+    the source comes from the store, or is itself a passthrough of something that does --
+    the target is *opaque*, and its consumers are checked when the pipeline runs, by
+    :func:`require`, exactly like a store-sourced entity.
+    """
+
+    source: int = 0
+    """Index into ``sources`` of the entity whose columns are carried."""
+
+    adds: tuple[ComponentDescriptor, ...] = field(default=(), converter=tuple, kw_only=True)
+    """Columns the system writes in addition to the ones it carries."""
+
+    drops: tuple[ComponentDescriptor, ...] = field(default=(), converter=tuple, kw_only=True)
+    """Columns the system deliberately does not carry."""
+
+    def apply(self, known: set[ComponentDescriptor]) -> set[ComponentDescriptor]:
+        """Return the columns of the target, given the known columns of the source."""
+        return (known - set(self.drops)) | set(self.adds)
+
+
 @runtime_checkable
 class System(Protocol):
     """A transformation from components to components.
 
     Attributes:
-        REQUIRES: Descriptors that must be present on each source entity.
-        PROVIDES: Descriptors the system writes to its target entity.
+        REQUIRES: Descriptors that must be present on each source entity, unless
+            :meth:`requires_for` says otherwise for a particular source.
+        PROVIDES: Descriptors the system writes to its target entity, or a
+            :class:`Passthrough` when it carries its source's columns through.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough]
+
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+        """Descriptors the source at ``index`` must carry.
+
+        Defaults to :attr:`REQUIRES` for every source. A system whose sources play
+        different roles -- a mask applier reads data and a mask, a metric reads a match
+        result and two object streams -- says here what each one needs.
+        """
+        ...
 
     @property
     def sources(self) -> tuple[EntityPath, ...]:
@@ -156,12 +199,16 @@ class EntitySystem:
     """Base class holding the source and target wiring shared by every system."""
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = ()
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = ()
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough] = ()
 
     _sources: tuple[EntityPath, ...] = field(
         converter=lambda paths: tuple(as_entity_path(path) for path in paths),
     )
     _target: EntityPath = field(converter=as_entity_path)
+
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+        """Return :attr:`REQUIRES`; override when the sources need different things."""
+        return self.REQUIRES
 
     @property
     def sources(self) -> tuple[EntityPath, ...]:
@@ -184,8 +231,17 @@ class Pipeline:
 
     The check is about *order*: if a system reads an entity that a later system writes,
     that is a bug in the pipeline and is reported at construction time rather than as an
-    empty result at run time. Components that are expected to come from the store instead
-    of from another system are checked when the pipeline runs, by :func:`require`.
+    empty result at run time.
+
+    What a source is known to carry decides how its consumer is checked:
+
+    - **Known.** An earlier system declared its columns (a tuple ``PROVIDES``, or a
+      :class:`Passthrough` of something known). The consumer's requirements for that source
+      are checked here, up front.
+    - **Opaque.** An earlier system wrote it through a :class:`Passthrough` of a
+      store-sourced or opaque entity, so its columns cannot be enumerated. Checked when the
+      pipeline runs, by :func:`require`.
+    - **From the store.** No system in the pipeline writes it. Checked at run time, likewise.
     """
 
     def __init__(self, systems: Sequence[System]) -> None:
@@ -193,16 +249,22 @@ class Pipeline:
         self._validate()
 
     def _validate(self) -> None:
-        produced: dict[EntityPath, set[ComponentDescriptor]] = {}
+        # A value of None marks an opaque entity: written by an earlier system whose column
+        # set is unknown. Its consumers are deferred to run time, exactly like an entity
+        # nothing in the pipeline writes -- not rejected, which is what an empty set did.
+        produced: dict[EntityPath, set[ComponentDescriptor] | None] = {}
 
         for position, system in enumerate(self._systems):
             later_targets = {
                 target for other in self._systems[position + 1 :] for target in other.targets
             }
 
-            for source in system.sources:
+            for index, source in enumerate(system.sources):
                 if source in produced:
-                    missing = set(system.REQUIRES) - produced[source]
+                    known = produced[source]
+                    if known is None:
+                        continue
+                    missing = set(system.requires_for(index)) - known
                     if missing:
                         names = ", ".join(sorted(m.component for m in missing))
                         raise ValueError(
@@ -215,8 +277,32 @@ class Pipeline:
                         f"writes it; reorder the pipeline",
                     )
 
+            provided = self._provided_by(system, produced)
             for target in system.targets:
-                produced.setdefault(target, set()).update(system.PROVIDES)
+                if target in produced:
+                    current = produced[target]
+                    produced[target] = (
+                        None if current is None or provided is None else current | provided
+                    )
+                else:
+                    produced[target] = provided
+
+    @staticmethod
+    def _provided_by(
+        system: System,
+        produced: dict[EntityPath, set[ComponentDescriptor] | None],
+    ) -> set[ComponentDescriptor] | None:
+        """Return the columns ``system`` writes, or ``None`` when they cannot be known."""
+        contract = system.PROVIDES
+        if not isinstance(contract, Passthrough):
+            return set(contract)
+        if not 0 <= contract.source < len(system.sources):
+            raise ValueError(
+                f"{type(system).__name__} passes through source {contract.source}, "
+                f"but has {len(system.sources)} source(s)",
+            )
+        upstream = produced.get(system.sources[contract.source])
+        return None if upstream is None else contract.apply(upstream)
 
     def __len__(self) -> int:
         return len(self._systems)

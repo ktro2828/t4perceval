@@ -127,6 +127,24 @@ Follow the existing convention: `BatchVelocity.speed` and `BatchRoi.x_max` are p
 `BatchRoi.area()`, `BatchQuaternion.yaw()` and `BatchMask.indices()` are methods. Prefer a property
 for a pure reinterpretation and a method for a computation.
 
+## Make it frame-dependent
+
+A component is carried through a coordinate transform unchanged unless
+`t4perceval.transform.TRANSFORM_KINDS` says otherwise. If yours is geometry _in_ the frame, register
+how it moves:
+
+```python
+from t4perceval.transform import TRANSFORM_KINDS, TransformKind
+
+TRANSFORM_KINDS[BatchAcceleration] = TransformKind.DIRECTION  # rotate, never translate
+```
+
+`POINT` rotates and translates (a position), `DIRECTION` rotates only (a velocity), `ROTATION`
+composes with the frame's rotation (an orientation), `DROP` omits the column (a mask -- a claim about
+the source frame). Lookup walks the MRO, so a subclass of a registered component inherits its kind
+and a mono component inherits its batch class's. Do not register a shared base such as
+`BatchVector3D`: `BatchSize3D` shares it and must not rotate.
+
 ## Testing
 
 - Round-trip through Arrow and Parquet.

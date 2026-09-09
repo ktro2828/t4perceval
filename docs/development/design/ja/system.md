@@ -72,8 +72,14 @@ pipeline.run(SystemContext(store, FRAME, labels=labels), TimeRange.everything())
 
 - ある system が、より後ろの system の `target` を `sources` に持つ → エラー
   (実行時に空の結果が返るのではなく、その場で分かる)
-- ある system の source が、より前の system の `target` である場合、
-  その system の `PROVIDES` が `REQUIRES` を満たしているか検査する
+- ある system の source が、より前の system の `target` で、その列が**既知**である場合、
+  その集合がこの system の要求 — `requires_for(index)`、既定では `REQUIRES`、source の役割が
+  異なる `ApplyMaskSystem` / `MetricSystem` は上書きする — を満たしているか検査する
+- source の列をそのまま運ぶ system は `PROVIDES = Passthrough(source, adds=..., drops=...)` と
+  宣言する。source の列が既知ならその target も既知 (`drops` を除き `adds` を加えた集合)、
+  そうでなければ**不透明** (opaque) — pipeline が書くが列は列挙できない — になり、その消費者は
+  store 由来の entity と同じく実行時に検査される。`()` と宣言すると「target には何もない」と
+  伝えることになり、消費者はすべて拒否されていた。
 
 store から来ることが期待される component は実行時に `require()` が検査する。
 store の内容は構築時には分からないためである。
@@ -330,11 +336,15 @@ from t4perceval.system.base import require_same_frame, resolve_frame
 - `check_frames=False` で system ごとに無効化できる。store 組み立て側の `require_same_frame_id`
   と対になっており、これがないとそのフラグで組んだ store がマッチング不能になる。
 
-これは対策ではなく検知である。transform の**解決**は実装済みで
-(`TransformResolver.lookup(target_frame=..., source_frame=..., at=...)`、
-[data_model.md](data_model.md) の「transform」を参照)、まだ無いのは entity の行を別座標系へ書き換える
-system である — passthrough な system が自分の運ぶ列を宣言できないため。それまで、入力を 1 つの
-座標系に揃えるのは呼び出し側の仕事であり、この検知がその代替案をもっともらしく見せないための砦である。
+これは検知であり、対策は明示的な stage である。`TransformEntitySystem` は entity を読み、各フレームの
+pose を `TransformResolver.lookup(target_frame=..., source_frame=chunk.frame_id, at=...)`
+([data_model.md](data_model.md) の「transform」を参照) で解決し、行を目的座標系の**新しい** entity
+として書く — 新しい entity なのは、`Store.range` が entity の chunk を連結する際に座標系が異なると
+拒否するためである。何が動くかは archetype ではなく component の性質で決まる
+(`t4perceval.transform.apply`): position / point / waypoints は回転+並進、velocity は回転のみ、
+姿勢は合成、その他はそのまま運び、`MASK` は元座標系についての主張なので落とす。passthrough
+(`Passthrough(0, drops=(MASK,))`) なので、target を読む matcher は同じ pipeline に置ける。
+検知は残る — stage を忘れたときに、もっともらしい数値ではなくエラーになるための砦である。
 
 ## フレームの整列
 

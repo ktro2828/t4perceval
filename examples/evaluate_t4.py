@@ -21,7 +21,6 @@ The four sections mirror the documentation:
 from __future__ import annotations
 
 import argparse
-from typing import TYPE_CHECKING
 
 import numpy as np
 from t4_devkit.schema import SensorModality
@@ -52,12 +51,11 @@ from t4perceval.system import (
     ConfusionMatrixSystem,
     FilterByDistanceSystem,
     Pipeline,
+    SystemContext,
+    TransformEntitySystem,
     average_precision_sweep,
 )
 from t4perceval.transform import FrameGraph, TransformResolver
-
-if TYPE_CHECKING:
-    from t4perceval.system.base import SystemContext
 
 
 #: Entity paths the evaluation reads. The T4 importer writes the first one.
@@ -181,6 +179,26 @@ def coordinate_frames(recording: Recording) -> None:
             pose = resolver.lookup(target_frame="base_link", source_frame=channel, at=0)
             print(f"{channel:<12}: {pose.translation.value.round(3)} in base_link")
 
+    # Apply the answer: express the ground truth in `map` as a *new* entity beside the
+    # source, each frame moved by that frame's own ego pose. The recording is read-only, so
+    # the rows are copied into a scratch store first; the resolver still reads the recording.
+    scratch = Store()
+    for chunk in recording.chunks(GROUND_TRUTH):
+        scratch.send_chunk(chunk)
+    moved = TransformEntitySystem.of(GROUND_TRUTH, target_frame="map", resolver=resolver)
+    Pipeline([moved]).run(SystemContext(scratch, FRAME), SCENE)
+    in_map = scratch.range(moved.target, timeline=FRAME, time_range=SCENE)
+    in_ego = scratch.range(GROUND_TRUTH, timeline=FRAME, time_range=SCENE)
+    print(f"in map    : {len(in_map)} rows at {moved.target}  (frame_id={in_map.frame_id!r})")
+    if len(in_ego):
+        first_ego = in_ego.component(POSITION).values[0]
+        first_map = in_map.component(POSITION).values[0]
+        expected = start.rotation.as_rotation().apply(first_ego) + start.translation.value
+        print(f"first box : {first_ego.round(2)} in base_link -> {first_map.round(2)} in map")
+        print(
+            f"check     : matches ego_pose(t0) @ base_link position: {np.allclose(first_map, expected)}"
+        )
+
 
 # ---------------------------------------------------------------------------------------
 # 4. Evaluate
@@ -261,25 +279,13 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
 
     # Narrow both sides identically, and *materialize*: recall divides by the ground-truth
     # count, so the denominator has to be the filtered set rather than a mask over it.
+    # `ApplyMaskSystem` is a passthrough of its source, so the matchers that read `/kept`
+    # can sit in the same pipeline as the narrowing.
     narrowing = []
     max_distance = 50.0
     for path in (GROUND_TRUTH, ESTIMATION):
         near = FilterByDistanceSystem.on(path, max_distance=max_distance)
         narrowing += [near, ApplyMaskSystem.of(path, near.target)]
-    Pipeline(narrowing).run(ctx, SCENE)
-
-    gt_mask = setup.store.range(
-        f"{GROUND_TRUTH}/filter/distance", timeline=FRAME, time_range=SCENE
-    ).component(MASK)
-    est_mask = setup.store.range(
-        f"{ESTIMATION}/filter/distance", timeline=FRAME, time_range=SCENE
-    ).component(MASK)
-
-    print(
-        f"within {max_distance} m:\n"
-        f"  GT=  {gt_mask.num_selected}/{len(gt_mask)} objects\n"
-        f"  EST=  {est_mask.num_selected}/{len(est_mask)} objects"
-    )
 
     # `average_precision_sweep` is a plain function returning a list of systems -- ordinary
     # data you can print, edit or extend, not a config value to branch on.
@@ -304,7 +310,19 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
             )
         )
 
-    Pipeline(systems).run(ctx, SCENE)
+    Pipeline([*narrowing, *systems]).run(ctx, SCENE)
+
+    gt_mask = setup.store.range(
+        f"{GROUND_TRUTH}/filter/distance", timeline=FRAME, time_range=SCENE
+    ).component(MASK)
+    est_mask = setup.store.range(
+        f"{ESTIMATION}/filter/distance", timeline=FRAME, time_range=SCENE
+    ).component(MASK)
+    print(
+        f"within {max_distance} m:\n"
+        f"  GT=  {gt_mask.num_selected}/{len(gt_mask)} objects\n"
+        f"  EST=  {est_mask.num_selected}/{len(est_mask)} objects"
+    )
 
     print("\nTP/FP/FN:")
     for index, threshold in enumerate(thresholds):

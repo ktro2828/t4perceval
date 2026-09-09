@@ -10,7 +10,9 @@ cover the common case. This page is for the rest: implementing the `System` prot
 @runtime_checkable
 class System(Protocol):
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]]
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]]
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough]
+
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]: ...
 
     @property
     def sources(self) -> tuple[EntityPath, ...]: ...
@@ -107,16 +109,42 @@ Six things every system does:
 `Pipeline` validates wiring with them, once, up front:
 
 - If a system reads an entity a **later** system writes, that raises at construction.
-- If a system reads an entity an **earlier** system writes, the earlier system's `PROVIDES` must
-  cover this one's `REQUIRES`.
+- If a system reads an entity an **earlier** system writes whose columns are **known**, the known
+  set must cover what this one requires of that source (`requires_for(index)`, which defaults to
+  `REQUIRES`).
+- If the earlier writer's columns are **opaque** -- it passed through something the pipeline cannot
+  see -- the consumer is checked at run time instead, like a store-sourced entity.
 
 Components expected to come from the store rather than from another system are checked at run time
 by `require()`.
 
-The one system that cannot declare `PROVIDES` is `ApplyMaskSystem`, because it carries over whatever
-columns its source happens to hold. That is why a materialized filter has to be its own pipeline
-run -- see [Filtering](../user-guide/filtering.md#materializing-a-filtered-set). If you write
-something similar, say so in its docstring.
+### Passthrough systems
+
+A system that carries its source's columns through -- a mask applier, a frame transform -- cannot
+enumerate them where the class is defined. Say so instead of declaring `()`:
+
+```python
+PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough] = Passthrough(
+    0,  # index into `sources` of the entity carried through
+    drops=(MASK,),  # columns deliberately not carried
+    adds=(),  # columns written in addition
+)
+```
+
+`Pipeline` then treats the target as carrying the source's columns: known when the source's are
+known, opaque otherwise. Declaring `()` would tell it the target holds _nothing_, and every consumer
+would be rejected. `ApplyMaskSystem` and `TransformEntitySystem` are the two in the library.
+
+### Requirements that differ per source
+
+`REQUIRES` applies to every source. When the sources play different roles, override `requires_for`:
+
+```python
+def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+    return () if index == 0 else (MASK,)  # ApplyMaskSystem: data, then mask
+```
+
+`MetricSystem` does the same for `(matching, estimation, ground_truth)`.
 
 ## Several targets from one computation
 
@@ -135,12 +163,13 @@ def targets(self) -> tuple[EntityPath, ...]:
 
 Follow the family conventions, so a system reads the same way whoever wrote it:
 
-| Base             | Constructor                                                         | Default target                  |
-| :--------------- | :------------------------------------------------------------------ | :------------------------------ |
-| `MaskSystem`     | `.on(source, *, name=None, **params)`                               | `<source>/filter/<FILTER_NAME>` |
-| `MatchingSystem` | `.between(estimation, ground_truth, *, target=None, **params)`      | `/matching/<MATCHING_NAME>`     |
-| `MetricSystem`   | `.on(matching, estimation, ground_truth, *, target=None, **params)` | `/metrics/<METRIC_NAME>`        |
-| others           | `.of(sources, target, ...)`                                         | explicit                        |
+| Base                    | Constructor                                                         | Default target                  |
+| :---------------------- | :------------------------------------------------------------------ | :------------------------------ |
+| `MaskSystem`            | `.on(source, *, name=None, **params)`                               | `<source>/filter/<FILTER_NAME>` |
+| `MatchingSystem`        | `.between(estimation, ground_truth, *, target=None, **params)`      | `/matching/<MATCHING_NAME>`     |
+| `MetricSystem`          | `.on(matching, estimation, ground_truth, *, target=None, **params)` | `/metrics/<METRIC_NAME>`        |
+| `TransformEntitySystem` | `.of(source, *, target_frame, target=None, resolver=None)`          | `<source>/in/<target_frame>`    |
+| others                  | `.of(sources, target, ...)`                                         | explicit                        |
 
 Parameters are attrs fields, keyword-only, validated in `__attrs_post_init__`.
 

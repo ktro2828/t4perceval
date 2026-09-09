@@ -121,7 +121,9 @@ ValueError: Cannot compare geometry across coordinate frames: /estimation/object
 /ground_truth/objects in 'map'. Bring the inputs into one frame first.
 ```
 
-`check_frames=False` opts out per system. See
+Bring one side over with `TransformEntitySystem` and match its target
+([Transforms](transforms.md#expressing-an-entity-in-another-frame)); `check_frames=False` opts out
+per system when the frames are known to coincide. See
 [Coordinate system](../concepts/coordinate-system.md#the-cross-frame-guard).
 
 ## Sweeping thresholds

@@ -47,6 +47,7 @@ nav = [
         { "Evaluate a T4 dataset" = "recipes/evaluate-t4-dataset.md" },
         { "Evaluate an MCAP ROS bag" = "recipes/evaluate-rosbag.md" },
         { "Align frames by timestamp" = "recipes/align-frames.md" },
+        { "Transform between coordinate frames" = "recipes/transform-frames.md" },
         { "Analyse a finished evaluation" = "recipes/offline-analysis.md" },
         { "Custom filter" = "recipes/custom-filter.md" },
         { "Custom matcher" = "recipes/custom-matcher.md" },

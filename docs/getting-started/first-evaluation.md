@@ -64,11 +64,11 @@ narrow = []
 for path in ("/ground_truth/objects", "/estimation/objects"):
     near = FilterByDistanceSystem.on(path, max_distance=50.0)
     narrow += [near, ApplyMaskSystem.of(path, near.target)]
-Pipeline(narrow).run(ctx, scene)
 
 # 3. Evaluate what survived ---------------------------------------------------
 Pipeline(
-    average_precision_sweep(
+    narrow
+    + average_precision_sweep(
         "/estimation/objects/kept",
         "/ground_truth/objects/kept",
         thresholds=[0.5, 1.0, 2.0],
@@ -119,12 +119,12 @@ The object at 80 m fell outside the 50 m radius in all three frames.
 need this, not just the mask: recall divides by the number of ground-truth objects, so the
 denominator has to _be_ the filtered set.
 
-!!! note "Why two `Pipeline` runs?"
+!!! note "One `Pipeline` for narrowing and evaluation"
 
-    `ApplyMaskSystem` copies whatever columns its source happens to hold, so it cannot declare what
-    it provides. `Pipeline` validates wiring by component, and would reject a matcher reading an
-    entity nothing declares it fills. Running the narrowing and the evaluation as two pipelines is
-    the supported shape. See [Filtering](../user-guide/filtering.md#materializing-a-filtered-set).
+    `ApplyMaskSystem` declares that it carries its source's columns through (`Passthrough`), so
+    `Pipeline` lets the matcher read `/estimation/objects/kept` and checks what it needs when it
+    runs. Splitting into two pipelines also works; it is a choice, not a requirement. See
+    [Filtering](../user-guide/filtering.md#materializing-a-filtered-set).
 
 ### 3. Evaluating
 

@@ -72,8 +72,15 @@ The check is about **order**.
 
 - A system reading the `target` of a _later_ system is an error, reported immediately rather than as
   an empty result at run time.
-- When a system's source is an earlier system's `target`, that earlier system's `PROVIDES` must cover
-  this system's `REQUIRES`.
+- When a system's source is an earlier system's `target` whose columns are _known_, that set must
+  cover what this system requires of that source -- `requires_for(index)`, which defaults to
+  `REQUIRES` and is overridden where the sources play different roles (`ApplyMaskSystem`,
+  `MetricSystem`).
+- A system that carries its source's columns through declares `PROVIDES = Passthrough(source,
+adds=..., drops=...)`. Its target is _known_ when the source's columns are known (inheriting them
+  minus `drops`, plus `adds`) and _opaque_ otherwise -- written by the pipeline, but with columns it
+  cannot enumerate. Consumers of an opaque entity are checked at run time, exactly like consumers of
+  a store-sourced one. Declaring `()` would have said the target holds nothing, and rejected them.
 
 Components expected to come from the store are checked at run time by `require()`, because the store's
 contents are not knowable at construction time.
@@ -338,11 +345,16 @@ through.
 - `check_frames=False` opts out per system, mirroring the `require_same_frame_id` escape hatch that
   store assembly already offers. Without it, a store assembled with that flag would be un-matchable.
 
-This is a guard, not a fix. Resolving a transform _is_ implemented --
-`TransformResolver.lookup(target_frame=..., source_frame=..., at=...)`, see "Transforms" in
-[data_model.md](data_model.md) -- but rewriting an entity's rows into another frame is not, because a
-passthrough system cannot yet declare the columns it carries. Until it can, bringing the inputs into
-one frame is the caller's job and this guard is what stops the alternative from looking plausible.
+This is a guard; the fix is an explicit stage. `TransformEntitySystem` reads an entity, resolves
+each frame's pose through `TransformResolver.lookup(target_frame=..., source_frame=chunk.frame_id,
+at=...)` (see "Transforms" in [data_model.md](data_model.md)) and writes the rows as a _new_ entity
+in the target frame -- new because `Store.range` concatenates an entity's chunks and refuses to when
+they state different frames. What moves is a property of the component, not the archetype
+(`t4perceval.transform.apply`): positions, points and waypoints are rotated and translated, velocity
+is rotated only, orientations are composed, everything else is carried, and `MASK` is dropped as a
+claim about the source frame. It is a passthrough (`Passthrough(0, drops=(MASK,))`), so the matcher
+that reads its target sits in the same pipeline. The guard stays: it is what makes forgetting the
+stage an error rather than a plausible number.
 
 ## Aligning frames
 

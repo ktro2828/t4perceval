@@ -66,8 +66,8 @@ Two rules keep it from firing spuriously:
 **Convert automatically when frames differ.** Tempting, and wrong at this stage: it needs a
 resolver, a timeline, a lookup policy and a decision about which side to move, none of which the
 matcher has any basis to choose. Guessing produces exactly the silent-wrong the guard exists to
-prevent. A system that materializes a transformed entity is on the [roadmap](../roadmap.md) -- an
-explicit stage the user puts in the pipeline.
+prevent. `TransformEntitySystem` is that decision made explicit -- a stage the user puts in the
+pipeline, naming the target frame and, when the frame graph is not in the store, the resolver.
 
 **Require one global frame.** Simple, and it makes 2D evaluation impossible: a camera ROI is only
 meaningful in its own image.
@@ -95,8 +95,8 @@ disagree.
 
 **Costs.**
 
-- Nothing rewrites rows into another frame yet, so a genuine cross-frame evaluation needs the user
-  to bring the inputs together -- by importing in a common frame, or by hand.
+- A cross-frame evaluation needs an explicit `TransformEntitySystem` stage, and the user has to know
+  which side to move and which frame graph answers for it -- the pipeline cannot guess.
 - `Transform3D` is the only archetype with **mono** components, which is a special case in the model
   even though storage stays columnar underneath.
 - Bag transforms live on `TIMESTAMP` only, because a `/tf` sample between two object messages has no

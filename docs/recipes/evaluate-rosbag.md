@@ -122,18 +122,26 @@ ValueError: Cannot compare geometry across coordinate frames: /estimation/object
 Options, best first:
 
 1. Import the T4 side in the bag's frame -- `ImportOptions(coords="map")` on the T4 importer.
-2. Rewrite one side yourself using the bag's own transform graph:
+2. Transform the bag side with its own transform graph, as the first stage of the pipeline:
 
    ```python
    from t4perceval import TIMESTAMP
+   from t4perceval.system import TransformEntitySystem
    from t4perceval.transform import TransformResolver
 
-   resolver = TransformResolver.of(estimation, timeline=TIMESTAMP)
-   pose = resolver.lookup(target_frame="base_link", source_frame="map", at=stamp_ns)
+   moved = TransformEntitySystem.of(
+       "/estimation/objects",
+       target_frame="base_link",
+       resolver=TransformResolver.of(estimation, timeline=TIMESTAMP),
+   )
+   # ... then match `moved.target` against the ground truth
    ```
 
    Bag transforms live on `TIMESTAMP` only, because a `/tf` sample between two object messages has
-   no frame index.
+   no frame index -- so the resolver is built on that timeline, and the system reads each row's
+   timestamp to look its pose up, even while the pipeline itself runs on `FRAME`. The evaluation
+   store holds only the entities you named, which is why the resolver comes from the recording. See
+   [Transform between coordinate frames](transform-frames.md).
 
 3. `check_frames=False` on the matcher, when you know they coincide.
 

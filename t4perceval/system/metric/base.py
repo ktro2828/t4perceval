@@ -58,9 +58,11 @@ class MetricSystem(EntitySystem):
     By default subclasses return scalar :class:`MetricValues` rows from :meth:`compute`.
     Sources are ``(matching, estimation, ground_truth)``. The three carry different
     components, so each is validated against its own declaration rather than one shared
-    ``REQUIRES``; ``REQUIRES`` itself is what the *matching* source must have, which is
-    what :class:`~t4perceval.system.base.Pipeline` uses to link this system to the matcher
-    that feeds it.
+    ``REQUIRES``: ``REQUIRES`` is what the *matching* source must have, and
+    :attr:`REQUIRES_ESTIMATION` / :attr:`REQUIRES_GROUND_TRUTH` the other two.
+    :meth:`requires_for` hands the right one to
+    :class:`~t4perceval.system.base.Pipeline`, and :meth:`__call__` checks the same three
+    at run time.
     """
 
     PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = MetricValues.required_descriptors()
@@ -86,6 +88,10 @@ class MetricSystem(EntitySystem):
                 f"{type(self).__name__} needs exactly three sources "
                 f"(matching, estimation, ground truth), got {len(self.sources)}",
             )
+
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+        """Matching, estimation and ground truth each have their own requirements."""
+        return (self.REQUIRES, self.REQUIRES_ESTIMATION, self.REQUIRES_GROUND_TRUTH)[index]
 
     @classmethod
     def on(

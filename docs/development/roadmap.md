@@ -199,7 +199,7 @@ PROVIDES = PassthroughFrom(SOURCE)
 The exact API can differ, but passthrough semantics should be first-class: `_validate` propagates
 the source's contract.
 
-- [ ] Resolve the `PROVIDES` problem — a sentinel that propagates the source contract, fixing
+- [x] Resolve the `PROVIDES` problem — a sentinel that propagates the source contract, fixing
       `ApplyMaskSystem` at the same time
 
 #### Component transformation semantics
@@ -220,7 +220,7 @@ InstanceId      → unchanged
 
 Driven by component semantics rather than hard-coded per archetype.
 
-- [ ] Define the per-component transform semantics, keyed on the component rather than the
+- [x] Define the per-component transform semantics, keyed on the component rather than the
       archetype
 
 Decisions already taken: velocity is rotated only and never translated, and the docstring must say
@@ -243,7 +243,7 @@ TransformEntitySystem
 This preserves provenance and fits the immutable, log-oriented `Store` model. It is also forced
 rather than stylistic: `range()` refuses to concatenate chunks in different frames.
 
-- [ ] `TransformEntitySystem` — the plumbing that writes the resolver's answer back as an entity
+- [x] `TransformEntitySystem` — the plumbing that writes the resolver's answer back as an entity
 
 ### Expected outcome
 
@@ -269,8 +269,8 @@ map
 
 This validates the System architecture beyond evaluation-specific operations.
 
-- [ ] Validate cross-frame composition of two recordings end to end
-- [ ] A worked example of bringing two recordings into one coordinate frame
+- [x] Validate cross-frame composition of two recordings end to end
+- [x] A worked example of bringing two recordings into one coordinate frame
       ([recipe](../recipes/align-frames.md))
 
 ## P2: Segmentation support

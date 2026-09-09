@@ -41,7 +41,7 @@ from t4perceval.descriptors import (
     VELOCITY,
     VISIBILITY,
 )
-from t4perceval.system.base import EntitySystem, SystemContext, require
+from t4perceval.system.base import EntitySystem, Passthrough, SystemContext, require
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -575,10 +575,10 @@ class ApplyMaskSystem(EntitySystem):
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (MASK,)
 
-    # The columns carried over are whatever the source holds, so they cannot be declared
-    # here. `Pipeline` therefore cannot link a consumer to this system by component; the
-    # entity it writes is the contract.
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = ()
+    # The columns carried over are whatever the data source holds, which is exactly what a
+    # passthrough declares: a consumer of the target is checked against the source's
+    # columns when they are known, and at run time when they are not.
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough] = Passthrough(0)
 
     def __attrs_post_init__(self) -> None:
         if len(self.sources) != 2:
@@ -586,6 +586,10 @@ class ApplyMaskSystem(EntitySystem):
                 f"{type(self).__name__} needs exactly two sources (data, mask), "
                 f"got {len(self.sources)}",
             )
+
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+        """The mask source needs a mask; the data source needs nothing in particular."""
+        return () if index == 0 else self.REQUIRES
 
     @classmethod
     def of(

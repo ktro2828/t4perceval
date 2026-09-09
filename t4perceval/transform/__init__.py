@@ -22,6 +22,13 @@ frame tree.
 
 from __future__ import annotations
 
+from t4perceval.transform.apply import (
+    TRANSFORM_KINDS,
+    TransformKind,
+    pose_of,
+    transform_chunk,
+    transform_kind,
+)
 from t4perceval.transform.compose import chain, compose, identity, interpolate, invert
 from t4perceval.transform.graph import (
     DEFAULT_ROOT,
@@ -34,15 +41,20 @@ from t4perceval.transform.lookup import LookupPolicy, TransformResolver
 
 __all__ = (
     "DEFAULT_ROOT",
+    "TRANSFORM_KINDS",
     "FrameGraph",
     "LookupPolicy",
     "TransformEdge",
+    "TransformKind",
     "TransformResolver",
     "chain",
     "compose",
     "identity",
     "interpolate",
     "invert",
+    "pose_of",
     "tf_path",
+    "transform_chunk",
     "transform_edges",
+    "transform_kind",
 )

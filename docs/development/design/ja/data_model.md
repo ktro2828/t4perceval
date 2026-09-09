@@ -521,8 +521,10 @@ transform を合成するのと同じである。temporal な辺は `LookupPolic
 例外にするので、キャリブレーション漏れが黙って恒等変換になることはない。
 
 これは `System` では**ない**: system は pipeline が保存する chunk を返すが、lookup は問いに答えて
-何も書かない。_変換後の entity_ を materialize するのが system の形をした仕事で、そちらは
-「passthrough な system が自分の運ぶ列を宣言できない」問題が未解決のままである。
+何も書かない。_変換後の entity_ を materialize するのが system の形をした仕事で、それが
+`TransformEntitySystem` である — 各フレームの pose をここで解決し、
+`t4perceval.transform.apply.transform_chunk` で適用する。何が動くかの規則は archetype ではなく
+component クラスに紐づく (`TRANSFORM_KINDS`)。
 
 ### import した scene の座標系ツリー
 

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
+from scipy.spatial.transform import Rotation
 
 from t4perceval import (
     FRAME,
@@ -14,6 +15,7 @@ from t4perceval import (
     Store,
     TimePoint,
     Trackings3D,
+    Transform3D,
 )
 
 if TYPE_CHECKING:
@@ -112,6 +114,45 @@ def make_metric_scene(
             ),
             at=TimePoint.at(frame=frame),
             frame_id="base_link",
+        )
+    return store
+
+
+def yaw(degrees: float) -> list[float]:
+    """An ``xyzw`` quaternion turning about ``z`` by ``degrees``."""
+    return list(Rotation.from_euler("z", degrees, degrees=True).as_quat())
+
+
+def tf_edge(
+    child: str,
+    translation: Sequence[float],
+    rotation: Sequence[float] | None = None,
+) -> Transform3D:
+    """One transform edge: ``child`` sits at ``translation`` in the frame it is logged under."""
+    return Transform3D(
+        translation=list(translation),
+        rotation=list(rotation) if rotation is not None else [0.0, 0.0, 0.0, 1.0],
+        child_frame_id=child,
+    )
+
+
+def make_ego_scene(
+    store: Store,
+    xs: Sequence[float] = (0.0, 10.0, 20.0),
+    yaws: Sequence[float] | None = None,
+) -> Store:
+    """Log ``map <- base_link`` at ``/tf/base_link``, one pose per frame.
+
+    Frame ``i`` puts the ego at ``x = xs[i]`` heading ``yaws[i]`` degrees (or straight
+    ahead), stamped ``(i + 1) * 1_000`` ns so the same scene is walkable on ``TIMESTAMP``.
+    """
+    for frame, x in enumerate(xs):
+        rotation = yaw(yaws[frame]) if yaws is not None else None
+        store.log(
+            "/tf/base_link",
+            tf_edge("base_link", [x, 0.0, 0.0], rotation),
+            at=TimePoint.at(frame=frame, timestamp_ns=(frame + 1) * 1_000),
+            frame_id="map",
         )
     return store
 

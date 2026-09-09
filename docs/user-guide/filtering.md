@@ -165,25 +165,29 @@ Pipeline([near, kept]).run(ctx, TimeRange.everything())
 Point the matcher **and** the metric at the same materialized entity, so the row indices a match
 result stores refer to the rows both of them see.
 
-!!! warning "Run the narrowing as its own pipeline"
+!!! note "One pipeline is enough"
 
-    `ApplyMaskSystem` carries over whatever columns its source happens to hold, so it cannot declare
-    `PROVIDES`. `Pipeline` validates wiring by component and would reject a matcher reading an
-    entity nothing declares it fills:
-
-    ```text
-    ValueError: CenterDistanceMatchingSystem reads /estimation/objects/kept for component(s)
-    class_id, position, which no earlier system provides there
-    ```
-
-    Run the narrowing first, then the evaluation:
+    `ApplyMaskSystem` carries over whatever columns its source holds, and says so:
+    `PROVIDES = Passthrough(0)`. `Pipeline` therefore treats `/estimation/objects/kept` as carrying
+    the source's columns -- checked up front when an earlier system declared them, at run time by
+    `require()` when the source came from the store -- so the narrowing and the evaluation go in one
+    pipeline:
 
     ```python
-    Pipeline([near_gt, kept_gt, near_est, kept_est]).run(ctx, scene)
-    Pipeline(average_precision_sweep("/estimation/objects/kept", "/ground_truth/objects/kept")).run(
-        ctx, scene
-    )
+    Pipeline(
+        [
+            near_gt,
+            kept_gt,
+            near_est,
+            kept_est,
+            *average_precision_sweep("/estimation/objects/kept", "/ground_truth/objects/kept"),
+        ]
+    ).run(ctx, scene)
     ```
+
+    Two pipelines still work; they are a choice, not a requirement. See
+    [Evaluation pipeline](../concepts/evaluation-pipeline.md#validation) for what `Pipeline` knows
+    about a passthrough target.
 
 ## A complete narrowing stage
 

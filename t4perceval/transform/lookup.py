@@ -6,8 +6,9 @@ frame relative to that one, at this time".
 
 It is not a :class:`~t4perceval.system.base.System`: a system returns chunks for a
 pipeline to file, whereas a lookup answers a question and writes nothing. Materializing a
-*transformed entity* is the system-shaped job, and it is still blocked on a separate
-problem -- a passthrough system cannot declare the columns it carries.
+*transformed entity* is the system-shaped job --
+:class:`~t4perceval.system.transform.TransformEntitySystem` looks the pose up here and
+applies it with :func:`~t4perceval.transform.apply.transform_chunk`.
 """
 
 from __future__ import annotations

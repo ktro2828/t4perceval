@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from t4perceval.system.base import (
     EntitySystem,
+    Passthrough,
     Pipeline,
     System,
     SystemContext,
@@ -44,6 +45,7 @@ from t4perceval.system.metric import (
 )
 from t4perceval.system.preset import average_precision_sweep
 from t4perceval.system.threshold import Thresholds
+from t4perceval.system.transform import TransformEntitySystem
 
 __all__ = (
     "ApplyMaskSystem",
@@ -72,12 +74,14 @@ __all__ = (
     "MatchingSystem",
     "MeanAveragePrecisionSystem",
     "MetricSystem",
+    "Passthrough",
     "PathDisplacementSystem",
     "Pipeline",
     "PlaneDistanceMatchingSystem",
     "System",
     "SystemContext",
     "Thresholds",
+    "TransformEntitySystem",
     "average_precision_sweep",
     "masked_view",
     "require",

@@ -85,7 +85,8 @@ for path in ("/ground_truth/objects", "/estimation/objects"):
 Pipeline(narrow).run(ctx, scene)
 ```
 
-See [Filtering](../user-guide/filtering.md) for the full family and for why this is its own pipeline.
+See [Filtering](../user-guide/filtering.md) for the full family. The narrowing can run in the same
+`Pipeline` as the evaluation, as the complete example below does.
 
 ## Matching
 
@@ -180,10 +181,10 @@ narrow = []
 for path in ("/ground_truth/objects", "/estimation/objects"):
     near = FilterByDistanceSystem.on(path, max_distance=50.0)
     narrow += [near, ApplyMaskSystem.of(path, near.target)]
-Pipeline(narrow).run(ctx, scene)
 
 Pipeline(
-    average_precision_sweep(
+    narrow
+    + average_precision_sweep(
         "/estimation/objects/kept",
         "/ground_truth/objects/kept",
         thresholds=[0.5, 1.0, 2.0],

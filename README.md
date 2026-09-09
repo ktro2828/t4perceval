@@ -217,8 +217,12 @@ confusion matrix), the T4 and MCAP/ROS bag importers with the `Recording` bounda
 timestamp, and coordinate transforms — static and temporal edges, frame-graph discovery from the
 data, composition through `TransformResolver`, and the cross-frame guard.
 
-**Next.** `HotaSystem` and pass/fail, a system that materializes a transformed entity, persisting a
-whole `Recording`, segmentation metrics, and a visualization layer.
+Persistence (`write_recording` / `read_recording` to a `.t4eval` directory) and
+`TransformEntitySystem`, which expresses an entity in another coordinate frame as a new entity, are
+in as well.
+
+**Next.** Segmentation metrics, metric correctness against the official definitions, `HotaSystem`
+and pass/fail, and a visualization layer.
 
 See [the roadmap](docs/development/roadmap.md) for the current list,
 [System design](docs/development/design/en/system.md) for where each of those fits on the protocol,

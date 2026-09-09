@@ -89,8 +89,9 @@ is the data layout and the systems-as-functions idea, both of which are a few hu
   why `TrajectoryMode3D` exists as a non-component constructor.
 - Composition instead of inheritance means the box components are literally re-declared in three
   archetypes. That duplication is deliberate, and a comment says so at each site.
-- `Pipeline` can only validate wiring for systems that can declare `PROVIDES`, and
-  `ApplyMaskSystem` cannot -- so a materialized filter has to be its own pipeline run.
+- `Pipeline` can only validate wiring up front for entities whose columns it can know. A
+  passthrough system (`PROVIDES = Passthrough(...)`) of a store-sourced entity yields an _opaque_
+  target, whose consumers are checked at run time instead -- deferred, not rejected.
 
 ## Where it is written down
 

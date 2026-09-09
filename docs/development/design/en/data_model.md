@@ -542,8 +542,10 @@ something that never changes is a question with one answer, not an error. An unk
 frame raises, so a missing calibration can never quietly resolve to identity.
 
 It is **not** a `System`: a system returns chunks for a pipeline to file, whereas a lookup answers a
-question and writes nothing. Materializing a _transformed entity_ is the system-shaped job, and it is
-still blocked on a passthrough system being unable to declare the columns it carries.
+question and writes nothing. Materializing a _transformed entity_ is the system-shaped job:
+`TransformEntitySystem` looks each frame's pose up here and applies it with
+`t4perceval.transform.apply.transform_chunk`, where the rule for what moves is keyed on the
+component class (`TRANSFORM_KINDS`) rather than on any archetype.
 
 ### The frame tree of an imported scene
 
@@ -568,10 +570,10 @@ still blocked on a passthrough system being unable to declare the columns it car
   runs on frame indices or on timestamps. Sub-frame ego motion is not represented, which is the
   resolution the annotations themselves have.
 
-Still to come: a system that materializes a _transformed entity_. Until it exists, transforms are
-recorded, discoverable and resolvable, but nothing rewrites an object chunk into another frame -- so
-the system layer refuses to compare geometry across frames instead. See "Coordinate frames" in
-[system.md](system.md).
+Transforms are recorded, discoverable, resolvable and -- through `TransformEntitySystem` --
+applicable: an object chunk is rewritten into another frame as a new entity, and the system layer
+still refuses to compare geometry across frames when that stage is left out. See "Coordinate frames"
+in [system.md](system.md).
 
 ## IO — Arrow and Parquet
 

@@ -123,12 +123,61 @@ chain([map_to_base, base_to_lidar])
 interpolate(before, after, fraction=0.25)
 ```
 
-Each takes and returns a `Transform3D`.
+Each takes and returns a _pose_: a `(translation, rotation)` pair of a `(3,)` and an `xyzw` `(4,)`
+array. `pose_of(transform)` turns a resolver's `Transform3D` into one.
+
+## Expressing an entity in another frame
+
+`TransformEntitySystem` reads an entity, looks each frame's pose up, and writes the result as a
+**new** entity in the target frame:
+
+```python
+from t4perceval.system import Pipeline, TransformEntitySystem
+
+moved = TransformEntitySystem.of("/estimation/objects", target_frame="map")
+Pipeline([moved]).run(ctx, scene)
+
+moved.target  # /estimation/objects/in/map, every chunk with frame_id="map"
+```
+
+Each row is transformed with the pose at its own time, so an object seen from a moving ego lands at a
+different `map` position in every frame. What moves is decided per component, not per archetype:
+
+| Column                                     | Moves as              |
+| :----------------------------------------- | :-------------------- |
+| `position`, `point`, `translation`         | rotate + translate    |
+| `waypoints` (every waypoint of every mode) | rotate + translate    |
+| `velocity`                                 | rotate only           |
+| `quaternion`, `rotation`                   | compose with the pose |
+| `size`, ids, scores, everything else       | unchanged             |
+| `mask`                                     | **dropped**           |
+
+Velocity is rotated but never translated: that is the velocity a frame-fixed observer in the target
+frame would measure _if the two frames did not move relative to each other_ -- the relative motion
+between them is ignored. A `mask` is a claim about the source frame, so it does not survive; filter
+the result instead. Static columns of the source are not carried either -- they are not
+frame-dependent in practice, and a static frame claim would be wrong in the new frame.
+
+The system builds its `TransformResolver` from `ctx.store` unless you pass one. An evaluation store
+holds only the entities you named, so when the `/tf` edges are not in it, pass a resolver built from
+the recording that has them -- and on the timeline they live on (a bag's `/tf` is `TIMESTAMP` only):
+
+```python
+TransformEntitySystem.of(
+    "/estimation/objects",
+    target_frame="base_link",
+    resolver=TransformResolver.of(estimation, timeline=TIMESTAMP),
+)
+```
+
+The result is a passthrough of the source minus `mask`, so a filter, matcher or metric can read it in
+the same pipeline. The full walk-through is
+[Transform between coordinate frames](../recipes/transform-frames.md).
 
 ## The cross-frame guard
 
-Nothing rewrites an entity's rows into another frame yet, so a matcher or a geometric metric refuses
-to compare two _different, stated_ frames:
+A matcher or a geometric metric refuses to compare two _different, stated_ frames rather than
+silently producing plausible numbers:
 
 ```text
 ValueError: Cannot compare geometry across coordinate frames: /estimation/objects in 'base_link',
@@ -139,9 +188,8 @@ Three ways out, in order of preference:
 
 1. **Import both sides in the same frame.** The T4 importer takes `coords=` in its
    [`ImportOptions`](dataset-importers.md#t4-dataset); `"base_link"` is the default.
-2. **Rewrite one side yourself** -- read the column, apply the resolved pose, log it to a new entity
-   with the other frame's `frame_id`. A system that does this is on the
-   [roadmap](../development/roadmap.md), not in the library yet.
+2. **Transform one side** with `TransformEntitySystem`, as above, and point the matcher at its
+   target.
 3. **Opt out**, when you know the two frames coincide: `check_frames=False` on the matcher, and on
    `MatchJoin.of` for a metric.
 
