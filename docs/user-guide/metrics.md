@@ -16,15 +16,17 @@ ap.target  # /metrics/ap
 
 ## The metric family
 
-| System                          | Writes                                                             | Needs from the objects                     |
-| :------------------------------ | :----------------------------------------------------------------- | :----------------------------------------- |
-| `AveragePrecisionSystem`        | `/metrics/ap`                                                      | `class_id`, `confidence`                   |
-| `AveragePrecisionHeadingSystem` | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`     |
-| `MeanAveragePrecisionSystem`    | one entity, averaging several                                      | -- (reads metric entities)                 |
-| `ClearSystem`                   | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                  |
-| `PathDisplacementSystem`        | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence` |
-| `ClassificationSystem`          | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                 |
-| `ConfusionMatrixSystem`         | `/metrics/confusion_matrix`                                        | `class_id`                                 |
+| System                              | Writes                                                             | Needs from the objects                     |
+| :---------------------------------- | :----------------------------------------------------------------- | :----------------------------------------- |
+| `AveragePrecisionSystem`            | `/metrics/ap`                                                      | `class_id`, `confidence`                   |
+| `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`     |
+| `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                 |
+| `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                  |
+| `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence` |
+| `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                 |
+| `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                 |
+| `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)             |
+| `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)             |
 
 A metric that produces several results from one shared computation -- MOTA, MOTP and ID switches all
 come out of the same identity tracking -- writes **one entity per result** and lists them all in
@@ -172,6 +174,44 @@ matrix.at(labels.class_id("car"), labels.class_id("truck"))
 `BACKGROUND_CLASS_ID` (`-2`) on the estimation axis is a false negative; the same value on the
 ground-truth axis is a false positive. Duplicate cells are summed, so `as_matrix` is safe on
 concatenated chunks.
+
+## Segmentation: IoU, accuracy, confusion
+
+Segmentation has no matching stage. Estimation and ground truth label the same elements in the same
+order, so the systems take the two entities directly and compare them row by row:
+
+```python
+from t4perceval.system import SegmentationConfusionMatrixSystem, SegmentationIoUSystem
+
+SegmentationIoUSystem.between(EST, GT)  # iou, accuracy, pixel_accuracy
+SegmentationConfusionMatrixSystem.between(EST, GT)  # long-form count matrix
+```
+
+| Parameter      | Default | Meaning                                                                           |
+| :------------- | ------: | :-------------------------------------------------------------------------------- |
+| `ignore`       |    `()` | classes left out of the evaluation, as names or ids; `UNKNOWN_CLASS_ID` always is |
+| `check_frames` |  `True` | refuse two entities that state different coordinate frames (two cameras, say)     |
+
+Both depend on `class_id` alone, so one implementation scores a 2D label image and a 3D point cloud.
+Everything comes from one count matrix over `(ground-truth class, estimated class)`, pooled over the
+frames in range.
+
+- `iou` -- per class `TP / (TP + FP + FN)`, `NaN` when the union is empty; the aggregate row is the
+  mean of the defined rows, the **mIoU**.
+- `accuracy` -- per class `TP / (TP + FN)`, the share of the class's elements labelled correctly;
+  the aggregate row is the mean class accuracy.
+- `pixel_accuracy` -- a single aggregate row: correctly labelled elements over all evaluated
+  elements.
+
+`support` is the number of evaluated ground-truth elements of the class. An ignored class is _not
+evaluated_: its ground-truth rows are dropped and it leaves the class axis in every table, so a
+prediction of it counts as background -- a false negative for the true class. In the confusion
+matrix the background **column** therefore holds elements predicted as no known class, and the
+background **row is always zero**.
+
+A frame where the two entities hold different numbers of rows raises, naming both entities, both
+counts and the frame; the check is made per frame so a missing frame on one side cannot shift the
+rows of every later one. See [Segmentation](../evaluation/segmentation-3d.md) for the inputs.
 
 ## Averaging several metric entities
 

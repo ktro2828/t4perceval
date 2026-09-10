@@ -26,4 +26,6 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 
 ::: t4perceval.system.metric.confusion
 
+::: t4perceval.system.metric.segmentation
+
 ::: t4perceval.system.preset

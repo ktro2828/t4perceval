@@ -40,7 +40,7 @@ nav = [
         { "Detection 2D" = "evaluation/detection-2d.md" },
         { "Tracking" = "evaluation/tracking.md" },
         { "Prediction" = "evaluation/prediction.md" },
-        { "Segmentation 3D" = "evaluation/segmentation-3d.md" },
+        { "Segmentation" = "evaluation/segmentation-3d.md" },
     ] },
     { "Recipes" = [
         { "Evaluate model output" = "recipes/evaluate-model-output.md" },

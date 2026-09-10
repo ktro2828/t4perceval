@@ -34,13 +34,13 @@ answer to all four:
 
 ## Supported evaluation tasks
 
-| Task            | Matching                                                              | Metrics                                   |
-| :-------------- | :-------------------------------------------------------------------- | :---------------------------------------- |
-| Detection 3D    | centre distance, centre distance BEV, plane distance, IoU BEV, IoU 3D | AP, APH, mAP, mAPH, confusion matrix      |
-| Detection 2D    | ROI IoU                                                               | AP, mAP, classification, confusion matrix |
-| Tracking        | any 3D or 2D matcher                                                  | MOTA, MOTP, ID switches                   |
-| Prediction      | any 3D matcher, on the current pose                                   | ADE, FDE, miss rate                       |
-| Segmentation 3D | _not applicable_                                                      | _not implemented yet_                     |
+| Task         | Matching                                                              | Metrics                                                     |
+| :----------- | :-------------------------------------------------------------------- | :---------------------------------------------------------- |
+| Detection 3D | centre distance, centre distance BEV, plane distance, IoU BEV, IoU 3D | AP, APH, mAP, mAPH, confusion matrix                        |
+| Detection 2D | ROI IoU                                                               | AP, mAP, classification, confusion matrix                   |
+| Tracking     | any 3D or 2D matcher                                                  | MOTA, MOTP, ID switches                                     |
+| Prediction   | any 3D matcher, on the current pose                                   | ADE, FDE, miss rate                                         |
+| Segmentation | _not applicable_ (rows are aligned)                                   | IoU, mIoU, class accuracy, pixel accuracy, confusion matrix |
 
 Inputs come from your own arrays, from a **T4 dataset**, or from an **MCAP ROS bag**.
 
@@ -212,7 +212,8 @@ with `Pipeline`, the full filter family (eight filters on a shared `MaskSystem` 
 `CombineMasksSystem`, `ApplyMaskSystem` and `masked_view`), the full matching family (six modes on a
 shared `MatchingSystem` base, with per-class `Thresholds` and vectorized geometry in
 `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR, ADE/FDE/MissRate, classification,
-confusion matrix), the T4 and MCAP/ROS bag importers with the `Recording` boundary and
+confusion matrix, and segmentation IoU/mIoU/accuracy/confusion with no matching stage), the T4 and
+MCAP/ROS bag importers with the `Recording` boundary and
 `t4perceval.evaluation`, `t4perceval.align` for pairing ground-truth and estimation frames by
 timestamp, and coordinate transforms — static and temporal edges, frame-graph discovery from the
 data, composition through `TransformResolver`, and the cross-frame guard.
@@ -221,8 +222,8 @@ Persistence (`write_recording` / `read_recording` to a `.t4eval` directory) and
 `TransformEntitySystem`, which expresses an entity in another coordinate frame as a new entity, are
 in as well.
 
-**Next.** Segmentation metrics, metric correctness against the official definitions, `HotaSystem`
-and pass/fail, and a visualization layer.
+**Next.** Metric correctness against the official definitions, `HotaSystem` and pass/fail, a
+lidarseg importer, and a visualization layer.
 
 See [the roadmap](docs/development/roadmap.md) for the current list,
 [System design](docs/development/design/en/system.md) for where each of those fits on the protocol,

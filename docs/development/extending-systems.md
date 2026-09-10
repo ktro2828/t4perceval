@@ -36,12 +36,13 @@ class System(Protocol):
 | one source, a boolean verdict per row             | `MaskSystem`                            |
 | an estimation and a ground truth, pairwise scores | `MatchingSystem`                        |
 | a matching plus the two entities it matched       | `MetricSystem`                          |
+| two row-aligned label entities, no matching       | `SegmentationMetricSystem`              |
 | **anything else**                                 | `EntitySystem`, implementing `__call__` |
 
 The last row covers: several sources (`CombineMasksSystem`), materializing rows
 (`ApplyMaskSystem`), reading metric entities rather than objects
-(`MeanAveragePrecisionSystem`), and metrics with no matching stage at all -- segmentation, for
-instance.
+(`MeanAveragePrecisionSystem`), and expressing an entity in another frame
+(`TransformEntitySystem`).
 
 ## The shape of `__call__`
 
@@ -163,13 +164,14 @@ def targets(self) -> tuple[EntityPath, ...]:
 
 Follow the family conventions, so a system reads the same way whoever wrote it:
 
-| Base                    | Constructor                                                         | Default target                  |
-| :---------------------- | :------------------------------------------------------------------ | :------------------------------ |
-| `MaskSystem`            | `.on(source, *, name=None, **params)`                               | `<source>/filter/<FILTER_NAME>` |
-| `MatchingSystem`        | `.between(estimation, ground_truth, *, target=None, **params)`      | `/matching/<MATCHING_NAME>`     |
-| `MetricSystem`          | `.on(matching, estimation, ground_truth, *, target=None, **params)` | `/metrics/<METRIC_NAME>`        |
-| `TransformEntitySystem` | `.of(source, *, target_frame, target=None, resolver=None)`          | `<source>/in/<target_frame>`    |
-| others                  | `.of(sources, target, ...)`                                         | explicit                        |
+| Base                       | Constructor                                                         | Default target                  |
+| :------------------------- | :------------------------------------------------------------------ | :------------------------------ |
+| `MaskSystem`               | `.on(source, *, name=None, **params)`                               | `<source>/filter/<FILTER_NAME>` |
+| `MatchingSystem`           | `.between(estimation, ground_truth, *, target=None, **params)`      | `/matching/<MATCHING_NAME>`     |
+| `MetricSystem`             | `.on(matching, estimation, ground_truth, *, target=None, **params)` | `/metrics/<METRIC_NAME>`        |
+| `SegmentationMetricSystem` | `.between(estimation, ground_truth, *, target=None, **params)`      | `/metrics/<METRIC_NAME>`        |
+| `TransformEntitySystem`    | `.of(source, *, target_frame, target=None, resolver=None)`          | `<source>/in/<target_frame>`    |
+| others                     | `.of(sources, target, ...)`                                         | explicit                        |
 
 Parameters are attrs fields, keyword-only, validated in `__attrs_post_init__`.
 

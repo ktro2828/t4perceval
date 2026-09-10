@@ -267,8 +267,8 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
         print()
         print("The pipeline code is left here as a template; point it at a dataset whose")
         print("`sample_annotation.json` is populated and it produces real numbers.")
-        print("For point-wise labels see docs/evaluation/segmentation-3d.md -- the")
-        print("archetypes exist, the metric systems do not yet.")
+        print("For point-wise labels see docs/evaluation/segmentation-3d.md: log the")
+        print("clouds as SemanticSegmentation3D and score them with SegmentationIoUSystem.")
         return None
 
     # A Recording is read-only and `Pipeline.run` writes results back into the store it

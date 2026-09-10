@@ -12,6 +12,7 @@ from t4perceval import (
     Detections3D,
     LabelRegistry,
     Predictions3D,
+    SemanticSegmentation3D,
     Store,
     TimePoint,
     Trackings3D,
@@ -115,6 +116,57 @@ def make_metric_scene(
             at=TimePoint.at(frame=frame),
             frame_id="base_link",
         )
+    return store
+
+
+SEG_GT = "/ground_truth/points"
+SEG_EST = "/estimation/points"
+
+
+def make_segmentation(
+    store: Store,
+    path: str,
+    frame: int,
+    classes: Sequence[str | int],
+    *,
+    labels: LabelRegistry,
+    points: Sequence[Sequence[float]] | None = None,
+    frame_id: str | None = "LIDAR_CONCAT",
+) -> None:
+    """Log one frame of point-wise labels.
+
+    Names are encoded through ``labels``; ints pass through, so a sentinel such as ``-1`` or
+    an unregistered id is expressible. Points default to ``[[i, 0, 0]]`` so that estimation
+    and ground truth describe the same cloud. Frame ``i`` is stamped ``(i + 1) * 1_000`` ns.
+    """
+    class_ids = [labels.class_id(c) if isinstance(c, str) else int(c) for c in classes]
+    if points is None:
+        points = [[float(i), 0.0, 0.0] for i in range(len(class_ids))]
+    store.log(
+        path,
+        SemanticSegmentation3D(point=points, class_id=class_ids),
+        at=TimePoint.at(frame=frame, timestamp_ns=(frame + 1) * 1_000),
+        frame_id=frame_id,
+    )
+
+
+def label_scene(
+    labels: LabelRegistry,
+    frames: Sequence[tuple[int, Sequence[str | int], Sequence[str | int]]],
+    *,
+    ground_truth: str = SEG_GT,
+    estimation: str = SEG_EST,
+    frame_id: str | None = "LIDAR_CONCAT",
+) -> Store:
+    """Build aligned ground-truth and estimation point entities.
+
+    Each frame is ``(frame_index, gt_classes, est_classes)`` -- the same elements, labelled
+    twice.
+    """
+    store = Store()
+    for frame, gt_classes, est_classes in frames:
+        make_segmentation(store, ground_truth, frame, gt_classes, labels=labels, frame_id=frame_id)
+        make_segmentation(store, estimation, frame, est_classes, labels=labels, frame_id=frame_id)
     return store
 
 

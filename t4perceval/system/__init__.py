@@ -42,6 +42,9 @@ from t4perceval.system.metric import (
     MeanAveragePrecisionSystem,
     MetricSystem,
     PathDisplacementSystem,
+    SegmentationConfusionMatrixSystem,
+    SegmentationIoUSystem,
+    SegmentationMetricSystem,
 )
 from t4perceval.system.preset import average_precision_sweep
 from t4perceval.system.threshold import Thresholds
@@ -78,6 +81,9 @@ __all__ = (
     "PathDisplacementSystem",
     "Pipeline",
     "PlaneDistanceMatchingSystem",
+    "SegmentationConfusionMatrixSystem",
+    "SegmentationIoUSystem",
+    "SegmentationMetricSystem",
     "System",
     "SystemContext",
     "Thresholds",

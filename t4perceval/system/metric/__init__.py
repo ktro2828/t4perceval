@@ -17,6 +17,11 @@ from t4perceval.system.metric.detection import (
     MeanAveragePrecisionSystem,
 )
 from t4perceval.system.metric.prediction import KERNELS, PathDisplacementSystem
+from t4perceval.system.metric.segmentation import (
+    SegmentationConfusionMatrixSystem,
+    SegmentationIoUSystem,
+    SegmentationMetricSystem,
+)
 from t4perceval.system.metric.tracking import ClearSystem
 
 __all__ = (
@@ -30,6 +35,9 @@ __all__ = (
     "MetricRow",
     "MetricSystem",
     "PathDisplacementSystem",
+    "SegmentationConfusionMatrixSystem",
+    "SegmentationIoUSystem",
+    "SegmentationMetricSystem",
     "latest_time",
     "nan_mean",
     "registered_classes",

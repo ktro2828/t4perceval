@@ -119,6 +119,12 @@ TP / (TP + FP + FN)
 
 This is Jaccard/IoU rather than conventional classification accuracy. It can be reasonable when true negatives cannot be defined, but the name `accuracy` may be misleading.
 
+### Segmentation mIoU
+
+`t4perceval/system/metric/segmentation.py` reports a class whose union is empty -- never in the ground truth and never predicted -- as `NaN`, and averages the mIoU over the defined classes only.
+
+Benchmarks differ here. Some Cityscapes-derived scripts score an absent class as `1.0` or `0.0` before averaging; mmsegmentation averages with `nanmean` over classes present in the ground truth, which additionally drops a class that was only ever _predicted_ (here that class is defined, with IoU `0.0`). An ignored class (`ignore=`, and `UNKNOWN_CLASS_ID` by default) leaves the class axis entirely, so a prediction of it is a false negative for the true class rather than a false positive for the ignored one -- the "void" convention -- and pixel accuracy excludes ignored elements from its denominator.
+
 ### Prediction miss rate
 
 The current prediction miss rate is the fraction of all mode/timestep distances that exceed the tolerance.

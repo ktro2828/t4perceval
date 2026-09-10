@@ -145,7 +145,25 @@ discovery.
 ## A metric with no matching stage
 
 `MetricSystem` assumes three sources and a `MatchJoin`. A metric over element-wise-aligned data --
-segmentation, say -- has nothing to join, so implement the `System` protocol directly. See
+segmentation, say -- has nothing to join. Subclass `SegmentationMetricSystem` instead: it takes
+`(estimation, ground_truth)`, validates the row alignment per frame, applies `ignore=`, and hands
+you the pooled `(ground-truth class, estimated class)` count matrix in `emit()`:
+
+```python
+from t4perceval.system import SegmentationMetricSystem
+
+
+@define(slots=True)
+class FrequencyWeightedIoUSystem(SegmentationMetricSystem):
+    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = MetricValues.required_descriptors()
+    METRIC_NAME: ClassVar[str] = "segmentation/fw_iou"
+
+    def emit(
+        self, counts, axes, ctx, at
+    ): ...  # rows are ground truth, columns estimation; axes[-1] is BACKGROUND_CLASS_ID
+```
+
+For data that is neither matched nor row-aligned, implement the `System` protocol directly. See
 [Extending systems](../development/extending-systems.md).
 
 ## Where to go next
