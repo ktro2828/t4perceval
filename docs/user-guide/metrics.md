@@ -187,10 +187,11 @@ SegmentationIoUSystem.between(EST, GT)  # iou, accuracy, pixel_accuracy
 SegmentationConfusionMatrixSystem.between(EST, GT)  # long-form count matrix
 ```
 
-| Parameter      | Default | Meaning                                                                           |
-| :------------- | ------: | :-------------------------------------------------------------------------------- |
-| `ignore`       |    `()` | classes left out of the evaluation, as names or ids; `UNKNOWN_CLASS_ID` always is |
-| `check_frames` |  `True` | refuse two entities that state different coordinate frames (two cameras, say)     |
+| Parameter         | Default | Meaning                                                                                                                                                                  |
+| :---------------- | ------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ignore`          |    `()` | classes left out of the evaluation, as names or ids; `UNKNOWN_CLASS_ID` always is                                                                                        |
+| `check_frames`    |  `True` | refuse two entities that state different coordinate frames (two cameras, say)                                                                                            |
+| `point_tolerance` |  `1e-6` | when both carry `point`, the largest row-wise distance still accepted as the same point; `None` skips the check. Reorder a permuted cloud first with `AlignPointsSystem` |
 
 Both depend on `class_id` alone, so one implementation scores a 2D label image and a 3D point cloud.
 Everything comes from one count matrix over `(ground-truth class, estimated class)`, pooled over the

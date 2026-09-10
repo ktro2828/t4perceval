@@ -29,6 +29,59 @@ ValueError: /estimation/points and /ground_truth/points must label the same elem
 The check is made per frame, because a whole-range comparison would silently shift every later row
 when one side lacked a frame.
 
+## Point order
+
+A label image has a fixed order -- the row is the pixel -- but a point cloud does not: a model, or the
+node that publishes its output, does not promise to list the points in the order the ground truth
+does. So when both entities carry `point`, the metrics also compare the coordinates row by row and
+refuse a frame whose points differ by more than `point_tolerance` (default `1e-6`):
+
+```text
+ValueError: /estimation/points and /ground_truth/points describe different points at frame=0:
+2 row(s) differ by up to 2. Bring the estimation into the ground truth's order first with
+AlignPointsSystem, or pass point_tolerance=None if the rows are known to correspond
+```
+
+`AlignPointsSystem` is that stage. It pairs each ground-truth point with the estimation point at the
+same location (nearest neighbour within `tolerance`) and rewrites the estimation -- every column it
+carries -- in the ground truth's order, as a new entity beside the source:
+
+```python
+from t4perceval.system import AlignPointsSystem, Pipeline, SegmentationIoUSystem
+
+align = AlignPointsSystem.between(
+    "/estimation/points", "/ground_truth/points"
+)  # -> /estimation/points/aligned
+iou = SegmentationIoUSystem.between(align.target, "/ground_truth/points")
+Pipeline([align, iou]).run(ctx, TimeRange.everything())
+```
+
+Estimation points that no ground-truth point claims are dropped -- a prediction on a point the
+ground truth does not label cannot be scored. A ground-truth point with no estimation point within
+`tolerance` raises, as do coincident points, which geometry cannot tell apart. Like a coordinate
+transform, the correspondence is an explicit stage whose result stays in the store, not something
+the metric does quietly; it is unrelated to [`t4perceval.align`](../recipes/align-frames.md), which
+pairs _frames_ by timestamp.
+
+### Ground truth the estimation does not cover
+
+A cropped or downsampled output leaves ground-truth points with no prediction. Whether those are
+misses or simply out of scope is an evaluation decision, so it is a stage you add rather than a
+default: `FilterByCoverageSystem` masks the ground truth by whether a reference point lies within
+`tolerance`, and the mask records exactly which points were left out.
+
+```python
+from t4perceval.system import ApplyMaskSystem, FilterByCoverageSystem
+
+covered = FilterByCoverageSystem.between("/ground_truth/points", "/estimation/points")
+gt_kept = ApplyMaskSystem.of("/ground_truth/points", covered.target)
+align = AlignPointsSystem.between("/estimation/points", gt_kept.target)
+iou = SegmentationIoUSystem.between(align.target, gt_kept.target)
+Pipeline([covered, gt_kept, align, iou]).run(ctx, TimeRange.everything())
+```
+
+`support` then counts only the covered points, and `covered.target` says how many were dropped.
+
 ## Inputs
 
 ### 3D

@@ -20,7 +20,7 @@ from t4perceval.archetype.metric import ConfusionMatrix, MetricValues
 from t4perceval.component import ALL_CLASSES, BACKGROUND_CLASS_ID
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimePoint, TimeRange
-from t4perceval.descriptors import CLASS_ID
+from t4perceval.descriptors import CLASS_ID, POINT
 from t4perceval.label import UNKNOWN_CLASS_ID
 from t4perceval.system.base import EntitySystem, require, require_same_frame
 from t4perceval.system.filter import resolve_class_ids
@@ -67,6 +67,12 @@ class SegmentationMetricSystem(EntitySystem):
     silently, and the check is made per frame: a whole-range comparison would shift every
     later row when one side lacked a frame.
 
+    A point cloud's order is not something a model guarantees, so when both entities carry
+    ``POINT`` the coordinates are compared row by row as well, and a frame whose points
+    differ by more than :attr:`point_tolerance` raises. Bring the estimation into the ground
+    truth's order first with :class:`~t4perceval.system.points.AlignPointsSystem`; a label
+    image needs no such step, its rows are pixels in a fixed order.
+
     Ground-truth rows labelled :data:`~t4perceval.label.UNKNOWN_CLASS_ID` are excluded, as
     are rows whose class is in :attr:`ignore`. An ignored class is *not evaluated*: it also
     leaves the class axis, so a prediction of it counts as background -- a false negative
@@ -88,12 +94,20 @@ class SegmentationMetricSystem(EntitySystem):
     check_frames: bool = field(default=True, kw_only=True)
     """Refuse inputs that state different coordinate frames -- two cameras, say."""
 
+    point_tolerance: float | None = field(default=1e-6, kw_only=True)
+    """Largest row-wise distance between the two ``POINT`` columns still accepted.
+
+    ``None`` skips the check and trusts the rows to correspond.
+    """
+
     def __attrs_post_init__(self) -> None:
         if len(self.sources) != 2:
             raise ValueError(
                 f"{type(self).__name__} needs exactly two sources "
                 f"(estimation, ground truth), got {len(self.sources)}",
             )
+        if self.point_tolerance is not None and self.point_tolerance < 0.0:
+            raise ValueError(f"point_tolerance must be non-negative, got {self.point_tolerance}")
 
     @classmethod
     def between(
@@ -167,6 +181,7 @@ class SegmentationMetricSystem(EntitySystem):
                 )
             if not len(gt_view):
                 continue
+            self._require_same_points(est_view, gt_view, where=f"{ctx.timeline.name}={time}")
             latest = time
             self._accumulate(
                 cells,
@@ -182,6 +197,22 @@ class SegmentationMetricSystem(EntitySystem):
         axes = [*(int(class_id) for class_id in classes), BACKGROUND_CLASS_ID]
         counts = self._densify(cells, axes)
         return self.emit(counts, axes, ctx, reporting_time(latest, time_range))
+
+    def _require_same_points(self, est_view, gt_view, *, where: str) -> None:  # noqa: ANN001
+        """Raise when both entities carry points and the rows are not the same points."""
+        if self.point_tolerance is None or not (est_view.has(POINT) and gt_view.has(POINT)):
+            return
+        est_points = est_view.component(POINT).values
+        gt_points = gt_view.component(POINT).values
+        gap = np.linalg.norm(est_points - gt_points, axis=1)
+        apart = gap > self.point_tolerance
+        if apart.any():
+            raise ValueError(
+                f"{est_view.entity_path} and {gt_view.entity_path} describe different points at "
+                f"{where}: {int(apart.sum())} row(s) differ by up to {gap.max():.3g}. Bring the "
+                f"estimation into the ground truth's order first with AlignPointsSystem, or pass "
+                f"point_tolerance=None if the rows are known to correspond",
+            )
 
     def _ignored_ids(self, ctx: SystemContext) -> set[int]:
         # UNKNOWN is always excluded; registries refuse to hold it, so no registered class

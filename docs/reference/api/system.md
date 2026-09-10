@@ -6,6 +6,8 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 
 ::: t4perceval.system.filter
 
+::: t4perceval.system.points
+
 ::: t4perceval.system.transform
 
 ::: t4perceval.system.matching

@@ -26,6 +26,7 @@ from t4perceval.descriptors import CLASS_ID, IMAGE_SIZE, POINT
 from t4perceval.io import chunk_from_table, chunk_to_table, read_recording, write_recording
 from t4perceval.label import UNKNOWN_CLASS_ID
 from t4perceval.system import (
+    AlignPointsSystem,
     ApplyMaskSystem,
     AveragePrecisionSystem,
     CenterDistanceMatchingSystem,
@@ -308,6 +309,73 @@ class TestIoU:
         )
         assert aligned["iou"].of_class(CAR) == 1.0
         assert relabelled["iou"].of_class(CAR) == 0.0
+
+
+class TestPointOrder:
+    """A model does not promise the ground truth's point order; the metric must notice."""
+
+    @staticmethod
+    def permuted(labels: LabelRegistry) -> Store:
+        """The same three labelled points, the estimation listing them back to front."""
+        store = Store()
+        points = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]]
+        make_segmentation(store, SEG_GT, 0, ["road", "car", "car"], labels=labels, points=points)
+        make_segmentation(
+            store, SEG_EST, 0, ["car", "car", "road"], labels=labels, points=points[::-1]
+        )
+        return store
+
+    def test_permuted_points_are_refused(self, seg_labels: LabelRegistry) -> None:
+        with pytest.raises(
+            ValueError, match=r"describe different points at frame=0: 2 row\(s\) differ by up to 2"
+        ):
+            iou_tables(self.permuted(seg_labels), seg_labels)
+        with pytest.raises(ValueError, match="AlignPointsSystem"):
+            confusion(self.permuted(seg_labels), seg_labels)
+
+    def test_the_check_can_be_waived(self, seg_labels: LabelRegistry) -> None:
+        tables = iou_tables(self.permuted(seg_labels), seg_labels, point_tolerance=None)
+        # Row-wise: (road, car), (car, car), (car, road) -> car has TP 1, FP 1, FN 1.
+        assert tables["iou"].of_class(CAR) == pytest.approx(1 / 3), "rows compared as they are"
+
+    def test_aligning_first_restores_the_score(self, seg_labels: LabelRegistry) -> None:
+        store = self.permuted(seg_labels)
+        align = AlignPointsSystem.between(SEG_EST, SEG_GT)
+        iou = SegmentationIoUSystem.between(align.target, SEG_GT)
+        run(store, align, iou, labels=seg_labels)
+        result = store.range(iou.targets[0], timeline=FRAME, time_range=EVERYTHING).materialize(
+            MetricValues
+        )
+        assert result.of_class(CAR) == 1.0 and result.of_class(ROAD) == 1.0
+
+    def test_a_tolerance_absorbs_jitter(self, seg_labels: LabelRegistry) -> None:
+        store = Store()
+        make_segmentation(store, SEG_GT, 0, ["car"], labels=seg_labels, points=[[1.0, 0.0, 0.0]])
+        make_segmentation(
+            store, SEG_EST, 0, ["car"], labels=seg_labels, points=[[1.0005, 0.0, 0.0]]
+        )
+        with pytest.raises(ValueError, match="describe different points"):
+            iou_tables(store, seg_labels)
+        assert iou_tables(store, seg_labels, point_tolerance=1e-3)["iou"].of_class(CAR) == 1.0
+
+    def test_a_negative_tolerance_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="point_tolerance must be non-negative"):
+            SegmentationIoUSystem.between(SEG_EST, SEG_GT, point_tolerance=-1.0)
+
+    def test_label_images_carry_no_points_and_are_not_checked(
+        self, seg_labels: LabelRegistry
+    ) -> None:
+        store = Store()
+        for path, image in (("/gt", [[ROAD, CAR]]), ("/est", [[CAR, ROAD]])):
+            store.log(path, SemanticSegmentation2D.from_label_map(image), at=TimePoint.at(frame=0))
+        iou = SegmentationIoUSystem.between("/est", "/gt")
+        run(store, iou, labels=seg_labels)
+        assert (
+            store.range(iou.targets[0], timeline=FRAME, time_range=EVERYTHING)
+            .materialize(MetricValues)
+            .of_class(CAR)
+            == 0.0
+        )
 
 
 class TestLabelHandling:

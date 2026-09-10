@@ -164,14 +164,16 @@ def targets(self) -> tuple[EntityPath, ...]:
 
 Follow the family conventions, so a system reads the same way whoever wrote it:
 
-| Base                       | Constructor                                                         | Default target                  |
-| :------------------------- | :------------------------------------------------------------------ | :------------------------------ |
-| `MaskSystem`               | `.on(source, *, name=None, **params)`                               | `<source>/filter/<FILTER_NAME>` |
-| `MatchingSystem`           | `.between(estimation, ground_truth, *, target=None, **params)`      | `/matching/<MATCHING_NAME>`     |
-| `MetricSystem`             | `.on(matching, estimation, ground_truth, *, target=None, **params)` | `/metrics/<METRIC_NAME>`        |
-| `SegmentationMetricSystem` | `.between(estimation, ground_truth, *, target=None, **params)`      | `/metrics/<METRIC_NAME>`        |
-| `TransformEntitySystem`    | `.of(source, *, target_frame, target=None, resolver=None)`          | `<source>/in/<target_frame>`    |
-| others                     | `.of(sources, target, ...)`                                         | explicit                        |
+| Base                       | Constructor                                                          | Default target                  |
+| :------------------------- | :------------------------------------------------------------------- | :------------------------------ |
+| `MaskSystem`               | `.on(source, *, name=None, **params)`                                | `<source>/filter/<FILTER_NAME>` |
+| `MatchingSystem`           | `.between(estimation, ground_truth, *, target=None, **params)`       | `/matching/<MATCHING_NAME>`     |
+| `MetricSystem`             | `.on(matching, estimation, ground_truth, *, target=None, **params)`  | `/metrics/<METRIC_NAME>`        |
+| `SegmentationMetricSystem` | `.between(estimation, ground_truth, *, target=None, **params)`       | `/metrics/<METRIC_NAME>`        |
+| `AlignPointsSystem`        | `.between(estimation, ground_truth, *, target=None, tolerance=1e-6)` | `<estimation>/aligned`          |
+| `FilterByCoverageSystem`   | `.between(source, reference, *, target=None, tolerance=1e-6)`        | `<source>/filter/coverage`      |
+| `TransformEntitySystem`    | `.of(source, *, target_frame, target=None, resolver=None)`           | `<source>/in/<target_frame>`    |
+| others                     | `.of(sources, target, ...)`                                          | explicit                        |
 
 Parameters are attrs fields, keyword-only, validated in `__attrs_post_init__`.
 
