@@ -299,20 +299,22 @@ stress test of the evaluation pipeline.
 
 ### Required work
 
-- [ ] Segmentation confusion statistics
-- [ ] Per-class IoU
-- [ ] Mean IoU
-- [ ] Accuracy, where appropriate
-- [ ] Label handling
-- [ ] Invalid / ignored label handling
-- [ ] The component and archetype design for the metric outputs
+- [x] Segmentation confusion statistics — `SegmentationConfusionMatrixSystem`
+- [x] Per-class IoU — `SegmentationIoUSystem`, `/metrics/segmentation/iou`
+- [x] Mean IoU — the `ALL_CLASSES` row of the same table, the family convention
+- [x] Accuracy, where appropriate — class accuracy with its mean, and pixel accuracy as its own single-row entity
+- [x] Label handling — the registry decides the class axis; names resolve through `SystemContext.labels`
+- [x] Point order — a 3D model does not promise the ground truth's point order, so the metrics compare the `POINT` coordinates row by row and refuse a permuted cloud; `AlignPointsSystem` reorders the estimation by nearest neighbour as an explicit, inspectable stage
+- [x] Invalid / ignored label handling — `UNKNOWN_CLASS_ID` ground truth is excluded by default, `ignore=` excludes more; an ignored class leaves the axis ("void" semantics); an unregistered ground-truth id raises
+- [x] The component and archetype design for the metric outputs — the existing `MetricValues` and `ConfusionMatrix`; no new archetype was needed
 
-Possible output entities:
+Output entities:
 
 ```text
-/metrics/segmentation/confusion
+/metrics/segmentation/confusion_matrix
 /metrics/segmentation/iou
-/metrics/segmentation/miou
+/metrics/segmentation/accuracy
+/metrics/segmentation/pixel_accuracy
 ```
 
 ### Design questions
@@ -321,8 +323,8 @@ How much is shared between `SemanticSegmentation2D` and `SemanticSegmentation3D`
 logic should depend on semantic components rather than dimensionality wherever possible: if both
 expose `CLASS_ID`, one metric implementation can operate on both.
 
-- [ ] Decide the 2D/3D sharing boundary
-- [ ] Segmentation metric documentation, and an
+- [x] Decide the 2D/3D sharing boundary — everything: both archetypes expose `CLASS_ID` and the row is the element, so one implementation serves both. `SemanticSegmentation2D` became `class_id` alone (the row is the pixel) with a static `IMAGE_SIZE`; `pixel` was removed
+- [x] Segmentation metric documentation, and an
       [evaluation page](../evaluation/segmentation-3d.md) that stops saying "not implemented yet"
 
 ### Architectural purpose
@@ -334,6 +336,50 @@ This phase answers one question:
 
 If segmentation fits without special-casing the core abstractions, the ECS/System design has
 generalized successfully.
+
+### Follow-ups: loading segmentation data
+
+The metrics and archetypes are done; nothing imports segmentation data yet. Every item below
+needs **sensor data** -- the point-cloud or image files themselves, not just annotation tables --
+which the importers have deliberately not read so far (see the T4 importer's deferrals under
+Shipped). The vendored fixture `tests/data/t4dataset` _is_ a lidarseg dataset, so the first item can
+be validated on real data immediately.
+
+- [ ] **T4 lidarseg import.** Read the `lidarseg` table through `t4_devkit` (`filename` per
+      `sample_data`), load the referenced point cloud and its per-point label file, and log a
+      `SemanticSegmentation3D` per keyframe at `/ground_truth/points` with `frame_id` from the lidar
+      channel and both `FRAME` and `TIMESTAMP` indexes, like the boxes. Decide the entity path
+      convention next to `/ground_truth/objects` (`objects` vs `points`) and expose it as an
+      `ImportOptions` field.
+  - [ ] Map the dataset's label indices onto the `LabelRegistry` by name, with the dataset's
+        ignore/noise index becoming `UNKNOWN_CLASS_ID` so the metrics exclude it by default. The
+        registry is an _input_, shared with the box import, as everywhere else.
+  - [ ] Point order and count must match the cloud the labels were written for; validate the label
+        file's length against the point cloud and raise on a mismatch rather than truncate.
+  - [ ] Keep `t4_devkit` and the point-cloud reader inside the importer module (the existing
+        `import t4perceval` never-loads-it test must still hold). Check what the devkit offers for
+        reading `.pcd.bin` before adding a dependency.
+  - [ ] Decide whether the raw cloud without labels also lands as an entity (`/sensor/<channel>`);
+        `POINT` on the segmentation entity already carries the geometry the metrics and
+        `TransformEntitySystem` need, so this is only worth it for visualization.
+- [ ] **Estimation side for lidarseg.** A model's output arrives as a per-point label array over a
+      cloud that may be re-ordered or cropped; document (and if a common file format emerges,
+      import) how to log it as `SemanticSegmentation3D`, and point at `AlignPointsSystem` /
+      `FilterByCoverageSystem` for the order and coverage questions.
+- [ ] **Rosbag `PointCloud2` with a label field.** Decode a segmentation topic (a cloud whose fields
+      include a per-point class, as Autoware's lidar segmentation nodes publish) into
+      `SemanticSegmentation3D` on `TIMESTAMP`, reusing the `mcap` decoding path and the
+      `AUTOWARE_CLASS_NAMES`-style enum → name → registry-id mapping. Bags are large and clouds are
+      dense, so this is also where the per-frame `range()` cost of the segmentation metrics gets
+      measured on real sizes.
+- [ ] **2D label images.** Import a camera segmentation mask as `SemanticSegmentation2D.from_label_map`
+      with the static `IMAGE_SIZE`, `frame_id` = camera channel, from whatever the dataset provides
+      (T4 has no 2D segmentation table today; a bag `Image` topic with class ids is the likely
+      source). Confirm on a real image that a 2M-pixel entity per frame is acceptable in memory and
+      in `.t4eval` size, or decide that 2D needs run-length / dense-image storage after all.
+- [ ] **End-to-end check on the fixture.** Once the T4 import exists, extend `examples/evaluate_t4.py`
+      to score a synthetic estimation against the fixture's real lidarseg labels -- the example
+      currently prints that the dataset has no boxes and stops.
 
 ## P3: Metric correctness
 
@@ -507,7 +553,7 @@ Real but unscheduled; none of them blocks a phase above.
 - [x] Dismantle `Header` (`TimePoint` + `Chunk.frame_id`)
 - [x] Promote `Trajectories3D` from a component to an archetype and split out its columns
 - [x] Add `BatchModeValid` / `BatchTimestepValid` / `BatchNumPoints` / `BatchVisibility` /
-      `BatchRoi` / `BatchPixel` / `BatchMask` and the matching components
+      `BatchRoi` / `BatchMask` and the matching components
 - [x] `LabelRegistry` / `InstanceRegistry` (the category ↔ `BatchClassId` correspondence)
 - [x] Arrow IO as public API. Nested vectors are fixed-size lists, non-row-wise information lives in
       schema metadata. Parquet round-trip verified
@@ -556,8 +602,8 @@ Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers conv
       class-id, coordinate-frame and instance-registry agreement checks.
 - [x] `t4perceval.reconcile` — expressing one registry's class ids in another's.
 
-Deferred deliberately: segmentation (no system consumes `PIXEL` / `POINT`, and
-`SemanticSegmentation2D` carries no image width — picked up in [P2](#p2-segmentation-support)) and
+Deferred deliberately: segmentation (no system consumed `POINT`, and
+`SemanticSegmentation2D` carried no image width — resolved in [P2](#p2-segmentation-support)) and
 sensor data.
 
 ### MCAP / ROS bag importer
