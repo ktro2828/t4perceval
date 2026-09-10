@@ -210,12 +210,12 @@ class TestFingerprint:
         assert first.class_id("car") != second.class_id("car")
         assert first.fingerprint() != second.fingerprint()
 
-    def test_a_different_prefix_disagrees(self) -> None:
-        names = ["car"]
+    def test_an_old_manifest_with_a_prefix_still_loads(self) -> None:
+        registry = LabelRegistry.from_names(["car"])
+        legacy = {**registry.to_metadata(), "prefix": "autoware"}
 
-        assert LabelRegistry.from_names(names, prefix="autoware").fingerprint() != (
-            LabelRegistry.from_names(names, prefix="nuscenes").fingerprint()
-        )
+        assert LabelRegistry.from_metadata(legacy) == registry
+        assert "prefix" not in registry.to_metadata()
 
     def test_survives_a_metadata_round_trip(self) -> None:
         registry = LabelRegistry.from_names(["car", "pedestrian"], colors={"car": (255, 0, 0)})

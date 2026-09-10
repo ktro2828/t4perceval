@@ -116,7 +116,7 @@ manifest carries what a chunk cannot:
     "t4perceval_version": "0.1.0",
     "sources": []
   },
-  "labels": { "prefix": "autoware", "classes": [], "aliases": {} },
+  "labels": { "classes": [], "aliases": {} },
   "instances": { "uuids": ["a1b2...", "c3d4..."] },
   "chunks": [
     {

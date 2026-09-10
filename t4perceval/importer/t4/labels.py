@@ -21,7 +21,6 @@ __all__ = ("UnknownLabels", "encode_class_ids", "label_registry_from_categories"
 def label_registry_from_categories(
     categories: Sequence[object],
     *,
-    prefix: str = "autoware",
     colors: Mapping[str, tuple[int, int, int]] | None = None,
 ) -> LabelRegistry:
     """Build a registry from a T4 dataset's own ``category`` table.
@@ -38,7 +37,6 @@ def label_registry_from_categories(
 
     Args:
         categories: ``Category`` records, or anything with a ``name`` attribute.
-        prefix: Label prefix recorded on the registry.
         colors: Optional display colors, keyed by category name.
 
     Returns:
@@ -49,4 +47,4 @@ def label_registry_from_categories(
         indexed.sort(key=lambda entry: entry[0])  # type: ignore[arg-type,return-value]
 
     names = [str(category.name) for _, category in indexed]  # type: ignore[attr-defined]
-    return LabelRegistry.from_names(names, prefix=prefix, colors=colors)
+    return LabelRegistry.from_names(names, colors=colors)

@@ -84,11 +84,6 @@ def _as_aliases(
 class LabelRegistry:
     """Maps class names to the integers stored in a :class:`BatchClassId` column.
 
-    Replaces ``LabelConverter`` together with its ``label_prefix`` and
-    ``merge_similar_labels`` options: merging produces a *new* registry whose aliases
-    point several dataset names at one canonical class, so the merge is visible in the
-    data rather than hidden in a flag read at match time.
-
     Examples:
         >>> registry = LabelRegistry.from_names(["car", "truck", "pedestrian"])
         >>> registry.class_id("truck")
@@ -100,7 +95,6 @@ class LabelRegistry:
 
     classes: tuple[ClassInfo, ...] = field(converter=_as_classes)
     aliases: tuple[tuple[str, int], ...] = field(default=(), converter=_as_aliases, kw_only=True)
-    prefix: str = field(default="autoware", converter=str, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
         known = {info.class_id for info in self.classes}
@@ -113,7 +107,6 @@ class LabelRegistry:
         cls,
         names: Sequence[str],
         *,
-        prefix: str = "autoware",
         colors: Mapping[str, tuple[int, int, int]] | None = None,
     ) -> Self:
         """Build a registry assigning ids ``0..K-1`` in the given order.
@@ -127,7 +120,6 @@ class LabelRegistry:
             tuple(
                 ClassInfo(class_id, name, colors.get(name)) for class_id, name in enumerate(seen)
             ),
-            prefix=prefix,
         )
 
     def __len__(self) -> int:
@@ -227,7 +219,7 @@ class LabelRegistry:
                 if target is not None:
                     aliases[alias] = target
 
-        return type(self)(classes, aliases=aliases, prefix=self.prefix)
+        return type(self)(classes, aliases=aliases)
 
     def _color_of(self, name: str) -> tuple[int, int, int] | None:
         for info in self.classes:
@@ -240,7 +232,6 @@ class LabelRegistry:
     def to_metadata(self) -> dict[str, object]:
         """Return a JSON-compatible mapping, for Arrow schema metadata."""
         return {
-            "prefix": self.prefix,
             "classes": [
                 {"class_id": info.class_id, "name": info.name, "color": list(info.color)}
                 if info.color is not None
@@ -278,7 +269,6 @@ class LabelRegistry:
         return cls(
             classes,
             aliases=metadata.get("aliases") or {},  # type: ignore[arg-type]
-            prefix=str(metadata.get("prefix", "autoware")),
         )
 
 

@@ -76,7 +76,6 @@ def classification_name(classification: Sequence[Any]) -> str:
 
 def label_registry_from_autoware(
     *,
-    prefix: str = "autoware",
     colors: Mapping[str, tuple[int, int, int]] | None = None,
 ) -> LabelRegistry:
     """Build a registry over the Autoware enum, ids in enum order.
@@ -85,4 +84,4 @@ def label_registry_from_autoware(
     importer is the caller's explicit step, and a ground-truth source evaluated against
     this bag should be handed the same registry.
     """
-    return LabelRegistry.from_names(AUTOWARE_CLASS_NAMES, prefix=prefix, colors=colors)
+    return LabelRegistry.from_names(AUTOWARE_CLASS_NAMES, colors=colors)
