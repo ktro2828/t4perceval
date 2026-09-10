@@ -23,7 +23,13 @@ from t4perceval.descriptors import (
     THRESHOLD,
 )
 from t4perceval.system.base import EntitySystem, SystemContext, require
-from t4perceval.system.metric.base import MetricRow, MetricSystem, nan_mean
+from t4perceval.system.metric.base import (
+    MetricRow,
+    MetricSystem,
+    latest_time,
+    nan_mean,
+    reporting_time,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -33,6 +39,7 @@ if TYPE_CHECKING:
     from t4perceval.core.chunk import Chunk
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPath, EntityPathLike
+    from t4perceval.core.view import EntityView
     from t4perceval.system.join import MatchJoin
     from t4perceval.typing import NDArrayBool, NDArrayF64
 
@@ -254,17 +261,14 @@ class MeanAveragePrecisionSystem(EntitySystem):
         per_class: dict[int, list[float]] = {}
         per_threshold: dict[float, list[float]] = {}
         support: dict[int, int] = {}
-        latest: int | None = None
+        views: list[EntityView] = []
 
         for source in self.sources:
             view = ctx.store.range(source, timeline=ctx.timeline, time_range=time_range)
             if not len(view):
                 continue
             require(view, *self.REQUIRES)
-
-            times = view.times(ctx.timeline)
-            if times.size:
-                latest = int(times[-1]) if latest is None else max(latest, int(times[-1]))
+            views.append(view)
 
             class_ids = view.component(CLASS_ID).values
             thresholds = view.component(THRESHOLD).values
@@ -305,7 +309,7 @@ class MeanAveragePrecisionSystem(EntitySystem):
             ),
         )
 
-        at_time = latest if latest is not None else int(max(time_range.start, 0))
+        at_time = reporting_time(latest_time(views, ctx.timeline), time_range)
         return (
             MetricValues.from_rows(rows).to_chunk(
                 as_entity_path(self.target),

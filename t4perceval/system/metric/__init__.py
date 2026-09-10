@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from t4perceval.system.metric.base import MetricRow, MetricSystem, nan_mean
+from t4perceval.system.metric.base import (
+    MetricRow,
+    MetricSystem,
+    latest_time,
+    nan_mean,
+    registered_classes,
+    registry_classes,
+    reporting_time,
+)
 from t4perceval.system.metric.classification import ClassificationSystem
 from t4perceval.system.metric.confusion import ConfusionMatrixSystem
 from t4perceval.system.metric.detection import (
@@ -22,5 +30,9 @@ __all__ = (
     "MetricRow",
     "MetricSystem",
     "PathDisplacementSystem",
+    "latest_time",
     "nan_mean",
+    "registered_classes",
+    "registry_classes",
+    "reporting_time",
 )

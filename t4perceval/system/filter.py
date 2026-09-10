@@ -68,6 +68,7 @@ __all__ = (
     "FilterByVisibilitySystem",
     "MaskSystem",
     "masked_view",
+    "resolve_class_ids",
 )
 
 
@@ -245,7 +246,7 @@ def _as_class_ids(values: Sequence[str | int] | None) -> tuple[str | int, ...] |
     return None if values is None else tuple(values)
 
 
-def _resolve_class_ids(
+def resolve_class_ids(
     values: tuple[str | int, ...],
     ctx: SystemContext,
     *,
@@ -300,11 +301,11 @@ class FilterByLabelSystem(MaskSystem):
         keep = np.ones(len(class_ids), dtype=np.bool_)
 
         if self.labels is not None:
-            wanted = _resolve_class_ids(self.labels, ctx, field_name="labels")
+            wanted = resolve_class_ids(self.labels, ctx, field_name="labels")
             keep &= np.isin(class_ids, sorted(wanted))
 
         if self.exclude:
-            unwanted = _resolve_class_ids(self.exclude, ctx, field_name="exclude")
+            unwanted = resolve_class_ids(self.exclude, ctx, field_name="exclude")
             keep &= ~np.isin(class_ids, sorted(unwanted))
 
         return keep
