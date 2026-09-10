@@ -29,7 +29,7 @@ __all__ = (
     "MODE_CONFIDENCE",
     "MODE_VALID",
     "NUM_POINTS",
-    "PIXEL",
+    "IMAGE_SIZE",
     "POINT",
     "POSITION",
     "QUATERNION",
@@ -56,7 +56,7 @@ VELOCITY = ComponentDescriptor("velocity", component_type="BatchVelocity")
 # --- 2D geometry ---------------------------------------------------------------------
 ROI = ComponentDescriptor("roi", component_type="BatchRoi")
 SIZE_2D = ComponentDescriptor("size_2d", component_type="BatchSize2D")
-PIXEL = ComponentDescriptor("pixel", component_type="BatchPixel")
+IMAGE_SIZE = ComponentDescriptor("image_size", component_type="BatchImageSize")
 
 # --- semantics -----------------------------------------------------------------------
 CLASS_ID = ComponentDescriptor("class_id", component_type="BatchClassId")

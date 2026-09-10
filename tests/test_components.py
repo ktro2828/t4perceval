@@ -8,6 +8,7 @@ from t4perceval import ANY, ColumnarComponent
 from t4perceval.component import (
     BatchClassId,
     BatchConfidence,
+    BatchImageSize,
     BatchMask,
     BatchPosition2D,
     BatchPosition3D,
@@ -180,6 +181,24 @@ class TestSemanticColumns:
         assert roi.y_max[0] == 50
         assert roi.area()[0] == 1200
 
+    def test_image_size_is_height_then_width(self) -> None:
+        size = BatchImageSize([[480, 640]])
+
+        assert size.values.dtype == np.int32
+        assert size.values.shape == (1, 2)
+        assert (size.height[0], size.width[0]) == (480, 640)
+        assert size.num_pixels()[0] == 307_200
+
+    def test_image_size_rejects_negative_sizes(self) -> None:
+        with pytest.raises(ValueError, match="non-negative"):
+            BatchImageSize([[-1, 4]])
+        assert BatchImageSize([[0, 0]]).num_pixels().tolist() == [0]
+
+    def test_image_size_is_two_wide(self) -> None:
+        with pytest.raises(ValueError):
+            BatchImageSize([[1, 2, 3]])
+        assert BatchImageSize.empty().values.shape == (0, 2)
+
     def test_mask_reports_what_it_keeps(self) -> None:
         mask = BatchMask([True, False, True])
 
@@ -279,6 +298,7 @@ class TestArrowRoundTrip:
             BatchPosition3D.empty(),
             FrameId("base_link"),
             Position3D([1.0, 2.0, 3.0]),
+            BatchImageSize([[2, 3]]),
         ],
     )
     def test_round_trips_through_arrow(self, column: ColumnarComponent) -> None:

@@ -128,7 +128,7 @@ class BatchPosition3D(ColumnarComponent):
 | `vector.py`     | `BatchVector2D` / `BatchVector3D`                                                                                                       | `(2,)` / `(3,)` f64            |
 | `geometry.py`   | `BatchPosition3D` `BatchPosition2D` `BatchQuaternion` `BatchVelocity` `BatchSize3D` `BatchSize2D`                                       | `BatchQuaternion` は `xyzw` 順 |
 | `scalar.py`     | `BatchClassId` (i32) `BatchConfidence` (f64, `[0,1]`) `BatchInstanceId` (i64) `BatchNumPoints` (i32) `BatchVisibility` (i8)             | `()`                           |
-| `image.py`      | `BatchRoi` (i32, `(4,)`, `(x_min, y_min, height, width)`) `BatchPixel` (i32)                                                            |                                |
+| `image.py`      | `BatchRoi` (i32, `(4,)`, `(x_min, y_min, height, width)`) `BatchImageSize` (i32, `(2,)`, `(height, width)`, static)                     |                                |
 | `mask.py`       | `BatchMask` (bool)                                                                                                                      | `()`                           |
 | `trajectory.py` | `BatchWaypoints3D` `(M,T,3)` `BatchModeConfidence` `(M,)` `BatchModeValid` `(M,)` `BatchTimestepValid` `(M,T)` `BatchTimeOffset` `(T,)` |                                |
 | `matching.py`   | `BatchRowIndex` (i64) `BatchMatchingScore` (f64) `BatchMatchStatus` (i8)                                                                | `()`                           |
@@ -183,7 +183,7 @@ isinstance(tracking, Detections3D)  # False
 | `Trackings2D`            | Detection2D の各列 + instance_id                                                              |
 | `Predictions3D`          | Tracking3D の各列 + waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset] |
 | `Classifications2D`      | class_id, confidence, [instance_id]                                                           |
-| `SemanticSegmentation2D` | pixel, class_id                                                                               |
+| `SemanticSegmentation2D` | class_id (one per pixel, row-major; static image_size)                                        |
 | `SemanticSegmentation3D` | point, class_id                                                                               |
 | `Trajectories3D`         | waypoints, mode_confidence, [mode_valid], [timestep_valid], [time_offset]                     |
 | `MatchResults`           | est_index, gt_index, matching_score, match_status                                             |

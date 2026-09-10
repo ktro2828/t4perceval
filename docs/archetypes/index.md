@@ -19,7 +19,7 @@ the others, not a reproduction of the Python signatures. For those, see the
 | `Predictions3D`          | [Prediction](prediction.md)         | `Trackings3D` plus multi-modal futures            |
 | `Trajectories3D`         | [Trajectory](trajectory.md)         | futures on their own, no box                      |
 | `Classifications2D`      | [Classification](classification.md) | a class and a confidence, no geometry             |
-| `SemanticSegmentation2D` | [Segmentation](segmentation.md)     | a class per labelled pixel                        |
+| `SemanticSegmentation2D` | [Segmentation](segmentation.md)     | a class per pixel, row-major                      |
 | `SemanticSegmentation3D` | [Segmentation](segmentation.md)     | a class per labelled point                        |
 | `Transform3D`            | [Transform 3D](transform-3d.md)     | the pose of a child frame in its parent           |
 | `MatchResults`           | [Matching](matching.md)             | the outcome of matching two entities              |

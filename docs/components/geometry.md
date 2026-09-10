@@ -86,11 +86,18 @@ rois.x_max, rois.y_max  # derived
 
 Descriptor: `ROI`. Required by `IoURoiMatchingSystem`.
 
-## BatchPixel
+## BatchImageSize
 
-`(N,)` `i32` -- a **flat** pixel index into an image of known width.
+`(N, 2)` `i32` -- an image size as `(height, width)`, non-negative.
 
-Descriptor: `PIXEL`. Used by [`SemanticSegmentation2D`](../archetypes/segmentation.md).
+```python
+size = BatchImageSize([[1080, 1920]])
+size.height, size.width, size.num_pixels()
+```
+
+Descriptor: `IMAGE_SIZE`. Logged **once, static**, on a
+[`SemanticSegmentation2D`](../archetypes/segmentation.md) entity, whose rows are the pixels of the
+image in row-major order; a view broadcasts the single row over every pixel.
 
 ## Vectorized geometry
 

@@ -25,7 +25,8 @@ depends on it.
 | `BatchClassId`                                      | `(N,)`         | `i32`          | meaning comes from `LabelRegistry`         |
 | `BatchConfidence`                                   | `(N,)`         | `f64`          | constrained to `[0, 1]`                    |
 | `BatchInstanceId`                                   | `(N,)`         | `i64`          | interned by `InstanceRegistry`             |
-| `BatchNumPoints` / `BatchPixel`                     | `(N,)`         | `i32`          |                                            |
+| `BatchNumPoints`                                    | `(N,)`         | `i32`          |                                            |
+| `BatchImageSize`                                    | `(N, 2)`       | `i32`          | `(height, width)`, logged static           |
 | `BatchVisibility` / `BatchMatchStatus`              | `(N,)`         | `i8`           | ordered enums                              |
 | `BatchMask`                                         | `(N,)`         | `bool`         | a filter's verdict                         |
 | `BatchRowIndex`                                     | `(N,)`         | `i64`          | `-1` means "no counterpart"                |

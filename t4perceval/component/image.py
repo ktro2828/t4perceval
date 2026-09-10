@@ -10,7 +10,7 @@ from t4perceval.core.component import ColumnarComponent
 if TYPE_CHECKING:
     from t4perceval.typing import NDArrayI32
 
-__all__ = ("BatchPixel", "BatchRoi")
+__all__ = ("BatchImageSize", "BatchRoi")
 
 
 @define(frozen=True, slots=True)
@@ -54,11 +54,31 @@ class BatchRoi(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchPixel(ColumnarComponent):
-    """Flat pixel indices with shape ``(N,)``.
+class BatchImageSize(ColumnarComponent):
+    """Image sizes as ``(height, width)`` with shape ``(N, 2)``.
 
-    A pixel index is ``row * image_width + column``; the image shape is carried by the
-    owning archetype so the column stays a plain scalar column.
+    A segmentation label image is stored as one class per pixel in row-major order, so
+    the rows say nothing about the image's shape. This column does: it is logged **once,
+    static**, on the entity -- ``BatchImageSize([[height, width]])`` -- and
+    :meth:`~t4perceval.core.view.EntityView.component` broadcasts the single row over
+    every element. Read it un-broadcast with ``store.static(path)[IMAGE_SIZE]``.
     """
 
+    SHAPE = (2,)
     DTYPE = np.int32
+
+    def __attrs_post_init__(self) -> None:
+        if self.values.size and np.any(self.values < 0):
+            raise ValueError("BatchImageSize must contain only non-negative values")
+
+    @property
+    def height(self) -> NDArrayI32:
+        return self.values[:, 0]
+
+    @property
+    def width(self) -> NDArrayI32:
+        return self.values[:, 1]
+
+    def num_pixels(self) -> NDArrayI32:
+        """Return ``height * width`` of each image."""
+        return self.height * self.width

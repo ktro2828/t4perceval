@@ -45,7 +45,7 @@ def empty_archetypes() -> dict[str, Callable[[], Archetype]]:
         "Trackings2D": lambda: Trackings2D(roi=[], class_id=[], confidence=[], instance_id=[]),
         "Predictions3D": lambda: make_predictions([], []),
         "Classifications2D": lambda: Classifications2D(class_id=[], confidence=[]),
-        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(pixel=[], class_id=[]),
+        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(class_id=[]),
         "SemanticSegmentation3D": lambda: SemanticSegmentation3D(point=[], class_id=[]),
         "Trajectories3D": lambda: Trajectories3D.empty(num_modes=2, num_timesteps=3),
         "MatchResults": MatchResults.empty,
@@ -76,8 +76,9 @@ def populated_archetypes() -> dict[str, Callable[[], Archetype]]:
             class_id=[0, 1, 2],
             confidence=[0.1, 0.2, 0.3],
         ),
-        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(
-            pixel=[0, 1, 2],
+        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(class_id=[0, 1, 2]),
+        "SemanticSegmentation3D": lambda: SemanticSegmentation3D(
+            point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             class_id=[0, 1, 2],
         ),
         "MatchResults": lambda: MatchResults(

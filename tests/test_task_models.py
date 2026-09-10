@@ -13,6 +13,7 @@ from t4perceval import (
     Trackings3D,
     TrajectoryMode3D,
 )
+from t4perceval.descriptors import CLASS_ID
 from t4perceval.archetype import Detections3D as ArchetypeDetections3D
 from t4perceval.archetype import MatchResults
 from t4perceval.component import MatchStatus
@@ -200,14 +201,35 @@ class TestPrediction:
 
 class TestSemanticSegmentation:
     def test_a_class_per_pixel(self) -> None:
-        segmentation = SemanticSegmentation2D(
-            pixel=np.arange(6, dtype=np.int32),
-            class_id=[0, 1, 1, 2, 2, 0],
-        )
+        segmentation = SemanticSegmentation2D(class_id=[0, 1, 1, 2, 2, 0])
 
         assert len(segmentation) == 6
-        assert segmentation.pixel.values.dtype == np.int32
-        np.testing.assert_array_equal(segmentation.class_id.values.reshape(2, 3)[1], [2, 2, 0])
+        assert segmentation.class_id.values.dtype == np.int32
+        np.testing.assert_array_equal(segmentation.as_label_map(2, 3)[1], [2, 2, 0])
+
+    def test_the_row_is_the_pixel(self) -> None:
+        assert SemanticSegmentation2D.required_descriptors() == (CLASS_ID,)
+        assert SemanticSegmentation2D.optional_descriptors() == ()
+        with pytest.raises(TypeError):
+            SemanticSegmentation2D(class_id=[0], pixel=[0])  # type: ignore[call-arg]
+
+    def test_a_label_map_flattens_row_major(self) -> None:
+        image = np.array([[0, 1, 1], [2, 2, 0]], dtype=np.int32)
+        segmentation = SemanticSegmentation2D.from_label_map(image)
+
+        assert len(segmentation) == 6
+        assert segmentation.class_id.values.tolist() == [0, 1, 1, 2, 2, 0]
+        np.testing.assert_array_equal(segmentation.as_label_map(2, 3), image)
+        assert segmentation.as_label_map(2, 3).dtype == np.int32
+
+    def test_a_label_map_must_be_an_image(self) -> None:
+        with pytest.raises(ValueError, match=r"must be 2-D \(height, width\), got shape \(6,\)"):
+            SemanticSegmentation2D.from_label_map([0, 1, 1, 2, 2, 0])
+
+    def test_a_label_map_of_the_wrong_size_is_refused(self) -> None:
+        segmentation = SemanticSegmentation2D(class_id=[0, 1, 1, 2, 2, 0])
+        with pytest.raises(ValueError, match=r"6 label\(s\) do not fill a 2x2 image \(4 pixels\)"):
+            segmentation.as_label_map(2, 2)
 
     def test_a_class_per_point(self) -> None:
         segmentation = SemanticSegmentation3D(
@@ -225,7 +247,7 @@ class TestSemanticSegmentation:
             )
 
     def test_segmentation_supports_the_shared_selection_api(self) -> None:
-        segmentation = SemanticSegmentation2D(pixel=[0, 1, 2], class_id=[0, 1, 2])
+        segmentation = SemanticSegmentation2D(class_id=[0, 1, 2])
 
         assert segmentation.select([2, 0]).class_id.values.tolist() == [2, 0]
 
