@@ -4,6 +4,8 @@
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
+![concept](./docs/concept.png)
+
 **Component-oriented perception evaluation for the [T4 dataset](https://github.com/tier4/t4-devkit).**
 
 A redesign of [`autoware_perception_evaluation`](https://github.com/tier4/autoware_perception_evaluation)
