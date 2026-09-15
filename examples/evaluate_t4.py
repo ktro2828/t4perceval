@@ -21,10 +21,16 @@ The four sections mirror the documentation:
 from __future__ import annotations
 
 import argparse
+import textwrap
+from collections.abc import Sequence
 
 import numpy as np
 from t4_devkit.schema import SensorModality
 from t4_devkit.viewer import RerunViewer, ViewerBuilder
+
+# `tabulate` is not a t4perceval dependency -- it arrives with `t4-devkit`, which this
+# example imports directly, so it is present wherever this file can run at all.
+from tabulate import tabulate
 
 from t4perceval import (
     FRAME,
@@ -67,6 +73,11 @@ SCENE = TimeRange.everything()
 
 def banner(title: str) -> None:
     print(f"\n{'=' * 78}\n{title}\n{'=' * 78}")
+
+
+def _table(rows: Sequence[Sequence[object]], headers: Sequence[str], **kwargs: object) -> str:
+    """Render one indented GitHub-flavoured table."""
+    return textwrap.indent(tabulate(rows, headers=headers, tablefmt="github", **kwargs), "  ")
 
 
 # ---------------------------------------------------------------------------------------
@@ -349,10 +360,9 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
         )
         if class_id >= 0 and support
     ]
-    width = max((len(name) for name, _, _ in scored), default=0)
     print("\nper class (support > 0):")
-    for name, value, support in sorted(scored, key=lambda row: -row[2]):
-        print(f"    {name:<{width}}  {value:.4f}  ({support} objects)")
+    rows = sorted(scored, key=lambda row: -row[2])
+    print(_table(rows, ["class", "AP", "objects"], floatfmt=".4f"))
 
     # Ground truth down the rows, estimation across the columns. The trailing `background`
     # column holds false negatives and the `background` row false positives. The sweep's
@@ -425,12 +435,8 @@ def _print_confusion_matrix(labels: LabelRegistry, confusion: ConfusionMatrix) -
     class_ids = [info.class_id for info in labels.classes]
     matrix = confusion.as_matrix(class_ids)
     names = [labels.name(class_id) for class_id in class_ids] + ["background"]
-    width = max(len(name) for name in names)
-    cell = max(width, len(str(int(matrix.max()))) if matrix.size else 1)
-
-    print(f"  {'':<{width}}  " + "  ".join(f"{name:>{cell}}" for name in names))
-    for name, row in zip(names, matrix, strict=True):
-        print(f"  {name:<{width}}  " + "  ".join(f"{int(count):>{cell}}" for count in row))
+    rows = [[name, *(int(count) for count in row)] for name, row in zip(names, matrix, strict=True)]
+    print(_table(rows, ["", *names]))
 
 
 def _viewer_seconds(recording: Recording, path: str) -> dict[int, float]:
