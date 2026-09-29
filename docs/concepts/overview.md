@@ -11,8 +11,10 @@ extending the library. It explains _why_ the APIs look the way they do.
 The original [`autoware_perception_evaluation`](https://github.com/tier4/autoware_perception_evaluation)
 modelled one detected object as one Python object (`DynamicObject`) with more than twenty fields,
 most of them `None` for any given task. `t4perceval` inverts that: **one frame of objects is a set
-of columns**, and a "detection" is not a type but the observation that a `position`, a `size` and a
-`class_id` column happen to be present together.
+of columns**, and whether an entity can be used for an operation depends on the components it
+carries, not its archetype type. For example, centre-distance matching requires `position` and
+`class_id`, while the `Detections3D` archetype requires `position`, `quaternion`, `size`, `class_id`
+and `confidence`.
 
 ```text
       One object per row                     One column per property
@@ -34,7 +36,7 @@ Everything else follows from that choice: vectorized work instead of Python loop
 task that is a _composition_ instead of an enum, and intermediate products that stay queryable
 instead of being discarded.
 
-## The five abstractions
+## The six abstractions
 
 ```text
 Entity path        /ground_truth/objects        where data is filed
@@ -46,7 +48,10 @@ Component          one column, fixed shape      position, class_id, mask, ...
 Archetype          a validated bundle           Detections3D, MatchResults, ...
    │
    ▼
-Chunk / Store      the log, indexed by time     what exists, and when
+Chunk              one write                     temporal or static columns
+   │
+   ▼
+Store              collection and query layer    chunks filed by entity and time
    │
    ▼
 System             components → components      filter, match, metric
