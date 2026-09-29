@@ -286,7 +286,6 @@ class MonoComponent(Component):
     @classmethod
     def empty(cls, *row_shape: int) -> Self:
         """Never returns: one value is one value, and zero of them is not this type."""
-        del row_shape
         raise TypeError(
             f"{cls.__name__} holds exactly one value and has no empty form; the batch "
             f"component it mirrors is the one that can be empty",

@@ -43,7 +43,6 @@ class FilterByConfidenceSystem(MaskSystem):
         )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         confidence = view.component(CONFIDENCE).values
         return (confidence >= self.min_confidence) & (confidence <= self.max_confidence)
 
@@ -65,7 +64,6 @@ class FilterBySpeedSystem(MaskSystem):
         check_range(self.min_speed, self.max_speed, low_name="min_speed", high_name="max_speed")
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         speed = view.component(VELOCITY).speed
         return (speed >= self.min_speed) & (speed <= self.max_speed)
 
@@ -98,7 +96,6 @@ class FilterByNumPointsSystem(MaskSystem):
             )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         num_points = view.component(NUM_POINTS).values
         keep = num_points >= self.min_num_points
         if self.max_num_points is not None:
@@ -133,7 +130,6 @@ class FilterByVisibilitySystem(MaskSystem):
             )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         visibility = view.component(VISIBILITY).values
         unavailable = visibility == int(VisibilityLevel.UNAVAILABLE)
         return unavailable | (visibility >= int(self.min_visibility))

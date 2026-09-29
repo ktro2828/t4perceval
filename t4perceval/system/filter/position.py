@@ -61,7 +61,6 @@ class FilterByDistanceSystem(MaskSystem):
         )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         position = view.component(POSITION).values
         axes = position[:, :2] if self.bev else position
         distance = np.linalg.norm(axes, axis=1)
@@ -123,7 +122,6 @@ class FilterByRegionSystem(MaskSystem):
         )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        del ctx
         xy = view.component(POSITION).values[:, :2]
         lower = np.asarray(self.min_xy, dtype=np.float64)
         upper = np.asarray(self.max_xy, dtype=np.float64)

@@ -203,7 +203,7 @@ class Store:
 
         static = self._restrict_static(path, components)
         if best is None:
-            return EntityView.over(self._empty_chunk(path, components), static=static)
+            return EntityView.over(self._empty_chunk(path), static=static)
 
         _, chunk, partition = best
         return EntityView.over(
@@ -235,7 +235,7 @@ class Store:
 
         static = self._restrict_static(path, components)
         if not matches:
-            return EntityView.over(self._empty_chunk(path, components), static=static)
+            return EntityView.over(self._empty_chunk(path), static=static)
 
         matches.sort(key=lambda match: (match[0], match[1], match[2]))
         pieces = [
@@ -279,9 +279,6 @@ class Store:
         return {descriptor: column for descriptor, column in static.items() if descriptor in wanted}
 
     @staticmethod
-    def _empty_chunk(
-        path: EntityPath,
-        components: Iterable[ComponentDescriptor] | None,
-    ) -> Chunk:
-        del components  # An empty result carries no columns to restrict.
+    def _empty_chunk(path: EntityPath) -> Chunk:
+        """An empty result carries no columns to restrict."""
         return Chunk(path, (), np.array([0, 0], dtype=np.int64), {})
