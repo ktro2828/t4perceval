@@ -127,6 +127,7 @@ Not by Python package -- by what you are trying to do.
 | [Evaluation](evaluation/detection-3d.md)                              | "I want to evaluate Detection 3D."                   |
 | [Recipes](recipes/evaluate-model-output.md)                           | "I want to accomplish X."                            |
 | [Components](components/index.md) & [Archetypes](archetypes/index.md) | "What data types exist?"                             |
+| [Systems](systems/index.md)                                           | "What can a pipeline stage do?"                      |
 | [API reference](reference/api/index.md)                               | "What exactly does this API do?"                     |
 | [Development](development/architecture.md)                            | "I want to understand or extend the library itself." |
 

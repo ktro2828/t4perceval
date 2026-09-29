@@ -285,4 +285,5 @@ threshold cost me?" is a query, not a re-run.
 
 - [Matching](matching.md) -- pairing what survived.
 - [Filter by map region](../recipes/filter-by-lanelet.md) -- the Lanelet2 recipe end to end.
+- [Filters catalogue](../systems/filters.md) -- every system, its requirements and defaults.
 - [Write a custom filter](../recipes/custom-filter.md).

@@ -80,4 +80,5 @@ An optional field is `None` when absent, so `detections.velocity` is either a co
 ## Where to go next
 
 - [Components](../components/index.md) -- the columns these bundle.
+- [Systems](../systems/index.md) -- what reads and writes these bundles.
 - [Extending archetypes](../development/extending-archetypes.md) -- adding your own.

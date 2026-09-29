@@ -260,4 +260,5 @@ masks. They are catalogued, with the reasoning, in
 ## Where to go next
 
 - [Evaluation tasks](../evaluation/detection-3d.md) -- which metric goes with which inputs.
+- [Metrics catalogue](../systems/metrics.md) -- every system, its requirements and defaults.
 - [Write a custom metric](../recipes/custom-metric.md).

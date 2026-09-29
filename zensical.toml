@@ -55,13 +55,6 @@ nav = [
         { "Custom metric" = "recipes/custom-metric.md" },
         { "Custom importer" = "recipes/custom-importer.md" },
     ] },
-    { "Components" = [
-        { "Overview" = "components/index.md" },
-        { "Geometry" = "components/geometry.md" },
-        { "Object" = "components/object.md" },
-        { "Transform" = "components/transform.md" },
-        { "Metrics" = "components/metrics.md" },
-    ] },
     { "Archetypes" = [
         { "Overview" = "archetypes/index.md" },
         { "Detections3D" = "archetypes/detection-3d.md" },
@@ -74,6 +67,20 @@ nav = [
         { "Transform3D" = "archetypes/transform-3d.md" },
         { "MatchResults" = "archetypes/matching.md" },
         { "MetricValues / ConfusionMatrix" = "archetypes/metrics.md" },
+    ] },
+    { "Components" = [
+        { "Overview" = "components/index.md" },
+        { "Geometry" = "components/geometry.md" },
+        { "Object" = "components/object.md" },
+        { "Transform" = "components/transform.md" },
+        { "Metrics" = "components/metrics.md" },
+    ] },
+    { "Systems" = [
+        { "Overview" = "systems/index.md" },
+        { "Filters" = "systems/filters.md" },
+        { "Matchers" = "systems/matchers.md" },
+        { "Metrics" = "systems/metrics.md" },
+        { "Frames and points" = "systems/frames.md" },
     ] },
     { "API reference" = [
         { "Overview" = "reference/api/index.md" },

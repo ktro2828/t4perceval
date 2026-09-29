@@ -183,7 +183,8 @@ Run `uv run zensical serve` for the full site, or read the sources under [`docs/
 | [User guide](docs/user-guide/logging-data.md)                                   | logging, querying, filtering, matching, metrics   |
 | [Evaluation tasks](docs/evaluation/detection-3d.md)                             | inputs, required components, complete examples    |
 | [Recipes](docs/recipes/evaluate-model-output.md)                                | model output, T4 dataset, ROS bag, custom systems |
-| [Components](docs/components/index.md) & [Archetypes](docs/archetypes/index.md) | the schema catalogue                              |
+| [Archetypes](docs/archetypes/index.md) & [Components](docs/components/index.md) | the schema catalogue                              |
+| [Systems](docs/systems/index.md)                                                | the catalogue of filters, matchers and metrics    |
 | [API reference](docs/reference/api/index.md)                                    | generated from the docstrings                     |
 | [Development](docs/development/architecture.md)                                 | architecture, ADRs, and how to extend it          |
 

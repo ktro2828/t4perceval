@@ -163,5 +163,6 @@ the `thresholds` list to sweep per-class values.
 ## Where to go next
 
 - [Metrics](metrics.md) -- turning verdicts into numbers.
+- [Matchers catalogue](../systems/matchers.md) -- every system, its requirements and defaults.
 - [Write a custom matcher](../recipes/custom-matcher.md).
 - [MatchResults](../archetypes/matching.md) -- the archetype's schema.
