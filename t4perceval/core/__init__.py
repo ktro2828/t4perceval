@@ -4,7 +4,6 @@ from t4perceval.core.archetype import Archetype, as_component
 from t4perceval.core.chunk import Chunk, concat_chunks
 from t4perceval.core.component import (
     ANY,
-    ColumnarComponent,
     Component,
     MonoComponent,
     validate_lengths,
@@ -28,7 +27,6 @@ __all__ = (
     "ANY",
     "Archetype",
     "Chunk",
-    "ColumnarComponent",
     "Component",
     "ComponentDescriptor",
     "EntityPath",

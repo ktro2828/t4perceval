@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 import pyarrow as pa
@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 __all__ = (
     "ANY",
-    "ColumnarComponent",
     "Component",
     "MonoComponent",
     "values_equal",
@@ -28,26 +27,6 @@ __all__ = (
 
 #: Wildcard for a per-row dimension whose size is inferred from the data.
 ANY = -1
-
-
-@runtime_checkable
-class Component(Protocol):
-    """The unit of data stored in a column.
-
-    A component owns exactly one column: ``N`` rows of a fixed per-row shape and dtype.
-    """
-
-    DESCRIPTOR: ClassVar[ComponentDescriptor]
-    values: NDArray[Any]
-
-    def __len__(self) -> int: ...
-
-    def select(self, selection: SelectionLike) -> Self: ...
-
-    def to_arrow(self) -> pa.Array: ...
-
-    @classmethod
-    def from_arrow(cls, array: pa.Array) -> Self: ...
 
 
 def values_equal(left: NDArray[Any], right: NDArray[Any]) -> bool:
@@ -67,7 +46,7 @@ def _describe_shape(shape: tuple[int, ...]) -> str:
     return f"({', '.join(parts)})"
 
 
-def _coerce_column(value: ArrayLike, self_: ColumnarComponent) -> NDArray[Any]:
+def _coerce_column(value: ArrayLike, self_: Component) -> NDArray[Any]:
     """Normalize dtype and layout, validate the per-row shape, and freeze the array.
 
     The returned array is always read-only. Memory is never shared with a *writable*
@@ -129,9 +108,10 @@ def _coerce_column(value: ArrayLike, self_: ColumnarComponent) -> NDArray[Any]:
 
 
 @define(frozen=True, slots=True)
-class ColumnarComponent:
-    """Base class implementing the :class:`Component` protocol generically.
+class Component:
+    """The unit of data stored in a column.
 
+    A component owns exactly one column: ``N`` rows of a fixed per-row shape and dtype.
     Subclasses declare the column layout as class variables instead of re-implementing
     converters, ``__len__``, ``select()`` and the Arrow round-trip:
 
@@ -148,7 +128,7 @@ class ColumnarComponent:
     Examples:
         >>> import numpy as np
         >>> @define(frozen=True, slots=True)
-        ... class BatchPosition3D(ColumnarComponent):
+        ... class BatchPosition3D(Component):
         ...     SHAPE = (3,)
         >>> position = BatchPosition3D(np.arange(6, dtype=np.float32).reshape(2, 3))
         >>> position.values.dtype, len(position)
@@ -262,7 +242,7 @@ class ColumnarComponent:
 
 
 @define(frozen=True, slots=True)
-class MonoComponent(ColumnarComponent):
+class MonoComponent(Component):
     """A component that is one value, not a column of them.
 
     Some data is singular by nature. A detection archetype holds *N* objects, so every one
@@ -279,7 +259,7 @@ class MonoComponent(ColumnarComponent):
     returns a three-row column, which a type that permits exactly one row could not be.
 
         >>> @define(frozen=True, slots=True)
-        ... class BatchTranslation(ColumnarComponent):
+        ... class BatchTranslation(Component):
         ...     SHAPE = (3,)
         >>> @define(frozen=True, slots=True)
         ... class Translation(MonoComponent):
@@ -297,9 +277,9 @@ class MonoComponent(ColumnarComponent):
     MONO: ClassVar[bool] = True
 
     #: Columnar counterpart this widens into for storage.
-    BATCH: ClassVar[type[ColumnarComponent]]
+    BATCH: ClassVar[type[Component]]
 
-    def as_batch(self) -> ColumnarComponent:
+    def as_batch(self) -> Component:
         """Return this value as a one-row column of :attr:`BATCH`."""
         return self.BATCH(self.values)
 

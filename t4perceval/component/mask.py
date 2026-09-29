@@ -3,13 +3,13 @@ from __future__ import annotations
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 __all__ = ("BatchMask",)
 
 
 @define(frozen=True, slots=True)
-class BatchMask(ColumnarComponent):
+class BatchMask(Component):
     """A boolean column with shape ``(N,)``.
 
     Filter systems emit their verdict as a mask instead of dropping rows, so that the

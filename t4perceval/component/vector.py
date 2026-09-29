@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 if TYPE_CHECKING:
     from t4perceval.typing import NDArrayF64
@@ -16,7 +16,7 @@ __all__ = ("BatchVector2D", "BatchVector3D")
 
 
 @define(frozen=True, slots=True)
-class BatchVector2D(ColumnarComponent):
+class BatchVector2D(Component):
     """Columnar 2D vectors with shape ``(N, 2)``."""
 
     SHAPE = (2,)
@@ -31,7 +31,7 @@ class BatchVector2D(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchVector3D(ColumnarComponent):
+class BatchVector3D(Component):
     """Columnar 3D vectors with shape ``(N, 3)``."""
 
     SHAPE = (3,)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ANY, ColumnarComponent
+from t4perceval.core.component import ANY, Component
 
 __all__ = (
     "BatchModeConfidence",
@@ -15,7 +15,7 @@ __all__ = (
 
 
 @define(frozen=True, slots=True)
-class BatchWaypoints3D(ColumnarComponent):
+class BatchWaypoints3D(Component):
     """Dense future waypoints with shape ``(N, M, T, 3)``.
 
     ``N`` objects, ``M`` trajectory modes, ``T`` timesteps. ``M`` and ``T`` are fixed
@@ -39,7 +39,7 @@ class BatchWaypoints3D(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchModeConfidence(ColumnarComponent):
+class BatchModeConfidence(Component):
     """Per-mode confidence with shape ``(N, M)``, constrained to ``[0, 1]``.
 
     Interpreted as the posterior probability of each mode. The sum over modes is *not*
@@ -56,7 +56,7 @@ class BatchModeConfidence(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchModeValid(ColumnarComponent):
+class BatchModeValid(Component):
     """Which modes carry real data, with shape ``(N, M)``."""
 
     SHAPE = (ANY,)
@@ -64,7 +64,7 @@ class BatchModeValid(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchTimestepValid(ColumnarComponent):
+class BatchTimestepValid(Component):
     """Which timesteps of which mode carry real data, with shape ``(N, M, T)``."""
 
     SHAPE = (ANY, ANY)
@@ -72,7 +72,7 @@ class BatchTimestepValid(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchTimeOffset(ColumnarComponent):
+class BatchTimeOffset(Component):
     """Time offsets of the waypoint timesteps in nanoseconds, with shape ``(N, T)``.
 
     Offsets are relative to the frame the trajectory was predicted at. Because every row

@@ -100,12 +100,12 @@ archetype 名を含めるが、評価ツールでは「archetype 横断で同じ
 
 ## Component — 1 列
 
-`ColumnarComponent` が `values` フィールド・`__len__`・`select()`・Arrow 変換を**一度だけ**実装する。
+`Component` が `values` フィールド・`__len__`・`select()`・Arrow 変換を**一度だけ**実装する。
 サブクラスは列のレイアウトを ClassVar で宣言するだけでよい。
 
 ```python
 @define(frozen=True, slots=True)
-class BatchPosition3D(ColumnarComponent):
+class BatchPosition3D(Component):
     SHAPE = (3,)  # 行あたりの形状。() はスカラ列。ANY はデータから推論
     DTYPE = np.float64  # すべての値をこの dtype に正規化
     # VALUE_RANGE = (0.0, 1.0)   # 任意。閉区間の値域
@@ -640,7 +640,7 @@ TODO.md に残っていた論点の結論。
 | component 内部配列を read-only にするか | する                                                                               |
 | オブジェクト数 0 の batch を許可するか  | 全 archetype で許可                                                                |
 | `Selection` が受理する入力              | slice / int 配列 / bool 配列 / int list / bool list。負index・重複・逆順可         |
-| category ↔ `BatchClassId` の対応        | `LabelRegistry`。static なメタデータとして運ぶ                                     |
+| category と `BatchClassId` の対応       | `LabelRegistry`。static なメタデータとして運ぶ                                     |
 | view を archetype ごとに作るか          | 作らない。汎用 `EntityView` 1 つ                                                   |
 | 座標系を path に入れるか                | 入れない。認識データは `Chunk.frame_id`、transform は親を `frame_id`・子を列で表す |
 | transform を static データにするか      | 時間不変なら する。`static` は「timeline に乗らない」の意味で、frame_id も残る     |

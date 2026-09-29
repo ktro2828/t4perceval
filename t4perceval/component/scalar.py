@@ -5,7 +5,7 @@ from enum import IntEnum
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 __all__ = (
     "BatchClassId",
@@ -37,7 +37,7 @@ class VisibilityLevel(IntEnum):
 
 
 @define(frozen=True, slots=True)
-class BatchClassId(ColumnarComponent):
+class BatchClassId(Component):
     """Class indices with shape ``(N,)``.
 
     The mapping from a class index to a human readable name lives in
@@ -48,14 +48,14 @@ class BatchClassId(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchConfidence(ColumnarComponent):
+class BatchConfidence(Component):
     """Confidence scores with shape ``(N,)``, constrained to ``[0, 1]``."""
 
     VALUE_RANGE = (0.0, 1.0)
 
 
 @define(frozen=True, slots=True)
-class BatchInstanceId(ColumnarComponent):
+class BatchInstanceId(Component):
     """Persistent per-object identifiers with shape ``(N,)``.
 
     String UUIDs from the dataset are mapped to integers by
@@ -66,14 +66,14 @@ class BatchInstanceId(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchNumPoints(ColumnarComponent):
+class BatchNumPoints(Component):
     """Number of sensor points inside each 3D box, with shape ``(N,)``."""
 
     DTYPE = np.int32
 
 
 @define(frozen=True, slots=True)
-class BatchVisibility(ColumnarComponent):
+class BatchVisibility(Component):
     """Visibility level per object with shape ``(N,)``.
 
     Values are :class:`VisibilityLevel` members; higher means better visibility.

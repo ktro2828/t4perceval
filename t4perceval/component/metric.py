@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 from t4perceval.label import BACKGROUND_CLASS_ID
 
 __all__ = (
@@ -25,7 +25,7 @@ ALL_CLASSES = -1
 
 
 @define(frozen=True, slots=True)
-class BatchCount(ColumnarComponent):
+class BatchCount(Component):
     """Non-negative event counts with shape ``(N,)``."""
 
     DTYPE = np.int64
@@ -36,7 +36,7 @@ class BatchCount(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchThreshold(ColumnarComponent):
+class BatchThreshold(Component):
     """The threshold a value was produced at, with shape ``(N,)``.
 
     ``NaN`` means the row has no threshold -- either the metric does not take one, or the
@@ -47,7 +47,7 @@ class BatchThreshold(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchMetricValue(ColumnarComponent):
+class BatchMetricValue(Component):
     """A metric value with shape ``(N,)``.
 
     ``NaN`` means undefined: there was nothing to measure. The original package used
@@ -59,7 +59,7 @@ class BatchMetricValue(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchSupport(ColumnarComponent):
+class BatchSupport(Component):
     """How many ground-truth objects a value rests on, with shape ``(N,)``.
 
     ``0`` is what turns an undefined value from a mystery into a fact: the metric is

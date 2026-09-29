@@ -6,7 +6,7 @@ import numpy as np
 from attrs import NOTHING, define, fields
 
 from t4perceval.core.chunk import Chunk
-from t4perceval.core.component import ColumnarComponent, MonoComponent, validate_lengths
+from t4perceval.core.component import Component, MonoComponent, validate_lengths
 from t4perceval.core.selection import normalize_selection
 from t4perceval.core.timeline import TimeColumn
 
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from attrs import Attribute
     from typing_extensions import Self
 
-    from t4perceval.core.component import Component
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.core.timeline import TimePoint
@@ -39,7 +38,7 @@ def as_component(value: Any, component_type: type[Component]) -> Component:
     """
     if isinstance(value, component_type):
         return value
-    if isinstance(value, ColumnarComponent):
+    if isinstance(value, Component):
         return component_type(value.values)
     return component_type(value)
 

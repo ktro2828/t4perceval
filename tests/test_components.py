@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from attrs import define
 
-from t4perceval import ANY, ColumnarComponent
+from t4perceval import ANY, Component, MonoComponent
 from t4perceval.component import (
     BatchClassId,
     BatchConfidence,
@@ -209,6 +209,17 @@ class TestSemanticColumns:
         assert VisibilityLevel.UNAVAILABLE < VisibilityLevel.NONE < VisibilityLevel.FULL
 
 
+class TestComponentHierarchy:
+    """`Component` is the one concrete base; there is no separate protocol."""
+
+    def test_mono_is_a_component(self) -> None:
+        import t4perceval
+
+        assert issubclass(MonoComponent, Component)
+        assert issubclass(Position3D, Component)
+        assert not hasattr(t4perceval, "ColumnarComponent")
+
+
 class TestMonoComponents:
     """Components that are one value rather than a column of them."""
 
@@ -301,7 +312,7 @@ class TestArrowRoundTrip:
             BatchImageSize([[2, 3]]),
         ],
     )
-    def test_round_trips_through_arrow(self, column: ColumnarComponent) -> None:
+    def test_round_trips_through_arrow(self, column: Component) -> None:
         restored = type(column).from_arrow(column.to_arrow())
 
         assert restored == column
@@ -325,7 +336,7 @@ class TestArrowRoundTrip:
 class TestSubclassing:
     def test_a_new_column_type_needs_only_its_layout(self) -> None:
         @define(frozen=True, slots=True)
-        class BatchCovariance3D(ColumnarComponent):
+        class BatchCovariance3D(Component):
             SHAPE = (3, 3)
 
         covariance = BatchCovariance3D(np.eye(3)[None, ...])
@@ -336,7 +347,7 @@ class TestSubclassing:
 
     def test_a_wildcard_layout_is_reported_in_the_error(self) -> None:
         @define(frozen=True, slots=True)
-        class BatchRagged(ColumnarComponent):
+        class BatchRagged(Component):
             SHAPE = (ANY,)
 
         with pytest.raises(ValueError, match=r"shape \(N, \*\)"):

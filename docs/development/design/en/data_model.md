@@ -103,12 +103,12 @@ The canonical descriptors live in `t4perceval/descriptors.py`.
 
 ## Component — one column
 
-`ColumnarComponent` implements the `values` field, `__len__`, `select()` and the Arrow round-trip
+`Component` implements the `values` field, `__len__`, `select()` and the Arrow round-trip
 **once**. A subclass only declares its layout as class variables.
 
 ```python
 @define(frozen=True, slots=True)
-class BatchPosition3D(ColumnarComponent):
+class BatchPosition3D(Component):
     SHAPE = (3,)  # per-row shape; () is scalar, ANY is inferred from the data
     DTYPE = np.float64  # every value is coerced to this dtype
     # VALUE_RANGE = (0.0, 1.0)   # optional inclusive bound

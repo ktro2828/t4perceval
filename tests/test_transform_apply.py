@@ -24,7 +24,7 @@ from t4perceval.component import (
     Quaternion,
 )
 from t4perceval.component.vector import BatchVector3D
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 from t4perceval.core.descriptor import ComponentDescriptor
 from t4perceval.descriptors import (
     CHILD_FRAME_ID,
@@ -58,7 +58,7 @@ POSE_90 = (np.array([10.0, 0.0, 0.0]), np.array(yaw(90.0)))
 WEIRD = ComponentDescriptor("weird", component_type="Weird")
 
 
-class Weird(ColumnarComponent):
+class Weird(Component):
     SHAPE = (2,)
 
 

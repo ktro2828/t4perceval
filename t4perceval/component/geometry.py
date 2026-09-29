@@ -6,7 +6,7 @@ import numpy as np
 from attrs import define
 from scipy.spatial.transform import Rotation
 
-from t4perceval.core.component import ColumnarComponent, MonoComponent
+from t4perceval.core.component import Component, MonoComponent
 from t4perceval.component.vector import BatchVector2D, BatchVector3D
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class BatchSize2D(BatchVector2D):
 
 
 @define(frozen=True, slots=True)
-class BatchQuaternion(ColumnarComponent):
+class BatchQuaternion(Component):
     """Columnar unit quaternions in ``xyzw`` order with shape ``(N, 4)``."""
 
     SHAPE = (4,)
@@ -105,7 +105,7 @@ class Position3D(BatchPosition3D, MonoComponent):
     :class:`BatchPosition3D` of one row.
     """
 
-    BATCH: ClassVar[type[ColumnarComponent]] = BatchPosition3D
+    BATCH: ClassVar[type[Component]] = BatchPosition3D
 
 
 @define(frozen=True, slots=True)
@@ -116,7 +116,7 @@ class Quaternion(BatchQuaternion, MonoComponent):
     :class:`~scipy.spatial.transform.Rotation`.
     """
 
-    BATCH: ClassVar[type[ColumnarComponent]] = BatchQuaternion
+    BATCH: ClassVar[type[Component]] = BatchQuaternion
 
     def as_rotation(self) -> Rotation:
         """Return this quaternion as one SciPy rotation, not a length-one stack."""

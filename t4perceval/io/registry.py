@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from t4perceval.core.component import ColumnarComponent
-
-if TYPE_CHECKING:
-    from t4perceval.core.component import Component
+from t4perceval.core.component import Component
 
 __all__ = ("component_types", "resolve_component_type")
 
@@ -18,8 +13,8 @@ def _discover() -> dict[str, type[Component]]:
         candidate = getattr(components, name)
         if (
             isinstance(candidate, type)
-            and issubclass(candidate, ColumnarComponent)
-            and candidate is not ColumnarComponent
+            and issubclass(candidate, Component)
+            and candidate is not Component
         ):
             found[candidate.__name__] = candidate
     return found

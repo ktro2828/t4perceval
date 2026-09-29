@@ -547,7 +547,7 @@ Real but unscheduled; none of them blocks a phase above.
 
 ### Core and system layer
 
-- [x] `core` — `EntityPath` / `ComponentDescriptor` / `ColumnarComponent` / `Archetype` /
+- [x] `core` — `EntityPath` / `ComponentDescriptor` / `Component` / `Archetype` /
       `Timeline` / `Chunk` / `Store` / `EntityView` / `normalize_selection`
 - [x] Move archetypes from inheritance to composition. `select()` has one implementation, on the base
 - [x] Dismantle `Header` (`TimePoint` + `Chunk.frame_id`)

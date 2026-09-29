@@ -5,7 +5,7 @@ from enum import IntEnum
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 __all__ = ("BatchMatchStatus", "BatchMatchingScore", "BatchRowIndex", "MatchStatus")
 
@@ -22,7 +22,7 @@ class MatchStatus(IntEnum):
 
 
 @define(frozen=True, slots=True)
-class BatchRowIndex(ColumnarComponent):
+class BatchRowIndex(Component):
     """Row indices into another entity's chunk, with shape ``(N,)``.
 
     ``-1`` marks "no counterpart", which is how an unmatched estimation or ground-truth
@@ -33,7 +33,7 @@ class BatchRowIndex(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchMatchingScore(ColumnarComponent):
+class BatchMatchingScore(Component):
     """The score a matching system produced for each pair, with shape ``(N,)``.
 
     The score is whatever the producing system measures -- a centre distance in metres,
@@ -45,7 +45,7 @@ class BatchMatchingScore(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchMatchStatus(ColumnarComponent):
+class BatchMatchStatus(Component):
     """TP / FP / FN verdict per row, with shape ``(N,)``.
 
     Values are :class:`MatchStatus` members.

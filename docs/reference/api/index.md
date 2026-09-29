@@ -32,7 +32,6 @@ from t4perceval import (
     TIMESTAMP,
     Archetype,
     Chunk,
-    ColumnarComponent,
     Component,
     ComponentDescriptor,
     MonoComponent,

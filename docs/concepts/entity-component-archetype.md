@@ -77,7 +77,7 @@ ConfusionMatrix.descriptor_of("ground_truth_class_id").component  # 'ground_trut
 
 Two flavours exist:
 
-- **Columnar** (`ColumnarComponent`, everything prefixed `Batch*`): `N` rows of something.
+- **Columnar** (`Component`, everything prefixed `Batch*`): `N` rows of something.
 - **Mono** (`MonoComponent`): exactly one value, written and read without a row index. Only
   [`Transform3D`](../archetypes/transform-3d.md) uses these -- it describes one relationship between
   two frames, not `N` objects.

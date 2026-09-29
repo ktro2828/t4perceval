@@ -22,13 +22,13 @@ import numpy as np
 import pyarrow as pa
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent, MonoComponent
+from t4perceval.core.component import Component, MonoComponent
 
 __all__ = ("BatchFrameId", "FrameId")
 
 
 @define(frozen=True, slots=True)
-class BatchFrameId(ColumnarComponent):
+class BatchFrameId(Component):
     """Coordinate-frame names with shape ``(N,)``.
 
     The storage form. :class:`FrameId` is what an archetype declares; this is what a chunk
@@ -104,7 +104,7 @@ class FrameId(BatchFrameId, MonoComponent):
     """
 
     DTYPE: ClassVar[object] = object
-    BATCH: ClassVar[type[ColumnarComponent]] = BatchFrameId
+    BATCH: ClassVar[type[Component]] = BatchFrameId
 
     @property
     def name(self) -> str:

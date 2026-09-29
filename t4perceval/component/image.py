@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 if TYPE_CHECKING:
     from t4perceval.typing import NDArrayI32
@@ -14,7 +14,7 @@ __all__ = ("BatchImageSize", "BatchRoi")
 
 
 @define(frozen=True, slots=True)
-class BatchRoi(ColumnarComponent):
+class BatchRoi(Component):
     """Columnar 2D regions of interest with shape ``(N, 4)``.
 
     The layout is ``(x_min, y_min, height, width)``, matching the original
@@ -54,7 +54,7 @@ class BatchRoi(ColumnarComponent):
 
 
 @define(frozen=True, slots=True)
-class BatchImageSize(ColumnarComponent):
+class BatchImageSize(Component):
     """Image sizes as ``(height, width)`` with shape ``(N, 2)``.
 
     A segmentation label image is stored as one class per pixel in row-major order, so

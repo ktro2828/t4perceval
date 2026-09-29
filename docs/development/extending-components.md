@@ -4,7 +4,7 @@ Adding a new column type.
 
 ## The declaration
 
-Subclass `ColumnarComponent` and declare the layout as class variables. The base supplies the
+Subclass `Component` and declare the layout as class variables. The base supplies the
 converter, `__len__`, `select()`, the Arrow round-trip and the read-only guarantee.
 
 ```python
@@ -15,13 +15,13 @@ from typing import ClassVar
 import numpy as np
 from attrs import define
 
-from t4perceval.core.component import ColumnarComponent
+from t4perceval.core.component import Component
 
 __all__ = ("BatchAcceleration",)
 
 
 @define(frozen=True, slots=True)
-class BatchAcceleration(ColumnarComponent):
+class BatchAcceleration(Component):
     """Columnar 3D accelerations with shape ``(N, 3)``, in m/s²."""
 
     SHAPE: ClassVar[tuple[int, ...]] = (3,)
@@ -81,7 +81,7 @@ from t4perceval.core.component import ANY
 
 
 @define(frozen=True, slots=True)
-class BatchModeAcceleration(ColumnarComponent):
+class BatchModeAcceleration(Component):
     """Per-mode acceleration with shape ``(N, M)``."""
 
     SHAPE: ClassVar[tuple[int, ...]] = (ANY,)
