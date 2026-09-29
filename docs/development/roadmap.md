@@ -1,7 +1,7 @@
 # Roadmap
 
 What is next, and what is already done. The data model and the system layer are designed and
-implemented; see the [design documents](./design/) for the design itself,
+implemented; see the [design decisions](./design-decisions/index.md) for the design itself,
 [Architecture](./architecture.md) for the layer map, and
 [Design decisions](./design-decisions/index.md) for the individual calls.
 
@@ -73,8 +73,7 @@ write_recording(recording, "result.t4eval")
 recording = read_recording("result.t4eval")
 ```
 
-Design: [persistent-recordings.md](./persistent-recordings.md) and
-[ADR 0004](./design-decisions/0004-persistent-recording.md).
+Design: [ADR 0004](./design-decisions/0004-persistent-recording.md).
 
 ### Why this comes first
 
@@ -174,11 +173,8 @@ transformed entity
 ```
 
 ```python
-TransformEntitySystem(
-    source="/estimation/objects",
-    target="/estimation/objects_map",
-    target_frame="map",
-)
+TransformEntitySystem.of("/estimation/objects", target_frame="map")
+# -> /estimation/objects/in/map
 ```
 
 Transforms are recorded data plus an explicit interpretation step, never hidden state.
@@ -190,10 +186,10 @@ Transforms are recorded data plus an explicit interpretation step, never hidden 
 A transforming or masking system preserves most of the source's components, and cannot enumerate
 them. `REQUIRES` / `PROVIDES` should support that explicitly rather than treating an empty
 `PROVIDES` as an implicit passthrough — declaring `()` makes `Pipeline` reject any consumer of the
-target. `ApplyMaskSystem` already carries this wart.
+target. Shipped as `Passthrough`:
 
 ```python
-PROVIDES = PassthroughFrom(SOURCE)
+PROVIDES = Passthrough(0, drops=(MASK,))  # source 0's contract, minus MASK
 ```
 
 The exact API can differ, but passthrough semantics should be first-class: `_validate` propagates
@@ -237,7 +233,7 @@ A transformed result is written as a new entity rather than mutating the source:
         ↓
 TransformEntitySystem
         ↓
-/estimation/objects_map
+/estimation/objects/in/map
 ```
 
 This preserves provenance and fits the immutable, log-oriented `Store` model. It is also forced
@@ -452,7 +448,9 @@ to the core architecture unless it exposes a genuine abstraction problem.
 ### Additional metrics
 
 - [ ] `HotaSystem`
-- [ ] `PassFailSystem`, including the critical-object verdict
+- [ ] `PassFailSystem`, including the critical-object verdict: it would require `MATCH_STATUS`
+      plus the `MASK` of the critical-object filters, so `CriticalObjectFilterConfig` becomes
+      filter systems and `PerceptionPassFailConfig` its parameters
 - [ ] Additional segmentation metrics
 - [ ] Task-specific aggregate metrics
 
@@ -504,8 +502,7 @@ Do not redesign already-stable concepts unless the work above exposes a concrete
 particular, do not proactively redesign `Store`, `Archetype`, `Component`, `EntityPath`, `FrameId`,
 `FrameGraph`, the importer architecture, or the core ECS-like data model.
 
-Also postpone the high-level offline-analysis abstractions sketched in
-[persistent-recordings.md](./persistent-recordings.md) §4:
+Also postpone the high-level offline-analysis abstractions once sketched for the format:
 
 ```python
 analysis.errors(...)
@@ -592,13 +589,13 @@ Real but unscheduled; none of them blocks a phase above.
 Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers converge on.
 
 - [x] Implement an importer on top of `t4_devkit.T4Devkit`. See "Dataloader design" in
-      [data_model.md](./design/en/data_model.md).
+      [dataset importers](../user-guide/dataset-importers.md).
   - [x] Load by dataset root / revision.
   - [x] Narrow by scene, sample and sensor channel.
   - [x] Convert `Box3D` into `Detections3D` / `Trackings3D` / `Predictions3D` and `Box2D`
         into `Detections2D` / `Trackings2D`. One extraction, one projection per archetype:
         the 3D archetypes are a nested superset chain over the same annotation rows.
-  - [x] Convert `Box3D.unix_time` (μs) to the `TIMESTAMP` timeline (ns).
+  - [x] Convert the sample's `timestamp` (μs) to the `TIMESTAMP` timeline (ns).
   - [x] Handle empty annotations, missing velocity and invalid sample data.
   - [x] Keep the dependency on `t4_devkit` inside the importer module — enforced by a test
         asserting `import t4perceval` never loads it, and by making it an optional extra.
@@ -684,7 +681,7 @@ Correctness against the official definitions is [P3](#p3-metric-correctness).
       could not express a frame name containing `/`, and tied the graph to where it was
       filed. `static` now means only "not on a timeline", so a calibration is `log_static`
       and an ego pose is `log` -- same archetype. Recorded in
-      [data_model.md](./design/en/data_model.md); the old claims are struck through there
+      [ADR 0003](./design-decisions/0003-coordinate-system.md), superseded designs included
       rather than deleted.
 - [x] Mono components. `Transform3D` describes one relationship, not N objects, so its
       fields are `Position3D` / `Quaternion` / `FrameId` -- values, not columns, with

@@ -47,6 +47,33 @@ How `autoware_perception_evaluation` (`perception_eval`) maps onto `t4perceval`.
 | walking a `List[FrameResult]`               | `store.range(...)`                                         |
 | intermediate results (discarded)            | chunks under `/` (kept)                                    |
 
+## Tasks
+
+| Old `evaluation_task` | New expression                                         |
+| :-------------------- | :----------------------------------------------------- |
+| `detection`           | `Detections3D`'s components + matching + mAP           |
+| `tracking`            | as above + `INSTANCE_ID` + CLEAR                       |
+| `prediction`          | as above + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE |
+| `detection2d`         | `Detections2D`'s components + ROI IoU matching + mAP   |
+| `tracking2d`          | as above + `INSTANCE_ID` + CLEAR                       |
+| `classification2d`    | `Classifications2D`'s components + classification      |
+
+The branches disappear because a system only asks whether the components it needs are present:
+tracking data runs through a detection pipeline unchanged.
+
+## Config keys
+
+| Old `evaluation_config_dict` key      | New parameter                                                   |
+| :------------------------------------ | :-------------------------------------------------------------- |
+| `max_distance` / `min_distance`       | `FilterByDistanceSystem(max_distance=, min_distance=)`          |
+| `max_x_position` / `max_y_position`   | `FilterByRegionSystem.symmetric(max_xy=)`                       |
+| `target_labels` / `ignore_attributes` | `FilterByLabelSystem(labels=, exclude=)`                        |
+| `confidence_threshold`                | `FilterByConfidenceSystem(min_confidence=)`                     |
+| `target_uuids`                        | `FilterByInstanceSystem(instances=)`                            |
+| `min_point_numbers: [5, 0, 0]`        | per-class `FilterByNumPointsSystem` + `CombineMasksSystem`      |
+| `center_distance_thresholds` etc.     | `Thresholds(default, by_class=)` on the matcher                 |
+| `iou_2d_thresholds`                   | `IoUBEVMatchingSystem` (3D tasks) / `IoURoiMatchingSystem` (2D) |
+
 ## Code
 
 ### Building objects
@@ -192,7 +219,7 @@ if batch.has(*Detections3D.required_descriptors()):
 ```
 
 `isinstance(tracking, Detections3D)` is now **False**, because the inheritance was dropped. That is
-intended; see "Why inheritance was dropped" in [data_model.md](data_model.md).
+intended; see [Composition over inheritance](design-principles.md#4-composition-over-inheritance).
 
 ### Saving results
 

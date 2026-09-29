@@ -3,19 +3,21 @@
 
 Run it with::
 
-    uv run python example.py
-    uv run python example.py /path/to/another/t4dataset
+    uv run python examples/evaluate_t4.py /path/to/t4dataset
+    uv run python examples/evaluate_t4.py /path/to/t4dataset --save out.t4eval --visualize
 
 Needs the ``t4`` extra::
 
     uv sync --group dev            # or: pip install 't4perceval[t4]'
 
-The four sections mirror the documentation:
+The sections mirror the documentation:
 
 1. Inspect      -- what the dataset holds                docs/user-guide/dataset-importers.md
 2. Import       -- what lands in a Recording             docs/concepts/store.md
 3. Frames       -- the coordinate-frame graph            docs/concepts/coordinate-system.md
 4. Evaluate     -- filter (range, map), match, metrics   docs/evaluation/detection-3d.md
+5. Persist      -- save, reopen, ask again (--save)      docs/user-guide/persistence.md
+6. Visualize    -- both streams in Rerun (--visualize)   t4-devkit's viewer
 """
 
 from __future__ import annotations
@@ -317,7 +319,7 @@ def evaluate(
         print(f"map       : {len(lanelet_map.lanelets)} lanelets {lanelet_map.subtypes}")
     narrowing = []
     max_distance = 50.0
-    lanelet_subtypes = ("road", "road_sholder", "crosswalk")
+    lanelet_subtypes = ("road", "road_shoulder", "crosswalk")
     for path in (GROUND_TRUTH, ESTIMATION):
         near = FilterByDistanceSystem.on(path, max_distance=max_distance)
         cuts = [near]

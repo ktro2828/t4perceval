@@ -96,6 +96,10 @@ labels.encode(["car", "pedestrian"])  # array([0, 2], dtype=int32)
 labels.decode([0, 2])  # ('car', 'pedestrian')
 ```
 
+A registry is metadata, not a column -- names are not numeric, and it describes a whole recording
+-- and `merged()` yields a new registry rather than a flag read at match time, so a merge is visible
+in the data.
+
 Ids are assigned in first-seen order, so **two sources that each derive their own registry are both
 valid and silently incompatible**. Hand the same registry to every importer in a run; the
 disagreement would otherwise surface as plausible numbers, not an error. `Recording.agrees_with`
@@ -106,4 +110,4 @@ and `LabelRegistry.fingerprint` exist to catch it, and
 
 - [Entity, component, archetype](entity-component-archetype.md) -- how columns get named and bundled.
 - [Store](store.md) -- where chunks live.
-- [Data model design](../development/design/en/data_model.md) -- the long-form rationale, in English and Japanese.
+- [ADR 0001](../development/design-decisions/0001-ecs-data-model.md) -- why the model looks like this.

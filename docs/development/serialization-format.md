@@ -60,7 +60,7 @@ can exist before it has any edge -- so the schema must not depend on the row cou
 | `columns`      | the component type and row shape needed to reconstruct the right class   |
 | `labels`       | a registry, not row data; without it the integer columns are meaningless |
 
-`column_type` is resolved back to a class through
+`component_type` is resolved back to a class through
 [`t4perceval.io.registry`](../reference/api/io.md), which is why a new component must be reachable
 from `t4perceval.component` -- see [Extending components](extending-components.md#register-it-for-io).
 

@@ -41,6 +41,7 @@ from __future__ import annotations
 from attrs import define
 
 from t4perceval import (
+    FRAME,
     Detections3D,
     InstanceRegistry,
     LabelRegistry,
@@ -176,8 +177,8 @@ store.log("/tf/base_link", ego_pose, at=at, frame_id="map")  # an ego pose
 ## Testing it
 
 The built-in importers are tested against **synthetic fixtures** built in-process
-(`tests/t4_builder.py`, `tests/rosbag_builder.py`) rather than against a checked-in dataset. Do the
-same: a builder that writes a minimal valid source is faster, and makes the edge cases -- an empty
+(`tests/t4_builder.py`, `tests/rosbag_builder.py`), plus one small vendored T4 scene
+(`tests/data/t4dataset/`) for the real on-disk format. Do the same: a builder that writes a minimal valid source is faster, and makes the edge cases -- an empty
 frame, an unknown category, a missing sensor -- easy to construct.
 
 ## Where to go next

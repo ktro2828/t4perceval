@@ -60,6 +60,11 @@ Two rules keep it from firing spuriously:
 - **An empty frame is still consulted.** An importer logs an empty frame with its `frame_id` intact;
   ignoring that would make a system's output frame flicker across a scene, which `concat_chunks`
   then refuses to join.
+- **Only the temporal chunk's frame is consulted.** A static column such as a shared `time_offset`
+  is not geometry, and a static transform's frame is its edge's parent; letting either speak for
+  the entity would trip the guard for no reason.
+- **`check_frames=False` mirrors `require_same_frame_id=False`.** A store assembled with that flag
+  could otherwise never be matched.
 
 ## Alternatives considered
 
@@ -77,7 +82,15 @@ evaluation cannot be reinterpreted without the configuration that produced it, a
 answer to "what was the ego pose at frame 40?" from the data alone.
 
 **Put the frame in the entity path** -- `/base_link/objects`. Reads nicely, and makes a frame name
-path-shaped, breaks on ROS-namespaced names, and conflates filing with geometry.
+path-shaped, breaks on ROS-namespaced names, and conflates filing with geometry. It also makes
+`/ground_truth/objects` unaddressable by a system that does not care about frames.
+
+**Superseded designs, kept for the record.** Archetypes once carried a `Header(timestamp_ns,
+frame_id)`; it was split into the `TIMESTAMP` index and `Chunk.frame_id`, so archetypes became pure
+component bundles. Transforms once lived at `/transforms/<parent>/<child>`, with the frame pair in
+the path; that could not express a frame name containing `/`. And static storage once discarded
+the frame, so an extrinsic had to be logged as a temporal sample at the first frame -- which a
+windowed `range` starting later never saw. Static chunks now keep their `frame_id`.
 
 **Both frames as columns.** Symmetric, and duplicates what `frame_id` already says, so the two can
 disagree.
@@ -96,7 +109,9 @@ disagree.
 **Costs.**
 
 - A cross-frame evaluation needs an explicit `TransformEntitySystem` stage, and the user has to know
-  which side to move and which frame graph answers for it -- the pipeline cannot guess.
+  which side to move and which frame graph answers for it -- the pipeline cannot guess. The one
+  exception is `FilterByMapSystem`: its predicate is about the world, so it looks the ego pose up
+  itself.
 - `Transform3D` is the only archetype with **mono** components, which is a special case in the model
   even though storage stays columnar underneath.
 - Bag transforms live on `TIMESTAMP` only, because a `/tf` sample between two object messages has no

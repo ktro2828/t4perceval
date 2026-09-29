@@ -26,7 +26,12 @@ matcher.target  # /matching/center_distance
 | `IoURoiMatchingSystem`            | `roi`, `class_id`                            | IoU of image-plane regions     | higher |               0.5 |
 
 All six share a base, so they take the same parameters and write the same columns. Every one writes
-to `/matching/<mode>` unless you pass `target=`.
+to `/matching/<mode>` unless you pass `target=`, so several modes can run and be compared.
+
+BEV centre distance is its own class rather than a `bev` flag, and IoU is two classes, because a
+matcher that inspects which components are present is the hidden branching this design removes.
+Plane distance is the RMS of the gaps on the ego-facing face, so an error on the far side scores
+zero; rotated footprints are clipped as shapely polygons.
 
 The geometry behind them is vectorized and pairwise; see
 [`t4perceval.geometry`](../reference/api/geometry.md).
@@ -63,6 +68,9 @@ row.
 
 Pairs are chosen by a globally optimal **linear-sum (Hungarian) assignment** over the score matrix,
 subject to the threshold and -- unless `class_agnostic=True` -- to the two rows sharing a class.
+
+A non-finite score is never assigned, and `matching_score` is the mode's natural value -- metres or
+a ratio, NaN on an unmatched row -- not the internal cost.
 
 That differs from `autoware_perception_evaluation`, which walks estimations in confidence order and
 greedily takes the best still-available ground truth. On scenes where each estimate has exactly one

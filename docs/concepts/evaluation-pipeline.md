@@ -163,4 +163,4 @@ by following the indices back, because only the matcher knew it.
 
 - [Detection 3D](../evaluation/detection-3d.md) -- a whole task, end to end.
 - [Extending systems](../development/extending-systems.md) -- writing your own filter, matcher or metric.
-- [System design](../development/design/en/system.md) -- the long-form rationale.
+- [Design principles](../development/design-principles.md) -- the rules the systems follow.

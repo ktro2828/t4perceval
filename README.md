@@ -187,13 +187,9 @@ Run `uv run zensical serve` for the full site, or read the sources under [`docs/
 | [API reference](docs/reference/api/index.md)                                    | generated from the docstrings                     |
 | [Development](docs/development/architecture.md)                                 | architecture, ADRs, and how to extend it          |
 
-The long-form design documents are available in both languages:
-
-|                      | 日本語                                                   | English                                                    |
-| :------------------- | :------------------------------------------------------- | :--------------------------------------------------------- |
-| Data model           | [データモデル](docs/development/design/ja/data_model.md) | [Data model](docs/development/design/en/data_model.md)     |
-| Systems and pipeline | [システム設計](docs/development/design/ja/system.md)     | [System design](docs/development/design/en/system.md)      |
-| Migration            | [移行ガイド](docs/development/design/ja/migration.md)    | [Migration guide](docs/development/design/en/migration.md) |
+Coming from `autoware_perception_evaluation`? The
+[migration guide](docs/development/migration.md) maps its types, tasks and config keys onto this
+package.
 
 ## Development
 
@@ -210,8 +206,10 @@ See [Contributing](docs/development/contributing.md).
 
 **Implemented.** The data model (`core`), all component and archetype types, the store with
 timelines and static data, lazy views, the label registries, Arrow/Parquet IO, the system protocol
-with `Pipeline`, the full filter family (eight filters on a shared `MaskSystem` base, plus
-`CombineMasksSystem`, `ApplyMaskSystem` and `masked_view`), the full matching family (six modes on a
+with `Pipeline`, the full filter family (nine filters on a shared `MaskSystem` base -- including
+`FilterByMapSystem`, which keeps the objects inside the lanelets of a Lanelet2 map read by
+`t4perceval.lanelet` -- plus `CombineMasksSystem`, `ApplyMaskSystem` and `masked_view`), the full
+matching family (six modes on a
 shared `MatchingSystem` base, with per-class `Thresholds` and vectorized geometry in
 `t4perceval.geometry`), the metric systems (mAP/APH, CLEAR, ADE/FDE/MissRate, classification,
 confusion matrix, and segmentation IoU/mIoU/accuracy/confusion with no matching stage), the T4 and
@@ -228,7 +226,7 @@ in as well.
 lidarseg importer, and a visualization layer.
 
 See [the roadmap](docs/development/roadmap.md) for the current list,
-[System design](docs/development/design/en/system.md) for where each of those fits on the protocol,
+[Design principles](docs/development/design-principles.md) for the rules they follow,
 and [Metric divergences](docs/development/metric-divergences.md) for where the metric
 implementations differ from the official benchmark definitions.
 

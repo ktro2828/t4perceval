@@ -41,7 +41,11 @@ the same descriptors, so `tracking.has(*Detections3D.required_descriptors())` is
 anyone knowing a hierarchy exists.
 
 Inheritance would make `Predictions3D` an `is-a` chain that every consumer has to reason about.
-Composition lets a consumer state a requirement and stop caring.
+Composition lets a consumer state a requirement and stop caring. The hierarchy that preceded it
+cost three things: `select()` was written three times, "has a trajectory but no instance id" could
+not be expressed, and `isinstance(tracking, Detections3D)` made a claim that was false. `has()` is
+the replacement for `isinstance`, and the same rule is why `BatchVector3D` does not inherit from
+`BatchVector2D`.
 
 ## 5. Nothing is discarded
 
@@ -68,14 +72,15 @@ to a metric cannot be mutated under it.
 The failures this domain produces are _plausible numbers_, not exceptions. Wherever that is
 possible, the code raises instead:
 
-| Silent wrong                                       | What happens instead                              |
-| :------------------------------------------------- | :------------------------------------------------ |
-| comparing geometry across coordinate frames        | `ValueError` naming both entities and both frames |
-| a per-class threshold mapping with no default      | `ValueError` asking for an explicit `Thresholds`  |
-| a pipeline reading an entity a later system writes | `ValueError` at construction, not an empty result |
-| an unreachable frame in a transform lookup         | raises, rather than resolving to identity         |
-| two recordings disagreeing about class ids         | raises, unless `reconcile=True`                   |
-| a category the registry does not know              | raises, unless `unknown_labels="ignore"`          |
+| Silent wrong                                       | What happens instead                               |
+| :------------------------------------------------- | :------------------------------------------------- |
+| comparing geometry across coordinate frames        | `ValueError` naming both entities and both frames  |
+| a per-class threshold mapping with no default      | `ValueError` asking for an explicit `Thresholds`   |
+| a pipeline reading an entity a later system writes | `ValueError` at construction, not an empty result  |
+| an unreachable frame in a transform lookup         | raises, rather than resolving to identity          |
+| two recordings disagreeing about class ids         | raises, unless `reconcile=True`                    |
+| a category the registry does not know              | raises, unless `unknown_labels="unknown"`/`"drop"` |
+| a class name a filter or threshold does not know   | raises; a silent default would look applied        |
 
 The counterpart rule: **an absence is not a disagreement.** An unstated `frame_id` does not raise,
 because it cannot be shown to conflict with anything.

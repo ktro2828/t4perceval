@@ -74,13 +74,13 @@ Detections2D
 The geometric filters need `position`, which a 2D detection does not have, so only the
 class-and-quality filters apply:
 
-| Filter                                                | Works on 2D?                  |
-| :---------------------------------------------------- | :---------------------------- |
-| `FilterByLabelSystem`                                 | yes                           |
-| `FilterByConfidenceSystem`                            | yes                           |
-| `FilterByVisibilitySystem`                            | yes                           |
-| `FilterByInstanceSystem`                              | yes, with `Trackings2D`       |
-| `FilterByDistance` / `Region` / `Speed` / `NumPoints` | no -- they require 3D columns |
+| Filter                                                        | Works on 2D?                  |
+| :------------------------------------------------------------ | :---------------------------- |
+| `FilterByLabelSystem`                                         | yes                           |
+| `FilterByConfidenceSystem`                                    | yes                           |
+| `FilterByVisibilitySystem`                                    | yes                           |
+| `FilterByInstanceSystem`                                      | yes, with `Trackings2D`       |
+| `FilterByDistance` / `Region` / `Map` / `Speed` / `NumPoints` | no -- they require 3D columns |
 
 To bound ROI area or position, write a
 [custom filter](../recipes/custom-filter.md) over `ROI`; `BatchRoi.area()` is already there.

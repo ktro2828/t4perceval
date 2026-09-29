@@ -11,7 +11,7 @@ whether a constraint is load-bearing or incidental.
 | [0001](0001-ecs-data-model.md) ECS data model               | Accepted | columns and systems instead of objects and an enum                  |
 | [0002](0002-arrow-storage.md) Arrow storage                 | Accepted | Arrow as the on-disk and in-memory interchange format               |
 | [0003](0003-coordinate-system.md) Coordinate frames as data | Accepted | frames recorded as rows, and a guard instead of a silent conversion |
-| [0004](0004-persistent-recording.md) Persistent recordings  | Proposed | a directory format for a whole evaluation                           |
+| [0004](0004-persistent-recording.md) Persistent recordings  | Accepted | a directory format for a whole evaluation                           |
 
 ## Writing one
 

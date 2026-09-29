@@ -108,7 +108,7 @@ the clocks are offset -- `AlignOptions(offset_ns=...)` corrects a known skew. Se
 This is the step that most often goes wrong between a dataset and a bag.
 
 ```python
-ground_truth.static_frame_id("/ground_truth/objects")  # 'base_link' by default
+ground_truth.metadata.frame_id  # 'base_link' by default
 ```
 
 Autoware topics are usually in `base_link` or `map` depending on the node. If the two disagree, the

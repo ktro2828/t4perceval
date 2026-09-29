@@ -48,6 +48,12 @@ What lands in the recording:
 Objects at `/ground_truth/objects`, plus the scene's transform tree: `map -> base_link` per keyframe
 from `ego_pose`, and a static `base_link -> <channel>` per sensor from `calibrated_sensor`.
 
+The frame tree is read from `calibrated_sensor`, not by walking `sample_data`, so a channel with no
+data still appears; the dataset's `wxyz` quaternions are reordered to `xyzw` at this one boundary.
+`"auto"` columns are settled for the whole scene before the first frame is written, because the
+devkit reports an inestimable velocity as NaN and `concat_chunks` refuses chunks whose column sets
+differ.
+
 ### Selecting what to import
 
 ```python
@@ -94,18 +100,19 @@ importer = T4Importer.open(
 )
 ```
 
-| Option                                 | Default         | Meaning                                                    |
-| :------------------------------------- | :-------------- | :--------------------------------------------------------- |
-| `kind_3d`                              | `"trackings"`   | `"detections"`, `"trackings"` or `"predictions"`           |
-| `kind_2d`                              | `"trackings"`   | the same, for camera boxes                                 |
-| `coords`                               | `"base_link"`   | the frame boxes are expressed in                           |
-| `future_seconds`                       | `0.0`           | how much future trajectory to attach (for `"predictions"`) |
-| `num_modes`, `num_timesteps`           | `None`          | pin the trajectory shape instead of inferring it           |
-| `velocity`, `num_points`, `visibility` | `"auto"`        | emit the optional column when the dataset has it           |
-| `unknown_labels`                       | `"error"`       | what to do with a category the registry does not know      |
-| `entity_root`                          | `/ground_truth` | where objects are filed                                    |
-| `instance_namespace`                   | `"gt"`          | prefix for interned instance UUIDs                         |
-| `transforms`                           | `True`          | also import the frame graph                                |
+| Option                                 | Default         | Meaning                                                               |
+| :------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
+| `kind_3d`                              | `"trackings"`   | `"detections"`, `"trackings"` or `"predictions"`                      |
+| `kind_2d`                              | `"trackings"`   | `"detections"` or `"trackings"`, for camera boxes                     |
+| `coords`                               | `"base_link"`   | the frame boxes are expressed in                                      |
+| `future_seconds`                       | `0.0`           | how much future trajectory to attach (for `"predictions"`)            |
+| `num_modes`, `num_timesteps`           | `None`          | pin the trajectory shape instead of inferring it                      |
+| `velocity`, `num_points`, `visibility` | `"auto"`        | emit the optional column when the dataset has it (settled scene-wide) |
+| `unknown_labels`                       | `"error"`       | what to do with a category the registry does not know                 |
+| `entity_root`                          | `/ground_truth` | where objects are filed                                               |
+| `instance_namespace`                   | `"gt"`          | prefix for interned instance UUIDs                                    |
+| `transforms`                           | `True`          | also import the frame graph                                           |
+| `strict`                               | `True`          | a sample missing a requested channel raises; `False` skips            |
 
 The archetype you get follows `kind_3d`: `Detections3D`, `Trackings3D` or `Predictions3D`. They are
 a nested superset chain over the same annotation rows, so asking for a richer kind costs one
@@ -144,13 +151,14 @@ One topic at a time, into one `Recording`.
 - `Shape.dimensions` `(x=length, y=width, z=height)` becomes `BatchSize3D` `(width, length, height)`.
 - A body-frame twist is rotated into the message frame before becoming `velocity`.
 - `confidence` is the top classification probability by default;
-  `ImportOptions(confidence="existence")` uses `existence_probability` instead.
+  `ImportOptions(confidence="existence")` uses `existence_probability` instead, and `"product"`
+  multiplies the two.
 
 ### Import options
 
 | Option                          | Default                       | Meaning                                     |
 | :------------------------------ | :---------------------------- | :------------------------------------------ |
-| `confidence`                    | `"classification"`            | or `"existence"`                            |
+| `confidence`                    | `"classification"`            | or `"existence"` / `"product"`              |
 | `velocity`                      | `"auto"`                      | emit the column when the message carries it |
 | `num_modes`, `num_timesteps`    | `None`                        | pin the trajectory shape                    |
 | `unknown_labels`                | `"error"`                     | what to do with an unmapped class           |

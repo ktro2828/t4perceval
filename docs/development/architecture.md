@@ -42,8 +42,10 @@ public mental model, read [Concepts](../concepts/overview.md) first.
 | `t4perceval.recording`   | store + registries + provenance, read-only             | systems             |
 | `t4perceval.evaluation`  | materializing recordings into a writable store         | importers           |
 | `t4perceval.align`       | pairing two recordings' `FRAME` axes by timestamp      | systems             |
+| `t4perceval.reconcile`   | expressing one registry's class ids in another's       | the store           |
+| `t4perceval.lanelet`     | a Lanelet2 `.osm` read into lanelet polygons           | systems, the store  |
 | `t4perceval.importer`    | external formats in                                    | systems, metrics    |
-| `t4perceval.io`          | Arrow / Parquet encoding of a chunk                    | importers           |
+| `t4perceval.io`          | Arrow / Parquet chunks, the `.t4eval` recording format | importers           |
 
 Two boundaries are load-bearing:
 
@@ -98,19 +100,22 @@ These hold everywhere, and code may rely on them:
 5. **A batch of zero rows is legal** in every archetype, and an empty frame keeps its `frame_id`.
 6. **`select()` produces independent data**; lazy narrowing is `EntityView`'s job.
 7. **A system writes only its declared targets**, and always through `Chunk`.
+8. **A chunk's shape is checked on construction.** Every index has `num_partitions` entries, every
+   column `offsets[-1]` rows, `offsets` starts at 0 and never decreases, no timeline appears twice,
+   and a static chunk has no index and one partition.
+9. **`Chunk.select()` never reorders rows across partitions**, and an emptied partition keeps its
+   index entry so the time axis survives.
 
 ## Where the design is written down
 
-| Document                                                                     | What it covers                                         |
-| :--------------------------------------------------------------------------- | :----------------------------------------------------- |
-| [Design principles](design-principles.md)                                    | the rules the code is written to                       |
-| [Data model design](design/en/data_model.md) ([ja](design/ja/data_model.md)) | the long-form rationale for the model                  |
-| [System design](design/en/system.md) ([ja](design/ja/system.md))             | the system protocol and pipeline                       |
-| [Migration guide](design/en/migration.md) ([ja](design/ja/migration.md))     | mapping from `autoware_perception_evaluation`          |
-| [Design decisions](design-decisions/index.md)                                | ADRs: what was decided, and why                        |
-| [Serialization format](serialization-format.md)                              | how a chunk maps onto Arrow                            |
-| [Roadmap](roadmap.md)                                                        | what is done and what is next                          |
-| [Metric divergences](metric-divergences.md)                                  | where the numbers differ from the official definitions |
+| Document                                        | What it covers                                         |
+| :---------------------------------------------- | :----------------------------------------------------- |
+| [Design principles](design-principles.md)       | the rules the code is written to                       |
+| [Migration guide](migration.md)                 | mapping from `autoware_perception_evaluation`          |
+| [Design decisions](design-decisions/index.md)   | ADRs: what was decided, and why                        |
+| [Serialization format](serialization-format.md) | how a chunk maps onto Arrow                            |
+| [Roadmap](roadmap.md)                           | what is done and what is next                          |
+| [Metric divergences](metric-divergences.md)     | where the numbers differ from the official definitions |
 
 ## Relationship to Rerun
 

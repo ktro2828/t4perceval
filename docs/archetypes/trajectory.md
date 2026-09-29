@@ -68,6 +68,11 @@ Trajectories3D.empty(num_modes=6, num_timesteps=12)
 - `mode_confidence` must agree with `waypoints` on `M`, and be finite and within `[0, 1]`.
 - `mode_valid` must be `(M,)` per row, `timestep_valid` `(M, T)`, `time_offset` `(T,)`.
 - `time_offset_ns` must be non-negative and strictly increasing.
+- `waypoints` must be finite. An invalid timestep is `timestep_valid=False`, never NaN.
+- The sum of `mode_confidence` is **not** checked: unnormalized scores are common, and normalizing
+  them here would silently change a metric.
+
+A time axis shared by every object can be logged once, static, with `N == 1`.
 
 ## Where to go next
 

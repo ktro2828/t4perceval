@@ -11,12 +11,15 @@ Matching evaluates the **union** of both `FRAME` sets, so unrelated indices do n
 score as all-FP and all-FN frames. You get plausible numbers, not an error. That is exactly the
 failure mode this step exists to prevent.
 
+Alignment runs before the evaluation store is built, not as a system, because it is a decision
+about the inputs rather than an observation about them.
+
 ```text
 ground truth   frame:  0     1     2     3
                stamp: 100   200   300   400   (ms)
 
 estimation     frame:  0   1   2   3   4   5
-               stamp: 95  145 205 255 305 355
+               stamp: 95  145 205 255 305 485
 
                ── align (tolerance 75 ms) ──▶
 
@@ -45,8 +48,8 @@ and the estimation's `FRAME` values are rewritten to the ground truth's.
 
 ```python
 setup.metadata.tags
-# (('align.pairs', '87'), ('align.unmatched_reference', '3'),
-#  ('align.unmatched_query', '12'), ('align.tolerance_ns', '75000000'), ...)
+# (('align.tolerance_ns', '75000000'), ('align.offset_ns', '0'), ('align.pairs', '87'),
+#  ('align.unmatched_reference', '3'), ('align.unmatched_query', '12'), ...)
 ```
 
 Look at `align.pairs` against the number of ground-truth frames. A low count means the tolerance is
@@ -97,7 +100,7 @@ alignment = align_frames(
 )
 
 alignment.num_pairs
-alignment.deltas_ns()  # query_times - reference_times, per pair
+alignment.deltas_ns  # query_times - reference_times, per pair
 alignment.mapping()  # query frame -> reference frame
 alignment.unmatched_reference_frames
 alignment.unmatched_query_frames
@@ -122,7 +125,7 @@ aligned.reference, aligned.query, aligned.alignment
 ```python
 import numpy as np
 
-deltas = alignment.deltas_ns()
+deltas = alignment.deltas_ns
 np.median(deltas) / 1e6  # ms -- a large constant is a clock offset; feed it to offset_ns
 np.std(deltas) / 1e6  # ms -- large spread means jitter, so widen the tolerance
 ```
@@ -141,7 +144,9 @@ frames, times = frame_times(ground_truth, "/ground_truth/objects")
 - Both sides were logged into the **same** store with the same frame indices.
 - Both came from the same importer call.
 
-Alignment is only for recordings whose frame numbering was decided independently.
+Alignment is only for recordings whose frame numbering was decided independently. It rewrites
+`FRAME` only: `TIMESTAMP` is untouched, chunks without a `FRAME` index (a bag's `/tf`) pass
+through, and the result shares the untouched chunks and both registries with its input.
 
 ## Where to go next
 

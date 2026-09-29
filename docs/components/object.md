@@ -48,7 +48,7 @@ instances.instance_id("7f3c...-a1")  # 0, without interning
 ```
 
 Descriptor: `INSTANCE_ID`. Required by `Trackings2D`, `Trackings3D` and `Predictions3D`, and by
-`ClearSystem` and `PathDisplacementSystem`.
+`ClearSystem`.
 
 ## BatchNumPoints
 
@@ -79,7 +79,7 @@ Descriptor: `VISIBILITY`. Used by `FilterByVisibilitySystem`.
 
 ## Trajectory components
 
-Four columns describe multi-modal futures for `N` objects over `M` modes and `T` timesteps. `M` and
+Five columns describe multi-modal futures for `N` objects over `M` modes and `T` timesteps. `M` and
 `T` are fixed within one instance; shorter trajectories are padded and masked.
 
 | Component             | Shape          | dtype  | Meaning                                       |

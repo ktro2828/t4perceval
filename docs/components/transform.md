@@ -51,6 +51,11 @@ BatchFrameId(["lidar", "radar"]).matching("radar")  # array([1]) -- rows naming 
 A frame name is opaque -- the package never parses one -- so a ROS-namespaced
 `/robot1/base_link` means exactly what it says. Names must be non-empty strings.
 
+Text is admissible here because there is one value per edge, not per object. Frame names are not
+interned in a registry: that would be two encodings of one concept with nothing checking they
+agree. The dtype is `object`, never a fixed-width `<U*`, which numpy would silently truncate until
+two sensors collapsed into one frame.
+
 Descriptor: `CHILD_FRAME_ID`.
 
 ## Why separate descriptors

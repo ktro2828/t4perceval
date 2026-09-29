@@ -1,7 +1,7 @@
 # Installation
 
 `t4perceval` needs **Python 3.10 or newer**. The evaluation core depends only on NumPy, SciPy,
-PyArrow, Shapely and attrs -- reading a dataset is an optional extra, not part of the base install.
+PyArrow, Shapely, attrs and typing-extensions -- reading a dataset is an optional extra, not part of the base install.
 
 ## Install the core
 

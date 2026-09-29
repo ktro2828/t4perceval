@@ -134,16 +134,9 @@ Only the API reference follows the implementation structure, and it is generated
 
 ## Design documents
 
-The long-form design is available in Japanese and English.
-
-| Topic                | 日本語                                              | English                                               |
-| :------------------- | :-------------------------------------------------- | :---------------------------------------------------- |
-| Data model           | [データモデル](development/design/ja/data_model.md) | [Data model](development/design/en/data_model.md)     |
-| Systems and pipeline | [システム設計](development/design/ja/system.md)     | [System design](development/design/en/system.md)      |
-| Migration            | [移行ガイド](development/design/ja/migration.md)    | [Migration guide](development/design/en/migration.md) |
-
-Plus [Architecture decision records](development/design-decisions/index.md) for the individual
-calls.
+The rationale lives in the [architecture decision records](development/design-decisions/index.md),
+and the [migration guide](development/migration.md) maps `autoware_perception_evaluation` onto this
+package.
 
 ## Local preview
 

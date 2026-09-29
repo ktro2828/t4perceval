@@ -102,7 +102,6 @@ nav = [
         { "Contributing" = "development/contributing.md" },
         { "Roadmap" = "development/roadmap.md" },
         { "Metric divergences" = "development/metric-divergences.md" },
-        { "Persistent recordings" = "development/persistent-recordings.md" },
         { "Design decisions" = [
             { "Overview" = "development/design-decisions/index.md" },
             { "0001 ECS data model" = "development/design-decisions/0001-ecs-data-model.md" },
@@ -110,16 +109,7 @@ nav = [
             { "0003 Coordinate frames as data" = "development/design-decisions/0003-coordinate-system.md" },
             { "0004 Persistent recordings" = "development/design-decisions/0004-persistent-recording.md" },
         ] },
-        { "Design documents (English)" = [
-            { "Data model" = "development/design/en/data_model.md" },
-            { "System design" = "development/design/en/system.md" },
-            { "Migration guide" = "development/design/en/migration.md" },
-        ] },
-        { "設計ドキュメント (日本語)" = [
-            { "データモデル" = "development/design/ja/data_model.md" },
-            { "システム設計" = "development/design/ja/system.md" },
-            { "移行ガイド" = "development/design/ja/migration.md" },
-        ] },
+        { "Migration guide" = "development/migration.md" },
     ] },
 ]
 

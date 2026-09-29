@@ -18,7 +18,8 @@ personal data, and no map-licensing exposure here.
 
 Only `annotation/*.json` is vendored. The importer resolves sensor paths but never opens
 them — `T4Devkit.__init__` reads only the annotation tables — so upstream's `data/`
-(placeholder JPEG/PCD) and `map/` (a `.osm` that is never parsed) are omitted.
+(placeholder JPEG/PCD) and `map/` (a placeholder `.osm` the importer does not read; lanelet
+filtering is tested with `tests/lanelet_builder.py`) are omitted.
 
 The `1/` directory is a version directory. `t4_devkit.load_metadata` matches
 subdirectories against `r".*/\d+$"` and raises a `DeprecationWarning` when it finds none,
@@ -48,7 +49,7 @@ would otherwise need hand-built input:
 - a **non-identity quaternion** (30° yaw), so an `xyzw` / `wxyz` swap changes the result
 - 2D annotations on `CAM_FRONT` only — simultaneously the empty-camera case and the
   `get_box2ds` channel-leak case
-- four categories with `index` populated
+- four categories, without an `index` field
 
 Cases the fixture cannot express — non-monotonic future timestamps, categories absent
 from a caller's registry, multiple scenes — are built on the fly by

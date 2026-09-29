@@ -141,6 +141,5 @@ class of problem.
 
 ## Where it is written down
 
-The full plan, including the proposed MVP, is in
-[Persistent recordings](../persistent-recordings.md); using it is described in
-[Persistence](../../user-guide/persistence.md#saving-a-whole-recording).
+Using it is described in [Persistence](../../user-guide/persistence.md#saving-a-whole-recording),
+the on-disk layout in [Serialization format](../serialization-format.md).

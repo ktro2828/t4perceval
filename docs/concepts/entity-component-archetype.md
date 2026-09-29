@@ -159,7 +159,9 @@ near = detections.select(np.array([True]))  # a boolean mask
 first = detections.select([0])  # or indices
 ```
 
-Lazy narrowing is [`EntityView`](store.md#entityview)'s job, not `select`'s.
+A selection is a slice, an integer or boolean array, or a list of either; negative, duplicate and
+reversed indices are allowed. Lazy narrowing is [`EntityView`](store.md#entityview)'s job, not
+`select`'s.
 
 ## Where to go next
 

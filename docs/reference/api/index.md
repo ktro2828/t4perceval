@@ -18,6 +18,7 @@ like this".
 | [`t4perceval.recording`](recording.md)   | `Recording` and its metadata                                   |
 | [`t4perceval.evaluation`](evaluation.md) | assembling recordings into an evaluation store                 |
 | [`t4perceval.align`](align.md)           | pairing two recordings' frames by timestamp                    |
+| [`t4perceval.lanelet`](lanelet.md)       | a Lanelet2 map read into lanelet polygons                      |
 | [`t4perceval.importer`](importer.md)     | the T4 and MCAP ROS bag importers                              |
 | [`t4perceval.io`](io.md)                 | Arrow and Parquet persistence                                  |
 

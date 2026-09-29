@@ -42,6 +42,11 @@ FilterByDistanceSystem.on("/estimation/objects", max_distance=50.0, name="near")
 # → /estimation/objects/filter/near
 ```
 
+Two conventions hold across the family. Bounds are inclusive on both ends, so a filter built with
+its defaults is a guaranteed no-op; the original package compared strictly, which made
+`min_distance=0` reject an object at the origin. And a missing column is an error, not a pass:
+`t4_devkit` lets a box with no velocity through its speed filter, here that is a wiring mistake.
+
 ## Distance, region and speed
 
 `FilterByDistanceSystem` measures from the origin **of the chunk's coordinate frame**, so positions
@@ -84,7 +89,7 @@ on_road = FilterByMapSystem.on_lanelet(
 on_road.target  # /ground_truth/objects/filter/lanelet
 ```
 
-`on_lanelet(...)` is `on(polygon=lanelet_map.region(...))`. The polygon is always in `map`. When
+`on_lanelet(...)` is `on(name="lanelet", polygon=lanelet_map.region(...))`. The polygon is always in `map`. When
 the source declares another frame, the filter looks the ego pose up per frame -- the same lookup
 `TransformEntitySystem` makes -- and moves the _positions_ into `map` before the test. The mask is
 still written under the source, so it combines with every other mask on that entity, and the
@@ -150,9 +155,9 @@ FilterByNumPointsSystem.on("/ground_truth/objects", min_num_points=5)
 FilterByVisibilitySystem.on("/ground_truth/objects", min_visibility=VisibilityLevel.PARTIAL)
 ```
 
-`VisibilityLevel` is ordered -- `UNAVAILABLE < NONE < PARTIAL < MOST < FULL` -- and the filter keeps
-everything _at least as visible as_ the level you give. `UNAVAILABLE` sorts below every real level,
-so a threshold never accidentally accepts it.
+`VisibilityLevel` is ordered -- `NONE < PARTIAL < MOST < FULL` -- and the filter keeps everything
+_at least as visible as_ the level you give. Objects annotated `UNAVAILABLE` always pass, so a
+dataset that does not record visibility is not emptied out.
 
 ## Combining masks
 
@@ -167,8 +172,10 @@ confident = FilterByConfidenceSystem.on(SOURCE, min_confidence=0.5)
 keep = CombineMasksSystem.of([near.target, confident.target], f"{SOURCE}/filter/keep")
 ```
 
-This is also how a _per-class_ filter is expressed. Matching takes per-class thresholds directly,
-but not every filter requires `class_id`, so composition does the job:
+The sources must describe the same rows, which is checked. This is also how a _per-class_ filter
+is expressed -- AND within a class, then `mode="any"` across classes replaces the old
+`min_point_numbers: [5, 0, 0]` list. Matching takes per-class thresholds directly, but not every
+filter requires `class_id`, so composition does the job:
 
 ```python
 CombineMasksSystem.of(
@@ -271,10 +278,11 @@ kept = ApplyMaskSystem.of(SOURCE, keep.target)
 Pipeline([near, confident, wanted, keep, kept]).run(ctx, TimeRange.everything())
 ```
 
-Every one of those five masks is still in the store afterwards, so "how many did the confidence
+Every one of those four masks is still in the store afterwards, so "how many did the confidence
 threshold cost me?" is a query, not a re-run.
 
 ## Where to go next
 
 - [Matching](matching.md) -- pairing what survived.
+- [Filter by map region](../recipes/filter-by-lanelet.md) -- the Lanelet2 recipe end to end.
 - [Write a custom filter](../recipes/custom-filter.md).

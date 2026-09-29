@@ -176,7 +176,9 @@ See [Persistence](../user-guide/persistence.md#saving-a-whole-recording).
 
 The T4 importer expresses boxes in `base_link` by default (`ImportOptions(coords=...)`), which puts
 the ego at the origin -- the frame `FilterByDistanceSystem` measures from. Make your estimations
-match, or use the [resolver](../user-guide/transforms.md) to bring them over before matching.
+match, or use the [resolver](../user-guide/transforms.md) to bring them over before matching. The
+scene's Lanelet2 map is in `map`; `FilterByMapSystem` reconciles that itself, see
+[Filter by map region](filter-by-lanelet.md).
 
 The scene's frame graph comes along for free:
 
@@ -190,5 +192,6 @@ resolver.lookup(target_frame="map", source_frame="LIDAR_CONCAT", at=1)
 ## Where to go next
 
 - [Align frames by timestamp](align-frames.md) -- when the two `FRAME` axes disagree.
+- [Filter by map region](filter-by-lanelet.md) -- only the objects on the road.
 - [Evaluate an MCAP ROS bag](evaluate-rosbag.md)
 - [Dataset importers](../user-guide/dataset-importers.md) -- every option.

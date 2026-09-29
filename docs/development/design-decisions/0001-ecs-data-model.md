@@ -46,6 +46,16 @@ Descriptors are the load-bearing piece. Because `POSITION` means "position" in `
 `Trackings3D` alike, one system serves both without knowing either exists. Naming a column by
 meaning rather than by its declaring archetype is what makes composition work.
 
+A row is one object, not one log call. Rerun's chunk holds one row per call with variable-length
+cells; here a frame's objects are flattened into rows and `offsets` mark the frame boundaries,
+because evaluation maths -- distance matrices, IoU, TP/FP counts -- is elementwise over objects and
+maps straight onto flat NumPy arrays.
+
+Parameters live on systems rather than in a config dict, which buys three things: they are
+validated at construction instead of failing mid-run, which filters are in force can be read off
+the pipeline itself, and the same matcher can run at several thresholds side by side by changing
+its target.
+
 The [benchmark](../benchmarks.md) puts numbers on the vectorization: 67x to 224x faster on the
 metric workloads, 16x smaller in retained memory.
 
@@ -64,7 +74,9 @@ that anyone who knows Rerun already knows how to file and query data here. But e
 three things a visualization log does not: archetypes that _validate_, registries that give integer
 columns meaning, and systems that write results back into the same store. Depending on Rerun would
 mean adapting around a model built for a different purpose, and taking a large dependency for the
-part that is easy.
+part that is easy. Its read-back API has also moved between releases (`rr.dataframe` was removed
+in 0.36), and that churn would sit directly in the path of reproducible results. `rerun-sdk`
+arrives with `t4-devkit` but is never imported.
 
 **An actual ECS library.** The "E" and "C" carry their weight here; the runtime scheduling,
 archetype storage and change detection that an ECS library exists to provide do not. What is wanted
@@ -95,5 +107,5 @@ is the data layout and the systems-as-functions idea, both of which are a few hu
 
 ## Where it is written down
 
-[Data model design](../design/en/data_model.md) ([日本語](../design/ja/data_model.md)) and
-[System design](../design/en/system.md) ([日本語](../design/ja/system.md)).
+[Concepts](../../concepts/overview.md), [Design principles](../design-principles.md) and the
+[Migration guide](../migration.md).

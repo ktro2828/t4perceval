@@ -85,7 +85,13 @@ Two things follow:
   A fixed extrinsic states the frame it is expressed in as surely as an ego pose does.
 
 Static rows do not surface through `latest_at` or `range` as partitions; read them with
-`static()` (columns) or `static_chunks()` (whole chunks, when the frame matters).
+`static()` (columns) or `static_chunks()` (whole chunks, when the frame matters). Surfacing them
+would invent rows in empty frames and hand index-less chunks to systems that ask a view for its
+times, so a static-only entity reads back as zero rows. For the same reason `EntityView.frame_id`
+reports the temporal chunk's frame only.
+
+Chunks with different column sets may coexist under one entity; the mismatch is reported when a
+`range` spans them, not when they are logged.
 
 ## Querying
 

@@ -55,7 +55,7 @@ Detections3D
 
 | Component    | Needed by                                                                |
 | :----------- | :----------------------------------------------------------------------- |
-| `position`   | every matcher, `FilterByDistance`, `FilterByRegion`                      |
+| `position`   | every matcher, `FilterByDistance`, `FilterByRegion`, `FilterByMap`       |
 | `quaternion` | `PlaneDistance` / `IoUBEV` / `IoU3D` matchers, `AveragePrecisionHeading` |
 | `size`       | `PlaneDistance` / `IoUBEV` / `IoU3D` matchers                            |
 | `class_id`   | every matcher, every metric                                              |

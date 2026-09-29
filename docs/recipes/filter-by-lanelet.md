@@ -126,6 +126,9 @@ The mask is data. After the run, the rows the map rejected are still there, with
 to them:
 
 ```python
+from t4perceval import FRAME
+from t4perceval.descriptors import MASK
+
 mask = setup.store.range(on_road.target, timeline=FRAME, time_range=TimeRange.everything())
 mask.component(MASK).values  # one bool per ground-truth object, in row order
 ```
