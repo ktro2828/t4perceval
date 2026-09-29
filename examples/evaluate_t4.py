@@ -15,7 +15,7 @@ The four sections mirror the documentation:
 1. Inspect      -- what the dataset holds                docs/user-guide/dataset-importers.md
 2. Import       -- what lands in a Recording             docs/concepts/store.md
 3. Frames       -- the coordinate-frame graph            docs/concepts/coordinate-system.md
-4. Evaluate     -- filter, match, metrics                docs/evaluation/detection-3d.md
+4. Evaluate     -- filter (range, map), match, metrics   docs/evaluation/detection-3d.md
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import textwrap
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 from t4_devkit.schema import SensorModality
@@ -52,17 +53,19 @@ from t4perceval.descriptors import CLASS_ID, INSTANCE_ID, MASK, POSITION, QUATER
 from t4perceval.evaluation import build_evaluation_store
 from t4perceval.importer.t4 import SceneSelection, T4Importer, T4Source
 from t4perceval.io import read_recording, write_recording
+from t4perceval.lanelet import LaneletMap
 from t4perceval.system import (
     ApplyMaskSystem,
+    CombineMasksSystem,
     ConfusionMatrixSystem,
     FilterByDistanceSystem,
+    FilterByMapSystem,
     Pipeline,
     SystemContext,
     TransformEntitySystem,
     average_precision_sweep,
 )
 from t4perceval.transform import FrameGraph, TransformResolver
-
 
 #: Entity paths the evaluation reads. The T4 importer writes the first one.
 GROUND_TRUTH = "/ground_truth/objects"
@@ -267,7 +270,17 @@ def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recordin
     )
 
 
-def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None:
+def load_map(data_root: str) -> LaneletMap | None:
+    """Read the scene's Lanelet2 map, or ``None`` when the dataset ships without one."""
+    path = Path(data_root) / "map" / "lanelet2_map.osm"
+    return LaneletMap.load(path) if path.is_file() else None
+
+
+def evaluate(
+    ground_truth: Recording,
+    estimation: Recording,
+    lanelet_map: LaneletMap | None = None,
+) -> Recording | None:
     """Filter, match and score -- the shape every detection evaluation takes."""
     banner("4. Evaluate")
 
@@ -292,11 +305,33 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
     # count, so the denominator has to be the filtered set rather than a mask over it.
     # `ApplyMaskSystem` is a passthrough of its source, so the matchers that read `/kept`
     # can sit in the same pipeline as the narrowing.
+    #
+    # Two cuts. Range is measured in `base_link`, where the rows already are. The map
+    # region is a fact about the world, so `FilterByMapSystem` looks the ego pose up itself
+    # and tests in `map` -- the rows stay in `base_link`, and its mask lands beside the
+    # range mask on the same entity, where `CombineMasksSystem` joins them. The evaluation
+    # store carries no `/tf`, so the resolver reads the recording that does.
+    if lanelet_map is None:
+        print("map       : none (no map/lanelet2_map.osm), so only the range cut applies")
+    else:
+        print(f"map       : {len(lanelet_map.lanelets)} lanelets {lanelet_map.subtypes}")
     narrowing = []
     max_distance = 50.0
+    lanelet_subtypes = ("road", "road_sholder", "crosswalk")
     for path in (GROUND_TRUTH, ESTIMATION):
         near = FilterByDistanceSystem.on(path, max_distance=max_distance)
-        narrowing += [near, ApplyMaskSystem.of(path, near.target)]
+        cuts = [near]
+        if lanelet_map is not None:
+            cuts.append(
+                FilterByMapSystem.on_lanelet(
+                    path,
+                    lanelet_map,
+                    subtypes=lanelet_subtypes,
+                    resolver=TransformResolver.of(ground_truth, timeline=FRAME),
+                )
+            )
+        keep = CombineMasksSystem.of([cut.target for cut in cuts], f"{path}/filter/keep")
+        narrowing += [*cuts, keep, ApplyMaskSystem.of(path, keep.target)]
 
     # `average_precision_sweep` is a plain function returning a list of systems -- ordinary
     # data you can print, edit or extend, not a config value to branch on.
@@ -323,17 +358,30 @@ def evaluate(ground_truth: Recording, estimation: Recording) -> Recording | None
 
     Pipeline([*narrowing, *systems]).run(ctx, SCENE)
 
-    gt_mask = setup.store.range(
-        f"{GROUND_TRUTH}/filter/distance", timeline=FRAME, time_range=SCENE
-    ).component(MASK)
-    est_mask = setup.store.range(
-        f"{ESTIMATION}/filter/distance", timeline=FRAME, time_range=SCENE
-    ).component(MASK)
-    print(
-        f"within {max_distance} m:\n"
-        f"  GT=  {gt_mask.num_selected}/{len(gt_mask)} objects\n"
-        f"  EST=  {est_mask.num_selected}/{len(est_mask)} objects"
-    )
+    def count(path: str, name: str) -> str:
+        mask = setup.store.range(
+            f"{path}/filter/{name}", timeline=FRAME, time_range=SCENE
+        ).component(MASK)
+        return f"{mask.num_selected}/{len(mask)}"
+
+    rows = [
+        (
+            f"within {max_distance} m",
+            count(GROUND_TRUTH, "distance"),
+            count(ESTIMATION, "distance"),
+        ),
+    ]
+    if lanelet_map is not None:
+        rows.append(
+            (
+                f"on {' / '.join(lanelet_subtypes)}",
+                count(GROUND_TRUTH, "lanelet"),
+                count(ESTIMATION, "lanelet"),
+            )
+        )
+    rows.append(("kept", count(GROUND_TRUTH, "keep"), count(ESTIMATION, "keep")))
+    print("objects passing each cut:")
+    print(_table(rows, ["", "GT", "EST"]))
 
     print("\nTP/FP/FN:")
     for index, threshold in enumerate(thresholds):
@@ -603,7 +651,7 @@ def main(data_root: str, *, viewer: str | None = None, save: str | None = None) 
     coordinate_frames(ground_truth)
 
     estimation = fake_estimation(ground_truth)
-    result = evaluate(ground_truth, estimation)
+    result = evaluate(ground_truth, estimation, load_map(data_root))
 
     if save is not None and result is not None:
         persist(result, save)

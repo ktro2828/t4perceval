@@ -559,9 +559,16 @@ Real but unscheduled; none of them blocks a phase above.
       schema metadata. Parquet round-trip verified
 - [x] Add `pyarrow` as a direct dependency
 - [x] System protocol / `SystemContext` / `Pipeline` (order validation)
-- [x] The filter systems — a shared `MaskSystem` base plus 8 kinds
-      (`FilterByDistance` / `Region` / `Label` / `Confidence` / `Instance` / `Speed` /
-      `NumPoints` / `Visibility`)
+- [x] The filter systems — a shared `MaskSystem` base plus 9 kinds
+      (`FilterByDistance` / `Region` / `Map` / `Label` / `Confidence` / `Instance` /
+      `Speed` / `NumPoints` / `Visibility`)
+- [x] `t4perceval.lanelet` — a Lanelet2 `.osm` read into region polygons with the
+      standard-library XML parser and shapely (no `lanelet2` binding, no projection: the
+      nodes' `local_x` / `local_y` are the map frame). `FilterByMapSystem.on_lanelet()`
+      keeps the objects whose centre lies in the selected lanelets. Membership
+      in a map region is a fact about the world, not about the source frame, so this is
+      the one filter that looks the ego pose up itself: the mask lands under the
+      `base_link` source and composes with every other mask on it
 - [x] `CombineMasksSystem` (`mode="all"` / `"any"`)
 - [x] `masked_view()` — a lazy view of the rows that passed a mask
 - [x] `SystemContext.instances` and `InstanceRegistry.instance_id()` (a reference that does not

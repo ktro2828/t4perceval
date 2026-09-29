@@ -139,6 +139,7 @@ class FilterByConfidenceSystem(MaskSystem):
 | :------------------------- | :------------ | :---------------------------------- | :------------------------------------ |
 | `FilterByDistanceSystem`   | `POSITION`    | `min_distance` `max_distance` `bev` | `max_distance` / `min_distance`       |
 | `FilterByRegionSystem`     | `POSITION`    | `min_xy` `max_xy`                   | `max_x_position` / `max_y_position`   |
+| `FilterByMapSystem`        | `POSITION`    | `polygon` `resolver`                | (なし。マップ領域は新規)              |
 | `FilterByLabelSystem`      | `CLASS_ID`    | `labels` `exclude`                  | `target_labels` / `ignore_attributes` |
 | `FilterByConfidenceSystem` | `CONFIDENCE`  | `min_confidence` `max_confidence`   | `confidence_threshold`                |
 | `FilterByInstanceSystem`   | `INSTANCE_ID` | `instances` `exclude`               | `target_uuids`                        |

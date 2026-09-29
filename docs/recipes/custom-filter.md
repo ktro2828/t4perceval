@@ -79,7 +79,10 @@ Pipeline([big]).run(ctx, TimeRange.everything())
 - **Validate parameters in `__attrs_post_init__`**, and call `super()` first -- the base checks
   that there is exactly one source.
 - **Do not touch the store.** `keep()` gets a view; everything it needs should be a column or a
-  parameter.
+  parameter. The one shipped exception is `FilterByMapSystem`, whose predicate is a fact about
+  the world rather than about the source frame, so it reads `/tf` to bring positions into the
+  polygon's frame. If your predicate is like that, copy its `resolver` field rather than reaching
+  into `ctx.store` ad hoc.
 - **An empty view never reaches `keep()`.** A frame with no rows is an ordinary empty frame, not a
   wiring error, so the base skips the component check and emits an empty mask.
 

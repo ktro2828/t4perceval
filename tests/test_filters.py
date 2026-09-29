@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pytest
-from conftest import make_detections
+from conftest import make_detections, make_ego_scene
 
 from t4perceval import (
     FRAME,
@@ -30,6 +30,7 @@ from t4perceval.system import (
     FilterByInstanceSystem,
     FilterByLabelSystem,
     FilterByNumPointsSystem,
+    FilterByMapSystem,
     FilterByRegionSystem,
     FilterBySpeedSystem,
     FilterByVisibilitySystem,
@@ -51,6 +52,7 @@ SOURCE = "/estimation/objects"
 ALL_FILTERS: tuple[type[MaskSystem], ...] = (
     FilterByDistanceSystem,
     FilterByRegionSystem,
+    FilterByMapSystem,
     FilterByLabelSystem,
     FilterByConfidenceSystem,
     FilterByInstanceSystem,
@@ -922,3 +924,223 @@ class TestPipelineIntegration:
 
         with pytest.raises(ValueError, match="before a later system writes it"):
             Pipeline([combined, near])
+
+
+class TestFilterByMap:
+    """Membership of a polygon in ``map``, whichever frame the source is in."""
+
+    SQUARE = [[-5.0, -5.0], [5.0, -5.0], [5.0, 5.0], [-5.0, 5.0]]
+
+    @staticmethod
+    def _map_store(positions: list[list[float]]) -> SystemContext:
+        """One frame of objects already in ``map``; no ``/tf`` anywhere."""
+        store = Store()
+        store.log(SOURCE, make_detections(positions), at=TimePoint.at(frame=0), frame_id="map")
+        return SystemContext(store, FRAME)
+
+    #: rich_store's positions, so the expected masks read the same as the other filters'.
+    POSITIONS = [[1.0, 0.0, 0.0], [50.0, 0.0, 0.0], [0.0, 120.0, 0.0], [3.0, 4.0, 0.0]]
+
+    def test_tests_xy_against_the_polygon(self) -> None:
+        system = FilterByMapSystem.on(SOURCE, polygon=self.SQUARE)
+
+        assert mask_of(system, self._map_store(self.POSITIONS)) == [True, False, False, True]
+
+    def test_accepts_a_shapely_geometry(self) -> None:
+        from shapely.geometry import Polygon
+
+        system = FilterByMapSystem.on(SOURCE, polygon=Polygon(self.SQUARE))
+
+        assert mask_of(system, self._map_store(self.POSITIONS)) == [True, False, False, True]
+
+    def test_several_rings_are_a_union(self) -> None:
+        far = [[45.0, -1.0], [55.0, -1.0], [55.0, 1.0], [45.0, 1.0]]
+        system = FilterByMapSystem.on(SOURCE, polygon=[self.SQUARE, far])
+
+        assert mask_of(system, self._map_store(self.POSITIONS)) == [True, True, False, True]
+
+    def test_rejects_a_non_polygon(self) -> None:
+        from shapely.geometry import LineString
+
+        with pytest.raises(TypeError, match="Polygon or MultiPolygon"):
+            FilterByMapSystem.on(SOURCE, polygon=LineString([(0, 0), (1, 1)]))
+
+    def test_a_source_in_map_needs_no_lookup(self) -> None:
+        # No /tf in the store at all, and none is asked for.
+        system = FilterByMapSystem.on(SOURCE, polygon=self.SQUARE)
+
+        assert mask_of(system, self._map_store([[1.0, 0.0, 0.0], [9.0, 0.0, 0.0]])) == [True, False]
+
+    def test_no_polygon_needs_no_lookup(self, rich_context: SystemContext) -> None:
+        # rich_store is in base_link with no /tf; nothing is looked up when nothing is tested.
+        system = FilterByMapSystem.on(SOURCE)
+
+        assert mask_of(system, rich_context) == [True] * 4
+
+    @staticmethod
+    def _ego_store() -> Store:
+        """Ego at x = 0, 10, 20; one object 1 m ahead and 1 m left of it in every frame."""
+        store = make_ego_scene(Store())
+        for frame in range(3):
+            store.log(
+                SOURCE,
+                make_detections([[1.0, 1.0, 0.0]]),
+                at=TimePoint.at(frame=frame, timestamp_ns=(frame + 1) * 1_000),
+                frame_id="base_link",
+            )
+        return store
+
+    #: In map the object is at x = 1, 11, 21 on y = 1; this keeps x in [8, 15]: frame 1 only.
+    MIDDLE = [[8.0, -2.0], [15.0, -2.0], [15.0, 2.0], [8.0, 2.0]]
+
+    def test_a_base_link_source_follows_the_ego(self) -> None:
+        store = self._ego_store()
+        system = FilterByMapSystem.on(SOURCE, polygon=self.MIDDLE)
+        ctx = SystemContext(store, FRAME)
+
+        assert [mask_of(system, ctx, at=frame) for frame in range(3)] == [[False], [True], [False]]
+
+    def test_the_mask_lands_under_the_source(self) -> None:
+        system = FilterByMapSystem.on(SOURCE, polygon=self.MIDDLE)
+
+        assert str(system.target) == f"{SOURCE}/filter/map"
+
+    def test_a_range_covers_every_partition_with_its_own_pose(self) -> None:
+        store = self._ego_store()
+        system = FilterByMapSystem.on(SOURCE, polygon=self.MIDDLE)
+
+        (chunk,) = system(SystemContext(store, FRAME), TimeRange.everything())
+
+        assert chunk.columns[MASK].values.tolist() == [False, True, False]
+        assert chunk.num_partitions == 3
+
+    def test_an_explicit_resolver_may_come_from_another_store(self) -> None:
+        from t4perceval.transform import TransformResolver
+
+        store = self._ego_store()
+        objects_only = Store()
+        for frame in range(3):
+            objects_only.log(
+                SOURCE,
+                make_detections([[1.0, 1.0, 0.0]]),
+                at=TimePoint.at(frame=frame),
+                frame_id="base_link",
+            )
+        system = FilterByMapSystem.on(
+            SOURCE, polygon=self.MIDDLE, resolver=TransformResolver.of(store)
+        )
+
+        assert mask_of(system, SystemContext(objects_only, FRAME), at=1) == [True]
+
+    def test_a_source_without_a_frame_is_refused(self) -> None:
+        store = make_ego_scene(Store())
+        store.log(SOURCE, make_detections([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        system = FilterByMapSystem.on(SOURCE, polygon=self.SQUARE)
+
+        with pytest.raises(ValueError, match="states no coordinate frame"):
+            system(SystemContext(store, FRAME), 0)
+
+    def test_a_missing_ego_pose_names_the_entity_and_time(
+        self, rich_context: SystemContext
+    ) -> None:
+        # rich_store is in base_link and carries no /tf: there is no way into map.
+        system = FilterByMapSystem.on(SOURCE, polygon=self.SQUARE)
+
+        with pytest.raises(
+            ValueError,
+            match="cannot bring /estimation/objects from 'base_link' into 'map' at frame=0",
+        ):
+            mask_of(system, rich_context)
+
+    def test_a_frame_with_no_objects_needs_no_pose(self) -> None:
+        store = make_ego_scene(Store(), xs=(0.0,))
+        store.log(SOURCE, make_detections([]), at=TimePoint.at(frame=0), frame_id="base_link")
+        store.log(
+            SOURCE,
+            make_detections([[1.0, 0.0, 0.0]]),
+            at=TimePoint.at(frame=5),
+            frame_id="base_link",
+        )
+        system = FilterByMapSystem.on(SOURCE, polygon=self.SQUARE)
+
+        # Frame 5 has no ego pose, but the lookup policy is LATEST, so frame 0's serves.
+        assert mask_of(system, SystemContext(store, FRAME), at=0) == []
+        assert mask_of(system, SystemContext(store, FRAME), at=5) == [True]
+
+    def test_on_lanelet_defaults_to_where_traffic_is(self, tmp_path) -> None:  # noqa: ANN001
+        from t4perceval.lanelet import LaneletMap
+        from tests.lanelet_builder import write_fixture_map
+
+        lanelet_map = LaneletMap.load(write_fixture_map(tmp_path / "lanelet2_map.osm"))
+        store = self._ego_store()  # object at map x = 1, 11, 21 on y = 1
+
+        on_road = FilterByMapSystem.on_lanelet(SOURCE, lanelet_map)
+
+        # Road (y 0..2) and crosswalk (y 2..4) are both in; only x <= 10 lies on the map.
+        ctx = SystemContext(store, FRAME)
+        assert [mask_of(on_road, ctx, at=frame) for frame in range(3)] == [[True], [False], [False]]
+        assert on_road.polygon.area == pytest.approx(40.0)
+
+    def test_on_lanelet_builds_the_region_and_names_the_mask(self, tmp_path) -> None:  # noqa: ANN001
+        from t4perceval.lanelet import LaneletMap
+        from tests.lanelet_builder import write_fixture_map
+
+        lanelet_map = LaneletMap.load(write_fixture_map(tmp_path / "lanelet2_map.osm"))
+        store = self._ego_store()  # object at map x = 1, 11, 21 on y = 1
+        on_road = FilterByMapSystem.on_lanelet(SOURCE, lanelet_map, subtypes=("road",))
+
+        assert str(on_road.target) == f"{SOURCE}/filter/lanelet"
+        ctx = SystemContext(store, FRAME)
+        # Road 1 spans x 0..10, y 0..2.
+        assert [mask_of(on_road, ctx, at=frame) for frame in range(3)] == [[True], [False], [False]]
+
+    def test_map_and_range_masks_combine_on_the_source(self) -> None:
+        store = self._ego_store()
+        on_map = FilterByMapSystem.on(SOURCE, polygon=self.MIDDLE)
+        near = FilterByDistanceSystem.on(SOURCE, max_distance=2.0)
+        both = CombineMasksSystem.of([on_map.target, near.target], f"{SOURCE}/filter/keep")
+
+        Pipeline([on_map, near, both]).run(SystemContext(store, FRAME), TimeRange.everything())
+
+        mask = store.range(both.target, timeline=FRAME, time_range=TimeRange.everything())
+        assert mask.component(MASK).values.tolist() == [False, True, False]
+
+    def test_lanelet_then_apply_then_match_in_one_pipeline(
+        self, tmp_path, labels: LabelRegistry
+    ) -> None:  # noqa: ANN001
+        from t4perceval.archetype import MatchResults
+        from t4perceval.lanelet import LaneletMap
+        from t4perceval.system import (
+            ApplyMaskSystem,
+            CenterDistanceMatchingSystem,
+            TransformEntitySystem,
+        )
+        from tests.lanelet_builder import write_fixture_map
+
+        lanelet_map = LaneletMap.load(write_fixture_map(tmp_path / "lanelet2_map.osm"))
+        store = self._ego_store()
+        gt = "/ground_truth/objects"
+        for frame in range(3):
+            store.log(
+                gt,
+                make_detections([[1.0 + 10.0 * frame, 1.0, 0.0]]),
+                at=TimePoint.at(frame=frame, timestamp_ns=(frame + 1) * 1_000),
+                frame_id="map",
+            )
+
+        gt_on_road = FilterByMapSystem.on_lanelet(gt, lanelet_map, subtypes=("road",))
+        gt_kept = ApplyMaskSystem.of(gt, gt_on_road.target)
+        est_on_road = FilterByMapSystem.on_lanelet(SOURCE, lanelet_map, subtypes=("road",))
+        est_kept = ApplyMaskSystem.of(SOURCE, est_on_road.target)
+        est_in_map = TransformEntitySystem.of(est_kept.target, target_frame="map")
+        matcher = CenterDistanceMatchingSystem.between(
+            est_in_map.target, gt_kept.target, threshold=0.5
+        )
+
+        Pipeline([gt_on_road, gt_kept, est_on_road, est_kept, est_in_map, matcher]).run(
+            SystemContext(store, FRAME, labels=labels), TimeRange.everything()
+        )
+
+        matches = store.range(matcher.target, timeline=FRAME, time_range=TimeRange.everything())
+        result = matches.materialize(MatchResults)
+        assert (result.num_tp, result.num_fp, result.num_fn) == (1, 0, 0)

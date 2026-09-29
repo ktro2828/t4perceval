@@ -20,6 +20,7 @@ Every filter is built with `.on(source, **params)` and writes its mask to
 | :------------------------- | :------------ | :-------------------------------------------------- |
 | `FilterByDistanceSystem`   | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False` |
 | `FilterByRegionSystem`     | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`          |
+| `FilterByMapSystem`        | `position`    | `polygon=None`, `resolver=None`                     |
 | `FilterByLabelSystem`      | `class_id`    | `labels=None`, `exclude=None`                       |
 | `FilterByConfidenceSystem` | `confidence`  | `min_confidence=0.0`, `max_confidence=1.0`          |
 | `FilterByInstanceSystem`   | `instance_id` | `instances=None`, `exclude=None`                    |
@@ -63,6 +64,62 @@ FilterByRegionSystem.symmetric(path, max_xy=(100.0, 50.0))  # ±100 by ±50, mir
 `symmetric` is the region the original package's `max_x_position` / `max_y_position` described.
 
 `FilterBySpeedSystem` uses the L2 norm of the `velocity` column.
+
+## Map regions
+
+`FilterByMapSystem` keeps objects whose xy position lies inside a polygon, and the polygon may be
+stated in a frame other than the one the objects are recorded in. That is what makes it usable
+with a map: objects are usually in `base_link`, a Lanelet2 map is in `map`.
+
+```python
+from t4perceval.lanelet import LaneletMap
+from t4perceval.system import FilterByMapSystem
+
+lanelet_map = LaneletMap.load("/data/t4/db_v1/map/lanelet2_map.osm")
+on_road = FilterByMapSystem.on_lanelet(
+    "/ground_truth/objects",
+    lanelet_map,
+    subtypes=("road", "crosswalk"),  # default: ("road", "road_shoulder", "crosswalk")
+)
+on_road.target  # /ground_truth/objects/filter/lanelet
+```
+
+`on_lanelet(...)` is `on(polygon=lanelet_map.region(...))`. The polygon is always in `map`. When
+the source declares another frame, the filter looks the ego pose up per frame -- the same lookup
+`TransformEntitySystem` makes -- and moves the _positions_ into `map` before the test. The mask is
+still written under the source, so it combines with every other mask on that entity, and the
+source itself is untouched. A source already in `map` needs no lookup.
+
+This is the one filter that reconciles frames, and the reason is the predicate: a distance or a
+box is a claim about the frame it is measured in, so those filters must test where the data is.
+Whether an object is on the road is a fact about the world, the same in every frame, so the
+verdict belongs under the source and the transform is only how it is evaluated.
+
+The lookup reads `/tf` from the store the pipeline runs on. When the evaluation store carries no
+transforms, or they live on another timeline, pass a `resolver` built from the original recording,
+as for `TransformEntitySystem`:
+
+```python
+from t4perceval import TIMESTAMP
+from t4perceval.transform import TransformResolver
+
+FilterByMapSystem.on_lanelet(
+    "/estimation/objects",
+    lanelet_map,
+    subtypes=("road",),
+    resolver=TransformResolver.of(estimation, timeline=TIMESTAMP),
+)
+```
+
+Any polygon works, not only a map's. `polygon=` takes a shapely `Polygon` / `MultiPolygon` or one
+or more rings of `(x, y)` points, in `map`:
+
+```python
+FilterByMapSystem.on(path, polygon=[[0, -5], [60, -5], [60, 5], [0, 5]])
+```
+
+The test is the object's centre only; an object straddling the edge is in or out by where its
+centre is. See [Filter by map region](../recipes/filter-by-lanelet.md) for the full recipe.
 
 ## Labels and instances
 

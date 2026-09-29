@@ -142,6 +142,7 @@ entity together with every verdict recorded about it.
 | :------------------------- | :------------ | :---------------------------------- | :------------------------------------ |
 | `FilterByDistanceSystem`   | `POSITION`    | `min_distance` `max_distance` `bev` | `max_distance` / `min_distance`       |
 | `FilterByRegionSystem`     | `POSITION`    | `min_xy` `max_xy`                   | `max_x_position` / `max_y_position`   |
+| `FilterByMapSystem`        | `POSITION`    | `polygon` `resolver`                | (none; map regions are new)           |
 | `FilterByLabelSystem`      | `CLASS_ID`    | `labels` `exclude`                  | `target_labels` / `ignore_attributes` |
 | `FilterByConfidenceSystem` | `CONFIDENCE`  | `min_confidence` `max_confidence`   | `confidence_threshold`                |
 | `FilterByInstanceSystem`   | `INSTANCE_ID` | `instances` `exclude`               | `target_uuids`                        |
