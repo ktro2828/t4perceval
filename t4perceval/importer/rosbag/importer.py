@@ -16,7 +16,6 @@ what :func:`~t4perceval.evaluation.build_evaluation_store` is for.
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING
 
 from attrs import define, field
@@ -24,6 +23,13 @@ from attrs import define, field
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import TimePoint
+from t4perceval.importer._columns import resolve_emit
+from t4perceval.importer._importer import (
+    import_metadata,
+    narrow,
+    pin_trajectory_shape,
+    single_frame_id,
+)
 from t4perceval.importer.rosbag.convert import (
     has_any_twist,
     kind_of_schema,
@@ -36,10 +42,10 @@ from t4perceval.importer.rosbag.paths import DEFAULT_ROOT, objects3d_path
 from t4perceval.importer.rosbag.source import BagSource
 from t4perceval.importer.rosbag.transforms import log_bag_transforms, transform_samples
 from t4perceval.label import InstanceRegistry
-from t4perceval.recording import Recording, RecordingMetadata, SourceInfo
+from t4perceval.recording import Recording, SourceInfo
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
     from typing_extensions import Self
@@ -47,11 +53,11 @@ if TYPE_CHECKING:
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.importer._labels import UnknownLabels
     from t4perceval.importer.rosbag.convert import Confidence, Emit
-    from t4perceval.importer.rosbag.source import BagMessage, TopicInfo
+    from t4perceval.importer.rosbag.source import TopicInfo
     from t4perceval.importer.rosbag.transforms import TfScope, TransformSample
     from t4perceval.label import LabelRegistry
 
-__all__ = ("BagSelection", "FrameRef", "ImportOptions", "RosbagImporter")
+__all__ = ("BagSelection", "ImportOptions", "RosbagImporter")
 
 
 @define(frozen=True, slots=True)
@@ -96,16 +102,6 @@ class ImportOptions:
     tf_scope: TfScope = "selection"
 
 
-@define(frozen=True, slots=True)
-class FrameRef:
-    """What a ``FRAME`` index refers to back in the bag."""
-
-    frame: int
-    log_time_ns: int
-    timestamp_ns: int
-    num_objects: int
-
-
 @define(slots=True)
 class RosbagImporter:
     """Imports object topics of an MCAP bag into recordings.
@@ -130,14 +126,18 @@ class RosbagImporter:
         """Return the object topics the bag holds."""
         return self.source.object_topics()
 
-    def label_registry(self, **kwargs: object) -> LabelRegistry:
+    def label_registry(
+        self,
+        *,
+        colors: Mapping[str, tuple[int, int, int]] | None = None,
+    ) -> LabelRegistry:
         """Build a registry over the Autoware class enum.
 
         A convenience, not a default: ``import_topic`` still takes the registry as an
         argument, so that the ground-truth source it will be evaluated against can be handed
         the very same one.
         """
-        return label_registry_from_autoware(**kwargs)  # type: ignore[arg-type]
+        return label_registry_from_autoware(colors=colors)
 
     def import_topic(
         self,
@@ -166,21 +166,20 @@ class RosbagImporter:
         kind = kind_of_schema(info.schema)
 
         # -- pass 1: materialize, then settle the topic-wide shape ----------------------
-        messages = _select(self.source.collect(info.topic), chosen.messages)
+        messages = narrow(self.source.collect(info.topic), chosen.messages)
         decoded = [message.data for _, message in messages]
 
-        frame_id = _topic_frame_id(decoded, info.topic)
-        trajectory = _trajectory_shape(options, decoded) if kind == "predictions" else None
-        velocity: Emit = (
-            options.velocity
-            if options.velocity != "auto"
-            else ("always" if has_any_twist(decoded) else "never")
+        frame_id = single_frame_id(
+            (str(message.header.frame_id) for message in decoded),
+            what=f"Topic {info.topic!r}",
         )
+        trajectory = _trajectory_shape(options, decoded) if kind == "predictions" else None
+        velocity = resolve_emit(options.velocity, has_any_twist(decoded))
 
         # -- pass 2: convert and log ----------------------------------------------------
         store = Store()
         path = objects3d_path(as_entity_path(options.entity_root))
-        refs: list[FrameRef] = []
+        num_frames = 0
 
         if options.transforms:
             stamps = [stamp_ns(message.header.stamp) for message in decoded]
@@ -213,32 +212,25 @@ class RosbagImporter:
                 at=TimePoint.at(frame=index, timestamp_ns=timestamp_ns),
                 frame_id=columns.frame_id,
             )
-            refs.append(FrameRef(index, message.log_time_ns, timestamp_ns, len(columns)))
+            num_frames += 1
 
+        source = SourceInfo(
+            "rosbag",
+            self.source.uri,
+            topic=info.topic,
+            entity_path=str(path),
+            extra={
+                "schema": info.schema,
+                "kind": kind,
+                "frames": str(num_frames),
+                "confidence": options.confidence,
+            },
+        )
         return Recording.of(
             store,
             labels=labels,
             instances=registry,
-            metadata=RecordingMetadata(
-                t4perceval_version=_version(),
-                created_at_ns=time.time_ns(),
-                sources=(
-                    SourceInfo(
-                        "rosbag",
-                        self.source.uri,
-                        topic=info.topic,
-                        entity_path=str(path),
-                        extra={
-                            "schema": info.schema,
-                            "kind": kind,
-                            "frames": str(len(refs)),
-                            "confidence": options.confidence,
-                        },
-                    ),
-                ),
-                labels_fingerprint=labels.fingerprint(),
-                frame_id=frame_id,
-            ),
+            metadata=import_metadata(source, frame_id=frame_id),
         )
 
     def _transforms(self, topics: Sequence[str]) -> list[TransformSample]:
@@ -268,36 +260,6 @@ def _resolve_topic(candidates: Sequence[TopicInfo], topic: str | None) -> TopicI
     raise ValueError(f"Topic {topic!r} is not an object topic of this bag. Found: {listing}")
 
 
-def _select(
-    messages: Sequence[BagMessage],
-    chosen: slice | Sequence[int] | None,
-) -> tuple[tuple[int, BagMessage], ...]:
-    """Narrow a topic's messages, keeping each one's index in the *full* sequence.
-
-    So ``messages=slice(10, 20)`` yields frames numbered 10..19, and two selections of one
-    topic stay directly comparable instead of both starting at zero.
-    """
-    indexed = tuple(enumerate(messages))
-    if chosen is None:
-        return indexed
-    if isinstance(chosen, slice):
-        return indexed[chosen]
-    return tuple(indexed[index] for index in chosen)
-
-
-def _topic_frame_id(messages: Sequence[object], topic: str) -> str | None:
-    """Return the one frame the topic's objects are in, rejecting a mixture.
-
-    A chunk carries a single ``frame_id`` and ``concat_chunks`` refuses to join chunks
-    that disagree, so picking one silently would break the topic-wide query later, far
-    from the cause.
-    """
-    seen = {str(message.header.frame_id) for message in messages}  # type: ignore[attr-defined]
-    if len(seen) > 1:
-        raise ValueError(f"Topic {topic!r} mixes coordinate frames: {sorted(seen)}")
-    return seen.pop() if seen else None
-
-
 def _trajectory_shape(options: ImportOptions, messages: Sequence[object]) -> tuple[int, int]:
     """Return the topic-wide trajectory shape, honouring any pinned dimension.
 
@@ -305,21 +267,14 @@ def _trajectory_shape(options: ImportOptions, messages: Sequence[object]) -> tup
     smaller than the data is refused rather than silently truncated.
     """
     fitted = trajectory_shape_of(messages)
-    modes = options.num_modes if options.num_modes is not None else fitted[0]
-    timesteps = options.num_timesteps if options.num_timesteps is not None else fitted[1]
+    modes, timesteps = pin_trajectory_shape(
+        fitted,
+        num_modes=options.num_modes,
+        num_timesteps=options.num_timesteps,
+    )
     if modes < fitted[0] or timesteps < fitted[1]:
         raise ValueError(
             f"Topic needs a ({fitted[0]}, {fitted[1]}) trajectory shape but "
             f"({modes}, {timesteps}) was pinned",
         )
     return (modes, timesteps)
-
-
-def _version() -> str:
-    """Return the installed package version, or an empty string when unavailable."""
-    from importlib.metadata import PackageNotFoundError, version
-
-    try:
-        return version("t4perceval")
-    except PackageNotFoundError:  # pragma: no cover - only when running from a source tree
-        return ""

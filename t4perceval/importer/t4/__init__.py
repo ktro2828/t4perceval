@@ -25,7 +25,6 @@ from t4perceval.importer.t4.convert import (
     trajectory_shape_of,
 )
 from t4perceval.importer.t4.importer import (
-    FrameRef,
     ImportOptions,
     SceneSelection,
     T4Importer,
@@ -44,7 +43,6 @@ __all__ = (
     "Box3DColumns",
     "Coords",
     "Emit",
-    "FrameRef",
     "ImportOptions",
     "Kind2D",
     "Kind3D",

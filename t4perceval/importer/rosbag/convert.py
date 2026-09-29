@@ -42,6 +42,16 @@ from attrs import define, field
 from scipy.spatial.transform import Rotation
 
 from t4perceval.archetype import Detections3D, Predictions3D, Trackings3D
+from t4perceval.importer._columns import (
+    NAN3,
+    Emit,
+    TrajectoryColumns,
+    column,
+    encode_instance_ids,
+    normalize_quaternions,
+    padded_trajectory,
+    select_kept,
+)
 from t4perceval.importer._labels import encode_class_ids
 from t4perceval.importer.rosbag.labels import classification_name, top_classification
 
@@ -51,7 +61,7 @@ if TYPE_CHECKING:
     from t4perceval.core.archetype import Archetype
     from t4perceval.importer._labels import UnknownLabels
     from t4perceval.label import InstanceRegistry, LabelRegistry
-    from t4perceval.typing import NDArrayBool, NDArrayF64, NDArrayI32, NDArrayI64
+    from t4perceval.typing import NDArrayF64, NDArrayI32, NDArrayI64
 
 __all__ = (
     "SHAPE_BOUNDING_BOX",
@@ -72,14 +82,6 @@ __all__ = (
 Kind: TypeAlias = Literal["detections", "trackings", "predictions"]
 """Which archetype a topic is written as; decided by its message schema."""
 
-Emit: TypeAlias = Literal["auto", "always", "never"]
-"""Whether an optional column is written.
-
-``"auto"`` decides from the batch in hand. Callers importing a whole topic must resolve
-it **topic-wide** and pass ``"always"`` or ``"never"``: ``concat_chunks`` rejects chunks
-whose column sets differ, so a column present on one frame and absent on the next makes
-``Store.range()`` raise over that topic.
-"""
 
 Confidence: TypeAlias = Literal["classification", "existence", "product"]
 """Which message field becomes ``BatchConfidence``.
@@ -100,8 +102,6 @@ _KINDS: dict[str, Kind] = {
     "TrackedObjects": "trackings",
     "PredictedObjects": "predictions",
 }
-
-_NAN3 = np.full(3, np.nan, dtype=np.float64)
 
 
 def kind_of_schema(name: str) -> Kind:
@@ -125,42 +125,6 @@ def kind_of_schema(name: str) -> Kind:
 def stamp_ns(stamp: Any) -> int:
     """Fold a ``builtin_interfaces/Time`` or ``Duration`` into one nanosecond integer."""
     return int(stamp.sec) * 1_000_000_000 + int(stamp.nanosec)
-
-
-def _column(
-    values: list[Any],
-    count: int,
-    row_shape: tuple[int, ...],
-    dtype: Any,
-) -> Any:
-    """Stack per-object values into a column.
-
-    An empty batch is allocated rather than inferred: ``np.asarray([])`` collapses to
-    ``(0,)``, which fails the component's per-row shape check.
-    """
-    if count == 0:
-        return np.empty((0, *row_shape), dtype=dtype)
-    return np.asarray(values, dtype=dtype).reshape(count, *row_shape)
-
-
-@define(frozen=True, slots=True)
-class TrajectoryColumns:
-    """Dense trajectory columns with a fixed mode and timestep count."""
-
-    waypoints: NDArrayF64
-    """``(N, M, T, 3)``, always finite -- padding holds the last real position."""
-
-    mode_confidence: NDArrayF64
-    """``(N, M)`` in ``[0, 1]``."""
-
-    mode_valid: NDArrayBool
-    """``(N, M)``; ``False`` for a padded mode."""
-
-    timestep_valid: NDArrayBool
-    """``(N, M, T)``; ``False`` for a padded timestep."""
-
-    time_offset: NDArrayI64
-    """``(N, T)`` nanoseconds from the frame, non-negative and strictly increasing."""
 
 
 @define(frozen=True, slots=True)
@@ -341,12 +305,11 @@ def objects_to_columns(
     objects = list(message.objects)
     names = [classification_name(obj.classification) for obj in objects]
     class_id, keep = encode_class_ids(labels, names, unknown=unknown_labels)
-    kept = np.flatnonzero(keep).astype(np.int64)
-    objects = [objects[index] for index in kept]
+    objects, kept = select_kept(objects, keep)
     count = len(objects)
 
     poses = [_pose(obj, kind) for obj in objects]
-    position = _column(
+    position = column(
         [[pose.position.x, pose.position.y, pose.position.z] for pose in poses],
         count,
         (3,),
@@ -406,18 +369,13 @@ def _twist(obj: Any, kind: Kind) -> Any | None:
 
 def _quaternion_column(poses: Sequence[Any], count: int) -> NDArrayF64:
     """Return unit ``xyzw`` quaternions -- the message order already, only normalised."""
-    xyzw = _column(
+    xyzw = column(
         [[p.orientation.x, p.orientation.y, p.orientation.z, p.orientation.w] for p in poses],
         count,
         (4,),
         np.float64,
     )
-    if count == 0:
-        return xyzw
-    norms = np.linalg.norm(xyzw, axis=1, keepdims=True)
-    if np.any(norms == 0.0):
-        raise ValueError(f"Object {int(np.argmin(norms))} has a zero quaternion")
-    return xyzw / norms
+    return normalize_quaternions(xyzw, what="Object")
 
 
 def _size_column(objects: Sequence[Any], count: int) -> NDArrayF64:
@@ -433,7 +391,7 @@ def _size_column(objects: Sequence[Any], count: int) -> NDArrayF64:
             rows.append([dims.x, dims.x, dims.z])
         else:
             rows.append([dims.y, dims.x, dims.z])
-    return _column(rows, count, (3,), np.float64)
+    return column(rows, count, (3,), np.float64)
 
 
 def _confidence_column(objects: Sequence[Any], count: int, mode: Confidence) -> NDArrayF64:
@@ -455,7 +413,7 @@ def _confidence_column(objects: Sequence[Any], count: int, mode: Confidence) -> 
             values.append(existence * float(best.probability))
         else:
             raise ValueError(f"Unknown confidence mode {mode!r}")
-    return _column(values, count, (), np.float64)
+    return column(values, count, (), np.float64)
 
 
 def _instance_column(
@@ -468,12 +426,8 @@ def _instance_column(
     ``unique_identifier_msgs/UUID`` is 16 raw bytes, which the decoder may hand over as
     ``bytes`` or as a list of ints depending on its version; both spell the same UUID.
     """
-    uuids = []
-    for obj in objects:
-        raw = bytes(bytearray(obj.object_id.uuid))
-        name = str(uuid.UUID(bytes=raw))
-        uuids.append(f"{namespace}/{name}" if namespace else name)
-    return instances.encode(uuids)
+    names = [str(uuid.UUID(bytes=bytes(bytearray(obj.object_id.uuid)))) for obj in objects]
+    return encode_instance_ids(instances, names, namespace=namespace)
 
 
 def _velocity_column(
@@ -497,8 +451,8 @@ def _velocity_column(
     rows = []
     for obj in objects:
         twist = _twist(obj, kind)
-        rows.append(_NAN3 if twist is None else [twist.linear.x, twist.linear.y, twist.linear.z])
-    body = _column(rows, count, (3,), np.float64)
+        rows.append(NAN3 if twist is None else [twist.linear.x, twist.linear.y, twist.linear.z])
+    body = column(rows, count, (3,), np.float64)
 
     finite = np.isfinite(body).all(axis=1)
     if emit == "auto" and not finite.any():
@@ -517,31 +471,14 @@ def _trajectory_columns(
     num_modes: int,
     num_timesteps: int,
 ) -> TrajectoryColumns:
-    """Build dense, padded, fully-masked trajectory columns.
-
-    Every row is well formed whether or not its object has a path, so prediction rows line
-    up one-to-one with the tracking rows of the same frame.
-    """
-    count = len(objects)
-    shape = (count, num_modes, num_timesteps)
-
-    # A row with no path holds station at its own centre. Zeros would teleport it to the
-    # origin, which reads as a real -- and badly wrong -- prediction to anything that
-    # forgets the mask. NaN is not an option: waypoints must be finite.
-    waypoints = np.repeat(
-        positions[:, None, None, :],
-        num_modes * num_timesteps,
-        axis=1,
-    ).reshape(*shape, 3)
-
-    mode_confidence = np.zeros((count, num_modes), dtype=np.float64)
-    mode_valid = np.zeros((count, num_modes), dtype=np.bool_)
-    timestep_valid = np.zeros(shape, dtype=np.bool_)
-
-    # The default axis is already non-negative and strictly increasing, which is what the
-    # time-offset column requires even of rows that carry no real path.
+    """Fill the padded trajectory columns with each object's paths, where it has any."""
+    columns = padded_trajectory(positions, num_modes=num_modes, num_timesteps=num_timesteps)
+    waypoints = columns.waypoints
+    mode_confidence = columns.mode_confidence
+    mode_valid = columns.mode_valid
+    timestep_valid = columns.timestep_valid
+    time_offset = columns.time_offset
     steps = np.arange(1, num_timesteps + 1, dtype=np.int64)
-    time_offset = np.tile(steps, (count, 1))
 
     for index, obj in enumerate(objects):
         paths = _paths_of(obj)
@@ -581,4 +518,4 @@ def _trajectory_columns(
         mode_valid[index, : len(paths)] = True
         time_offset[index] = steps * step
 
-    return TrajectoryColumns(waypoints, mode_confidence, mode_valid, timestep_valid, time_offset)
+    return columns

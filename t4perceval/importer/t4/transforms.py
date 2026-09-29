@@ -24,6 +24,7 @@ import numpy as np
 
 from t4perceval.archetype.transform import Transform3D
 from t4perceval.core.timeline import TimePoint
+from t4perceval.importer._columns import wxyz_to_xyzw
 from t4perceval.transform.graph import DEFAULT_ROOT, tf_path
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ def _pose_values(record: Any) -> tuple[list[float], list[float]]:
     rear camera would read as unrotated instead of turned through 180 degrees.
     """
     wxyz = np.asarray(record.rotation.elements, dtype=np.float64)
-    return list(np.asarray(record.translation, dtype=np.float64)), list(wxyz[[1, 2, 3, 0]])
+    return list(np.asarray(record.translation, dtype=np.float64)), list(wxyz_to_xyzw(wxyz))
 
 
 def log_scene_transforms(

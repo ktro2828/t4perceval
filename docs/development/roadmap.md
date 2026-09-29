@@ -621,7 +621,10 @@ distinct message schemas, unlike the T4 3D archetypes.
 - [x] `AUTOWARE_CLASS_NAMES`: `ObjectClassification` is a `uint8` enum, so the mapping goes
       `enum -> canonical name -> registry id` in two visible stages rather than baking
       enum-to-class-id directly. The name -> id step moved to `importer/_labels.py`, shared
-      with T4.
+      with T4. The rest of the scaffolding the two importers had each copied -- column
+      stacking, trajectory padding, quaternion normalisation, instance namespacing,
+      selection narrowing, the single-frame check and the recording metadata -- lives in
+      `importer/_columns.py` and `importer/_importer.py`.
 - [x] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
       semantic location; they are not the same concept. One recording holds one topic at
       `/estimation/objects`; the topic is provenance (`SourceInfo.topic`).

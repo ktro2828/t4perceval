@@ -42,15 +42,26 @@ from t4perceval.archetype import (
     Trackings3D,
 )
 from t4perceval.component import VisibilityLevel
-from t4perceval.importer.t4.labels import encode_class_ids
+from t4perceval.importer._columns import (
+    NAN3,
+    Emit,
+    TrajectoryColumns,
+    column,
+    encode_instance_ids,
+    normalize_quaternions,
+    padded_trajectory,
+    select_kept,
+    wxyz_to_xyzw,
+)
+from t4perceval.importer._labels import encode_class_ids
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from t4perceval.core.archetype import Archetype
-    from t4perceval.importer.t4.labels import UnknownLabels
+    from t4perceval.importer._labels import UnknownLabels
     from t4perceval.label import InstanceRegistry, LabelRegistry
-    from t4perceval.typing import NDArrayBool, NDArrayF64, NDArrayI8, NDArrayI32, NDArrayI64
+    from t4perceval.typing import NDArrayF64, NDArrayI8, NDArrayI32, NDArrayI64
 
 __all__ = (
     "Box2DColumns",
@@ -67,14 +78,6 @@ __all__ = (
 Kind3D: TypeAlias = Literal["detections", "trackings", "predictions"]
 Kind2D: TypeAlias = Literal["detections", "trackings"]
 
-Emit: TypeAlias = Literal["auto", "always", "never"]
-"""Whether an optional column is written.
-
-``"auto"`` decides from the batch in hand. Callers importing a whole scene must resolve
-it **scene-wide** and pass ``"always"`` or ``"never"``: ``concat_chunks`` rejects chunks
-whose column sets differ, so a column present on one frame and absent on the next makes
-``Store.range()`` raise over that scene.
-"""
 
 #: Devkit visibility is a string enum ranked ``full=4 .. none=1``, with ``None`` for
 #: unavailable. Ours is ``FULL=3 .. NONE=0`` with ``UNAVAILABLE=-1``. The ranks are off by
@@ -86,44 +89,6 @@ _VISIBILITY: dict[str, VisibilityLevel] = {
     "none": VisibilityLevel.NONE,
     "unavailable": VisibilityLevel.UNAVAILABLE,
 }
-
-_NAN3 = np.full(3, np.nan, dtype=np.float64)
-
-
-def _column(
-    values: list[Any],
-    count: int,
-    row_shape: tuple[int, ...],
-    dtype: Any,
-) -> Any:
-    """Stack per-object values into a column.
-
-    An empty batch is allocated rather than inferred: ``np.asarray([])`` collapses to
-    ``(0,)``, which fails the component's per-row shape check.
-    """
-    if count == 0:
-        return np.empty((0, *row_shape), dtype=dtype)
-    return np.asarray(values, dtype=dtype).reshape(count, *row_shape)
-
-
-@define(frozen=True, slots=True)
-class TrajectoryColumns:
-    """Dense trajectory columns with a fixed mode and timestep count."""
-
-    waypoints: NDArrayF64
-    """``(N, M, T, 3)``, always finite -- padding holds the last real position."""
-
-    mode_confidence: NDArrayF64
-    """``(N, M)`` in ``[0, 1]``."""
-
-    mode_valid: NDArrayBool
-    """``(N, M)``; ``False`` for a padded mode."""
-
-    timestep_valid: NDArrayBool
-    """``(N, M, T)``; ``False`` for a padded timestep."""
-
-    time_offset: NDArrayI64
-    """``(N, T)`` nanoseconds from the frame, non-negative and strictly increasing."""
 
 
 @define(frozen=True, slots=True)
@@ -314,12 +279,11 @@ def boxes3d_to_columns(
     names = [str(box.semantic_label.name) for box in boxes]
     class_id, keep = encode_class_ids(labels, names, unknown=unknown_labels)
 
-    kept_indices = np.flatnonzero(keep) if len(keep) else np.empty(0, dtype=np.int64)
-    selected = [boxes[index] for index in kept_indices]
+    selected, kept = select_kept(boxes, keep)
     count = len(selected)
 
-    position = _column([box.position for box in selected], count, (3,), np.float64)
-    size = _column([box.shape.size for box in selected], count, (3,), np.float64)
+    position = column([box.position for box in selected], count, (3,), np.float64)
+    size = column([box.shape.size for box in selected], count, (3,), np.float64)
     quaternion = _quaternion_column(selected, count)
     confidence = np.fromiter(
         (float(box.confidence) for box in selected),
@@ -350,7 +314,7 @@ def boxes3d_to_columns(
             )
         ),
         frame_id=str(selected[0].frame_id) if count else None,
-        kept=kept_indices.astype(np.int64, copy=False),
+        kept=kept,
     )
 
 
@@ -377,8 +341,7 @@ def boxes2d_to_columns(
     names = [str(box.semantic_label.name) for box in boxes]
     class_id, keep = encode_class_ids(labels, names, unknown=unknown_labels)
 
-    kept_indices = np.flatnonzero(keep) if len(keep) else np.empty(0, dtype=np.int64)
-    selected = [boxes[index] for index in kept_indices]
+    selected, kept = select_kept(boxes, keep)
     count = len(selected)
 
     confidence = np.fromiter(
@@ -393,7 +356,7 @@ def boxes2d_to_columns(
         confidence,
         _instance_column(selected, instances, instance_namespace),
         frame_id=str(selected[0].frame_id) if count else None,
-        kept=kept_indices.astype(np.int64, copy=False),
+        kept=kept,
     )
 
 
@@ -406,15 +369,8 @@ def _quaternion_column(boxes: Sequence[Any], count: int) -> NDArrayF64:
     ``pyquaternion`` stores ``wxyz``; ours is ``xyzw``. Both are ``(4,)`` float arrays, so
     getting this wrong produces a plausible rotation rather than an error.
     """
-    wxyz = _column([box.rotation.elements for box in boxes], count, (4,), np.float64)
-    if count == 0:
-        return wxyz
-
-    xyzw = wxyz[:, (1, 2, 3, 0)]
-    norms = np.linalg.norm(xyzw, axis=1, keepdims=True)
-    if np.any(norms == 0.0):
-        raise ValueError(f"Box {int(np.argmin(norms))} has a zero quaternion")
-    return xyzw / norms
+    wxyz = column([box.rotation.elements for box in boxes], count, (4,), np.float64)
+    return normalize_quaternions(wxyz_to_xyzw(wxyz), what="Box")
 
 
 def _roi_column(boxes: Sequence[Any], count: int) -> NDArrayI32:
@@ -427,7 +383,7 @@ def _roi_column(boxes: Sequence[Any], count: int) -> NDArrayI32:
         if box.roi is None:
             raise ValueError(f"Box {index} has no region of interest")
 
-    xyxy = _column([tuple(box.roi) for box in boxes], count, (4,), np.int32)
+    xyxy = column([tuple(box.roi) for box in boxes], count, (4,), np.int32)
     roi = np.empty((count, 4), dtype=np.int32)
     if count:
         roi[:, 0] = xyxy[:, 0]
@@ -443,12 +399,10 @@ def _instance_column(
     namespace: str,
 ) -> NDArrayI64:
     """Intern each box's identity, namespaced so sources cannot collide."""
-    uuids = []
     for index, box in enumerate(boxes):
         if box.uuid is None:
             raise ValueError(f"Box {index} has no uuid, so it cannot be tracked")
-        uuids.append(f"{namespace}/{box.uuid}" if namespace else str(box.uuid))
-    return instances.encode(uuids)
+    return encode_instance_ids(instances, [str(box.uuid) for box in boxes], namespace=namespace)
 
 
 def _velocity_column(boxes: Sequence[Any], count: int, emit: Emit) -> NDArrayF64 | None:
@@ -462,8 +416,8 @@ def _velocity_column(boxes: Sequence[Any], count: int, emit: Emit) -> NDArrayF64
     if emit == "never":
         return None
 
-    raw = _column(
-        [box.velocity if box.velocity is not None else _NAN3 for box in boxes],
+    raw = column(
+        [box.velocity if box.velocity is not None else NAN3 for box in boxes],
         count,
         (3,),
         np.float64,
@@ -505,30 +459,13 @@ def _trajectory_columns(
     num_modes: int,
     num_timesteps: int,
 ) -> TrajectoryColumns:
-    """Build dense, padded, fully-masked trajectory columns.
-
-    Every row is well formed whether or not its box has a future, so prediction rows line
-    up one-to-one with the tracking rows of the same frame.
-    """
-    count = len(boxes)
-    shape = (count, num_modes, num_timesteps)
-
-    # A row with no future holds station at its own centre. Zeros would teleport it to the
-    # origin, which reads as a real -- and badly wrong -- prediction to anything that
-    # forgets the mask. NaN is not an option: waypoints must be finite.
-    waypoints = np.repeat(
-        positions[:, None, None, :],
-        num_modes * num_timesteps,
-        axis=1,
-    ).reshape(*shape, 3)
-
-    mode_confidence = np.zeros((count, num_modes), dtype=np.float64)
-    mode_valid = np.zeros((count, num_modes), dtype=np.bool_)
-    timestep_valid = np.zeros(shape, dtype=np.bool_)
-
-    # The default axis is already non-negative and strictly increasing, which is what the
-    # time-offset column requires even of rows that carry no real future.
-    time_offset = np.tile(np.arange(1, num_timesteps + 1, dtype=np.int64), (count, 1))
+    """Fill the padded trajectory columns with each box's future, where it has one."""
+    columns = padded_trajectory(positions, num_modes=num_modes, num_timesteps=num_timesteps)
+    waypoints = columns.waypoints
+    mode_confidence = columns.mode_confidence
+    mode_valid = columns.mode_valid
+    timestep_valid = columns.timestep_valid
+    time_offset = columns.time_offset
 
     truncated = 0
     for index, box in enumerate(boxes):
@@ -574,10 +511,4 @@ def _trajectory_columns(
             stacklevel=3,
         )
 
-    return TrajectoryColumns(
-        waypoints,
-        mode_confidence,
-        mode_valid,
-        timestep_valid,
-        time_offset,
-    )
+    return columns

@@ -14,15 +14,21 @@ raise.
 
 from __future__ import annotations
 
-import time
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from attrs import define, field
+from attrs import define, evolve, field
 
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import TimePoint
+from t4perceval.importer._columns import resolve_emit
+from t4perceval.importer._importer import (
+    import_metadata,
+    narrow,
+    pin_trajectory_shape,
+    single_frame_id,
+)
 from t4perceval.importer.t4.convert import (
     boxes2d_to_columns,
     boxes3d_to_columns,
@@ -33,21 +39,21 @@ from t4perceval.importer.t4.paths import DEFAULT_ROOT, objects2d_path, objects3d
 from t4perceval.importer.t4.source import T4Source
 from t4perceval.importer.t4.transforms import log_scene_transforms
 from t4perceval.label import InstanceRegistry
-from t4perceval.recording import Recording, RecordingMetadata, SourceInfo
+from t4perceval.recording import Recording, SourceInfo
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
     from typing_extensions import Self
 
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.importer.t4.convert import Emit, Kind2D, Kind3D
-    from t4perceval.importer.t4.labels import UnknownLabels
-    from t4perceval.importer.t4.source import Coords, SampleFrame
+    from t4perceval.importer._labels import UnknownLabels
+    from t4perceval.importer.t4.source import Coords
     from t4perceval.label import LabelRegistry
 
-__all__ = ("FrameRef", "ImportOptions", "SceneSelection", "T4Importer")
+__all__ = ("ImportOptions", "SceneSelection", "T4Importer")
 
 
 @define(frozen=True, slots=True)
@@ -108,16 +114,6 @@ class ImportOptions:
     """
 
 
-@define(frozen=True, slots=True)
-class FrameRef:
-    """What a ``FRAME`` index refers to back in the dataset."""
-
-    frame: int
-    sample_token: str
-    timestamp_ns: int
-    num_objects_3d: int
-
-
 @define(slots=True)
 class T4Importer:
     """Imports T4 scenes into recordings.
@@ -145,7 +141,11 @@ class T4Importer:
             options=options if options is not None else ImportOptions(),
         )
 
-    def label_registry(self, **kwargs: Any) -> LabelRegistry:
+    def label_registry(
+        self,
+        *,
+        colors: Mapping[str, tuple[int, int, int]] | None = None,
+    ) -> LabelRegistry:
         """Return a registry covering every category in this dataset.
 
         Offered as a convenience, not as a default: :meth:`import_scene` requires a
@@ -153,7 +153,7 @@ class T4Importer:
         evaluation is how two sources come to disagree about what a class id means, and
         the disagreement shows up as plausible numbers rather than as an error.
         """
-        return label_registry_from_categories(self.source.categories(), **kwargs)
+        return label_registry_from_categories(self.source.categories(), colors=colors)
 
     def scene_tokens(self) -> tuple[str, ...]:
         """Return every scene token in the dataset."""
@@ -177,12 +177,7 @@ class T4Importer:
             self.import_scene(
                 labels=labels,
                 instances=shared,
-                selection=SceneSelection(
-                    token,
-                    base.samples,
-                    base.channel_3d,
-                    base.channels_2d,
-                ),
+                selection=evolve(base, scene=token),
             )
             for token in self.scene_tokens()
         )
@@ -211,7 +206,7 @@ class T4Importer:
         registry = instances if instances is not None else InstanceRegistry()
 
         scene_token = self.source.resolve_scene(chosen.scene)
-        frames = _select(self.source.frames(scene_token), chosen.samples)
+        frames = [frame for _, frame in narrow(self.source.frames(scene_token), chosen.samples)]
 
         if chosen.channel_3d is not None and self.source.is_camera(chosen.channel_3d):
             raise ValueError(
@@ -234,19 +229,26 @@ class T4Importer:
         )
 
         trajectory = (
-            _trajectory_shape(options, boxes_3d.values())
+            pin_trajectory_shape(
+                trajectory_shape_of(boxes_3d.values()),
+                num_modes=options.num_modes,
+                num_timesteps=options.num_timesteps,
+            )
             if options.kind_3d == "predictions"
             else None
         )
         emit = _resolve_emit(options, boxes_3d.values())
-        frame_id = _scene_frame_id(boxes_3d)
+        frame_id = single_frame_id(
+            (str(box.frame_id) for boxes in boxes_3d.values() for box in boxes),
+            what="Scene",
+        )
 
         # -- pass 2: convert and log ----------------------------------------------------
         store = Store()
         entity_root = as_entity_path(options.entity_root)
         path_3d = objects3d_path(entity_root)
         paths_2d = {channel: objects2d_path(entity_root, channel) for channel in chosen.channels_2d}
-        refs: list[FrameRef] = []
+        num_frames = 0
 
         if options.transforms and chosen.channel_3d is not None:
             log_scene_transforms(store, self.source, frames, channel=chosen.channel_3d)
@@ -254,7 +256,7 @@ class T4Importer:
         for frame in frames:
             timestamp_ns = frame.timestamp_us * 1000
             at = TimePoint.at(frame=frame.frame, timestamp_ns=timestamp_ns)
-            count = 0
+            num_frames += 1
 
             if frame.frame in boxes_3d:
                 columns = boxes3d_to_columns(
@@ -267,7 +269,6 @@ class T4Importer:
                     trajectory=trajectory,
                     **emit,
                 )
-                count = len(columns)
                 store.log(
                     path_3d,
                     columns.as_archetype(options.kind_3d),
@@ -303,59 +304,25 @@ class T4Importer:
                     frame_id=channel,
                 )
 
-            refs.append(FrameRef(frame.frame, frame.sample_token, timestamp_ns, count))
-
+        source = SourceInfo(
+            "t4",
+            self.source.data_root,
+            version=self.source.version,
+            scene=scene_token,
+            entity_path=str(path_3d),
+            extra={
+                "channel_3d": chosen.channel_3d or "",
+                "coords": options.coords,
+                "kind_3d": options.kind_3d,
+                "frames": str(num_frames),
+            },
+        )
         return Recording.of(
             store,
             labels=labels,
             instances=registry,
-            metadata=RecordingMetadata(
-                t4perceval_version=_version(),
-                created_at_ns=time.time_ns(),
-                sources=(
-                    SourceInfo(
-                        "t4",
-                        self.source.data_root,
-                        version=self.source.version,
-                        scene=scene_token,
-                        entity_path=str(path_3d),
-                        extra={
-                            "channel_3d": chosen.channel_3d or "",
-                            "coords": options.coords,
-                            "kind_3d": options.kind_3d,
-                            "frames": str(len(refs)),
-                        },
-                    ),
-                ),
-                labels_fingerprint=labels.fingerprint(),
-                frame_id=frame_id,
-            ),
+            metadata=import_metadata(source, frame_id=frame_id),
         )
-
-
-def _select(
-    frames: Sequence[SampleFrame],
-    samples: slice | Sequence[int] | None,
-) -> tuple[SampleFrame, ...]:
-    """Narrow a scene's frames, keeping each one's index in the *full* chain.
-
-    So ``samples=slice(10, 20)`` yields frames numbered 10..19, and two selections of one
-    scene stay directly comparable instead of both starting at zero.
-    """
-    if samples is None:
-        return tuple(frames)
-    if isinstance(samples, slice):
-        return tuple(frames[samples])
-    return tuple(frames[index] for index in samples)
-
-
-def _trajectory_shape(options: ImportOptions, frames: Any) -> tuple[int, int]:
-    """Return the scene-wide trajectory shape, honouring any pinned dimension."""
-    fitted = trajectory_shape_of(frames)
-    return (
-        options.num_modes if options.num_modes is not None else fitted[0],
-        options.num_timesteps if options.num_timesteps is not None else fitted[1],
-    )
 
 
 def _resolve_emit(options: ImportOptions, frames: Any) -> dict[str, Emit]:
@@ -366,9 +333,6 @@ def _resolve_emit(options: ImportOptions, frames: Any) -> dict[str, Emit]:
     """
     boxes = [box for frame in frames for box in frame]
 
-    def resolve(setting: Emit, present: bool) -> Emit:
-        return setting if setting != "auto" else ("always" if present else "never")
-
     has_velocity = any(
         box.velocity is not None and bool(np.isfinite(np.asarray(box.velocity)).all())
         for box in boxes
@@ -376,30 +340,7 @@ def _resolve_emit(options: ImportOptions, frames: Any) -> dict[str, Emit]:
     has_num_points = bool(boxes) and all(box.num_points is not None for box in boxes)
 
     return {
-        "velocity": resolve(options.velocity, has_velocity),
-        "num_points": resolve(options.num_points, has_num_points),
-        "visibility": resolve(options.visibility, bool(boxes)),
+        "velocity": resolve_emit(options.velocity, has_velocity),
+        "num_points": resolve_emit(options.num_points, has_num_points),
+        "visibility": resolve_emit(options.visibility, bool(boxes)),
     }
-
-
-def _scene_frame_id(boxes_3d: dict[int, list[Any]]) -> str | None:
-    """Return the one frame the scene's boxes are in, rejecting a mixture.
-
-    A chunk carries a single ``frame_id`` and ``concat_chunks`` refuses to join chunks
-    that disagree, so picking one silently would break the scene-wide query later, far
-    from the cause.
-    """
-    seen = {str(box.frame_id) for boxes in boxes_3d.values() for box in boxes}
-    if len(seen) > 1:
-        raise ValueError(f"Scene mixes coordinate frames: {sorted(seen)}")
-    return seen.pop() if seen else None
-
-
-def _version() -> str:
-    """Return the installed package version, or an empty string when unavailable."""
-    from importlib.metadata import PackageNotFoundError, version
-
-    try:
-        return version("t4perceval")
-    except PackageNotFoundError:  # pragma: no cover - only when running from a source tree
-        return ""

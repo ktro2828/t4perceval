@@ -39,7 +39,6 @@ from t4perceval.importer.rosbag.convert import (
 )
 from t4perceval.importer.rosbag.importer import (
     BagSelection,
-    FrameRef,
     ImportOptions,
     RosbagImporter,
 )
@@ -72,7 +71,6 @@ __all__ = (
     "BagSource",
     "Confidence",
     "Emit",
-    "FrameRef",
     "ImportOptions",
     "Kind",
     "Object3DColumns",
