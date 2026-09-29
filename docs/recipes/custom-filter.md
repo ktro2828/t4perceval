@@ -115,8 +115,11 @@ keep = CombineMasksSystem.of([big.target, confident.target], f"{SOURCE}/filter/k
 
 ## A filter over several entities
 
-`MaskSystem` requires exactly one source. If you need more -- "keep estimations near _any_ ground
-truth", say -- implement the `System` protocol directly, as `CombineMasksSystem` does. See
+The mask is always over the **first** source, but a filter may consult another entity -- "keep
+estimations near _any_ ground truth", say. Declare it as a second source so `Pipeline` sees the
+dependency, override `__attrs_post_init__` with your own source count, and read it in `keep()`
+through `ctx.store`, one partition at a time. `FilterByCoverageSystem` is the shipped example.
+For a system that is not a mask at all, implement the `System` protocol directly; see
 [Extending systems](../development/extending-systems.md).
 
 ## Where to go next

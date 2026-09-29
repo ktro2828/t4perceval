@@ -1,32 +1,65 @@
 # Filters
 
-Every filter reads **one** entity, tests each row, and writes a `mask` column to
-`<source>/filter/<name>` -- the rows stay where they are. All of them build with
-`.on(source, **params)` and share `MaskSystem`.
+Every filter tests each row of its source entity and writes a `mask` column to
+`<source>/filter/<name>` -- the rows stay where they are. All of them share `MaskSystem`, and all
+but one build with `.on(source, **params)`.
 
-Bounds are inclusive on both ends, so a filter with its default parameters passes every row.
+Bounds are inclusive on both ends, so a filter with its default parameters passes every row. The
+sections below follow the modules of `t4perceval.system.filter`, each named for the column it
+judges.
 
-| System                     | Requires      | Parameters (default)                                    | Keeps rows whose                                    |
-| :------------------------- | :------------ | :------------------------------------------------------ | :-------------------------------------------------- |
-| `FilterByDistanceSystem`   | `position`    | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
-| `FilterByRegionSystem`     | `position`    | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
-| `FilterByMapSystem`        | `position`    | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
-| `FilterByLabelSystem`      | `class_id`    | `labels` (None), `exclude` (None)                       | class is listed and not excluded                    |
-| `FilterByConfidenceSystem` | `confidence`  | `min_confidence` (0), `max_confidence` (1)              | confidence is in range                              |
-| `FilterByInstanceSystem`   | `instance_id` | `instances` (None), `exclude` (None)                    | instance is listed and not excluded                 |
-| `FilterBySpeedSystem`      | `velocity`    | `min_speed` (0), `max_speed` (inf)                      | speed, the L2 norm of `velocity`, is in range       |
-| `FilterByNumPointsSystem`  | `num_points`  | `min_num_points` (0), `max_num_points` (None)           | point count is in range                             |
-| `FilterByVisibilitySystem` | `visibility`  | `min_visibility` (`NONE`)                               | at least as visible; `UNAVAILABLE` always passes    |
+## Position
 
-Two of them have extra constructors. `FilterByRegionSystem.symmetric(source, max_xy=)` mirrors the
-box about the origin. `FilterByMapSystem.on_lanelet(source, lanelet_map, subtypes=)` builds the
-polygon from a [Lanelet2 map](../reference/api/lanelet.md); the map filter is the one filter that
-looks the ego pose up itself, so a `base_link` source needs no transform first.
+`t4perceval.system.filter.position` -- where an object is. All three require `position`.
 
-Distance, region and speed are measured **in the frame the source declares**. A distance from the
-ego needs the rows in `base_link`.
+| System                   | Parameters (default)                                    | Keeps rows whose                                    |
+| :----------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
+| `FilterByDistanceSystem` | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
+| `FilterByRegionSystem`   | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
+| `FilterByMapSystem`      | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
 
-## Composing and applying masks
+Distance and region are measured **in the frame the source declares**; a distance from the ego
+needs the rows in `base_link`. `FilterByRegionSystem.symmetric(source, max_xy=)` mirrors the box
+about the origin. The map filter is the one filter that looks the ego pose up itself, so a
+`base_link` source needs no transform first; `FilterByMapSystem.on_lanelet(source, lanelet_map,
+subtypes=)` builds its polygon from a [Lanelet2 map](../reference/api/lanelet.md).
+
+## Identity
+
+`t4perceval.system.filter.identity` -- what an object is. Names are resolved through the
+context's registries, and an unknown name raises.
+
+| System                   | Requires      | Parameters (default)                 | Keeps rows whose                    |
+| :----------------------- | :------------ | :----------------------------------- | :---------------------------------- |
+| `FilterByLabelSystem`    | `class_id`    | `labels` (None), `exclude` (None)    | class is listed and not excluded    |
+| `FilterByInstanceSystem` | `instance_id` | `instances` (None), `exclude` (None) | instance is listed and not excluded |
+
+## Quality
+
+`t4perceval.system.filter.quality` -- how well an object was observed.
+
+| System                     | Requires     | Parameters (default)                          | Keeps rows whose                                 |
+| :------------------------- | :----------- | :-------------------------------------------- | :----------------------------------------------- |
+| `FilterByConfidenceSystem` | `confidence` | `min_confidence` (0), `max_confidence` (1)    | confidence is in range                           |
+| `FilterBySpeedSystem`      | `velocity`   | `min_speed` (0), `max_speed` (inf)            | speed, the L2 norm of `velocity`, is in range    |
+| `FilterByNumPointsSystem`  | `num_points` | `min_num_points` (0), `max_num_points` (None) | point count is in range                          |
+| `FilterByVisibilitySystem` | `visibility` | `min_visibility` (`NONE`)                     | at least as visible; `UNAVAILABLE` always passes |
+
+## Point
+
+`t4perceval.system.filter.point` -- points of a cloud rather than objects.
+
+| System                   | Requires                | Parameters (default)                      | Keeps rows whose                               |
+| :----------------------- | :---------------------- | :---------------------------------------- | :--------------------------------------------- |
+| `FilterByCoverageSystem` | `point` on both sources | `tolerance` (1e-6), `check_frames` (True) | point has a reference point within `tolerance` |
+
+The one filter with two sources: `.between(source, reference)` masks `source` by whether
+`reference` covers it, frame by frame, and writes to `<source>/filter/coverage`. It is how a
+cropped or downsampled estimation leaves the uncovered ground truth out of a segmentation score.
+
+## Mask
+
+`t4perceval.system.filter.mask` -- composing masks, and materializing the rows one kept.
 
 | System               | Requires       | Parameters (default) | Writes                                          |
 | :------------------- | :------------- | :------------------- | :---------------------------------------------- |

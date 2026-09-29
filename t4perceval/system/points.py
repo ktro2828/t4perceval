@@ -15,13 +15,12 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from attrs import define, evolve, field
-from scipy.spatial import cKDTree
 
-from t4perceval.component import BatchMask
 from t4perceval.core.chunk import Chunk, concat_chunks
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimeRange
-from t4perceval.descriptors import MASK, POINT
+from t4perceval.descriptors import POINT
+from t4perceval.geometry import nearest_points
 from t4perceval.system.base import EntitySystem, Passthrough, require, require_same_frame
 
 if TYPE_CHECKING:
@@ -35,106 +34,7 @@ if TYPE_CHECKING:
     from t4perceval.system.base import SystemContext
     from t4perceval.typing import NDArrayF64, NDArrayI64
 
-__all__ = ("AlignPointsSystem", "FilterByCoverageSystem")
-
-
-def _nearest(points: NDArrayF64, reference: NDArrayF64) -> tuple[NDArrayF64, NDArrayI64]:
-    """Return, for each of ``points``, the distance to and index of its nearest ``reference``."""
-    distances, indices = cKDTree(reference).query(points, k=1)
-    return np.atleast_1d(distances), np.atleast_1d(indices).astype(np.int64)
-
-
-@define(slots=True)
-class FilterByCoverageSystem(EntitySystem):
-    """Keep the points of one entity that have a counterpart in another.
-
-    Sources are ``(source, reference)``; the mask is over ``source``, true where a
-    ``reference`` point lies within :attr:`tolerance`. Its purpose is the ground truth an
-    estimation did not cover -- a cropped or downsampled output -- when that gap is to be
-    left out of the score rather than counted as a miss. That is an evaluation decision, so
-    it is a stage you add, and the mask records exactly which points it dropped::
-
-        covered = FilterByCoverageSystem.between(GT, EST)
-        gt_kept = ApplyMaskSystem.of(GT, covered.target)
-        aligned = AlignPointsSystem.between(EST, gt_kept.target)
-        iou = SegmentationIoUSystem.between(aligned.target, gt_kept.target)
-    """
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)
-    PROVIDES: ClassVar[tuple[ComponentDescriptor, ...] | Passthrough] = (MASK,)
-
-    tolerance: float = field(default=1e-6, kw_only=True)
-    """Largest distance at which a reference point counts as covering a source point."""
-
-    check_frames: bool = field(default=True, kw_only=True)
-    """Refuse inputs that state different coordinate frames."""
-
-    def __attrs_post_init__(self) -> None:
-        if len(self.sources) != 2:
-            raise ValueError(
-                f"{type(self).__name__} needs exactly two sources (source, reference), "
-                f"got {len(self.sources)}",
-            )
-        if self.tolerance < 0.0:
-            raise ValueError(f"tolerance must be non-negative, got {self.tolerance}")
-
-    @classmethod
-    def between(
-        cls,
-        source: EntityPathLike,
-        reference: EntityPathLike,
-        *,
-        target: EntityPathLike | None = None,
-        **params: Any,
-    ) -> Self:
-        """Mask the points of ``source`` by whether ``reference`` covers them.
-
-        The target defaults to ``<source>/filter/coverage``, like every other filter.
-        """
-        path = as_entity_path(source)
-        return cls(
-            (path, reference),
-            target if target is not None else path / "filter" / "coverage",
-            **params,
-        )
-
-    def __call__(self, ctx: SystemContext, at: int | TimeRange) -> Iterable[Chunk]:
-        source, reference = self.sources
-        time_range = at if isinstance(at, TimeRange) else TimeRange.single(at)
-        times = ctx.store.times(source, ctx.timeline)
-
-        pieces: list[Chunk] = []
-        for time in (int(time) for time in times[time_range.contains(times)]):
-            single = TimeRange.single(time)
-            view = ctx.store.range(source, timeline=ctx.timeline, time_range=single)
-            other = ctx.store.range(reference, timeline=ctx.timeline, time_range=single)
-            if len(view):
-                require(view, *self.REQUIRES)
-            if len(other):
-                require(other, *self.REQUIRES)
-            if self.check_frames:
-                require_same_frame(view, other)
-
-            if not len(view) or not len(other):
-                keep = np.zeros(len(view), dtype=np.bool_)
-            else:
-                distances, _ = _nearest(
-                    view.component(POINT).values,  # type: ignore[union-attr]
-                    other.component(POINT).values,  # type: ignore[union-attr]
-                )
-                keep = distances <= self.tolerance
-
-            chunk = view.to_chunk()
-            pieces.append(
-                Chunk(
-                    self.target,
-                    chunk.indexes,
-                    chunk.offsets,
-                    {MASK: BatchMask(keep)},
-                    frame_id=chunk.frame_id,
-                ),
-            )
-        return (concat_chunks(pieces),) if pieces else ()
+__all__ = ("AlignPointsSystem",)
 
 
 @define(slots=True)
@@ -250,7 +150,7 @@ class AlignPointsSystem(EntitySystem):
         where: str,
     ) -> NDArrayI64:
         """Return, for each ground-truth row, the estimation row at the same location."""
-        distances, indices = _nearest(gt_points, est_points)
+        distances, indices = nearest_points(gt_points, est_points)
 
         unmatched = distances > self.tolerance
         if unmatched.any():

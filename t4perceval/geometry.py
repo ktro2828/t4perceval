@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import shapely
+from scipy.spatial import cKDTree
 from scipy.spatial.transform import Rotation
 
 if TYPE_CHECKING:
@@ -24,6 +25,7 @@ __all__ = (
     "bev_area",
     "bev_corners",
     "canonical_bev_corners",
+    "nearest_points",
     "pairwise_bev_intersection_area",
     "pairwise_bev_iou",
     "pairwise_height_intersection",
@@ -292,3 +294,13 @@ def pairwise_plane_distance(
 
     gaps = np.linalg.norm(est_face - gt_face[None, :, :, :], axis=-1)  # (N, M, 2)
     return np.sqrt(0.5 * np.sum(gaps**2, axis=-1))
+
+
+def nearest_points(points: NDArrayF64, reference: NDArrayF64) -> tuple[NDArrayF64, NDArrayI64]:
+    """Return, for each of ``points``, the distance to and index of its nearest ``reference``.
+
+    Both are ``(N, 3)`` / ``(M, 3)`` arrays; the result is ``(N,)`` distances and ``(N,)`` indices
+    into ``reference``.
+    """
+    distances, indices = cKDTree(reference).query(points, k=1)
+    return np.atleast_1d(distances), np.atleast_1d(indices).astype(np.int64)

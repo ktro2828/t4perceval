@@ -13,6 +13,7 @@ from t4perceval.system.filter import (
     ApplyMaskSystem,
     CombineMasksSystem,
     FilterByConfidenceSystem,
+    FilterByCoverageSystem,
     FilterByDistanceSystem,
     FilterByInstanceSystem,
     FilterByLabelSystem,
@@ -47,7 +48,7 @@ from t4perceval.system.metric import (
     SegmentationIoUSystem,
     SegmentationMetricSystem,
 )
-from t4perceval.system.points import AlignPointsSystem, FilterByCoverageSystem
+from t4perceval.system.points import AlignPointsSystem
 from t4perceval.system.preset import average_precision_sweep
 from t4perceval.system.threshold import Thresholds
 from t4perceval.system.transform import TransformEntitySystem

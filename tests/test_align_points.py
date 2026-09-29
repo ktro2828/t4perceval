@@ -179,10 +179,13 @@ class TestCoverage:
         return store
 
     def test_defaults(self) -> None:
+        from t4perceval.system import MaskSystem
+
         system = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
         assert str(system.target) == "/ground_truth/points/filter/coverage"
         assert system.REQUIRES == (POINT,) and system.PROVIDES == (MASK,)
-        assert isinstance(system, System)
+        assert isinstance(system, System) and isinstance(system, MaskSystem)
+        assert system.requires_for(1) == (POINT,), "the reference must carry points too"
         with pytest.raises(ValueError, match=r"needs exactly two sources \(source, reference\)"):
             FilterByCoverageSystem((SEG_GT,), "/x")
 
@@ -250,6 +253,15 @@ class TestCoverage:
         chunk = store.range(covered.target, timeline=FRAME, time_range=EVERYTHING).to_chunk()
         assert chunk.columns[MASK].values.tolist() == [False, False]
         assert chunk.partition_sizes().tolist() == [2, 0]
+
+    def test_an_empty_range_is_an_empty_mask(self, seg_labels: LabelRegistry) -> None:
+        # Like every other filter: an empty chunk under the target, not no chunk at all.
+        store = self.cropped(seg_labels)
+        covered = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+
+        (chunk,) = covered(SystemContext(store, FRAME), 7)
+
+        assert chunk.num_rows == 0 and str(chunk.entity_path) == str(covered.target)
 
     def test_refuses_to_compare_across_frames(self, seg_labels: LabelRegistry) -> None:
         store = Store()
