@@ -6,7 +6,7 @@ Structured metrics may override result serialization while reusing the source wi
 class discovery and reporting-time rules.
 
 A subclass declares which components it needs from each of its three sources and
-implements :meth:`compute`. The base builds the :class:`~t4perceval.system.join.MatchJoin`,
+implements :meth:`compute`. The base builds the :class:`~t4perceval.system.matching.join.MatchJoin`,
 validates the sources and wraps the result as a chunk.
 """
 
@@ -23,7 +23,7 @@ from t4perceval.core.chunk import Chunk
 from t4perceval.core.timeline import TimePoint, TimeRange
 from t4perceval.descriptors import CLASS_ID, EST_INDEX, GT_INDEX, MATCH_STATUS
 from t4perceval.system.base import EntitySystem, SystemContext, require
-from t4perceval.system.join import MatchJoin
+from t4perceval.system.matching.join import MatchJoin
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence

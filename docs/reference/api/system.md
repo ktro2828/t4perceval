@@ -20,11 +20,15 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 
 ::: t4perceval.system.transform
 
-::: t4perceval.system.matching
+::: t4perceval.system.matching.base
 
-::: t4perceval.system.threshold
+::: t4perceval.system.matching.distance
 
-::: t4perceval.system.join
+::: t4perceval.system.matching.iou
+
+::: t4perceval.system.matching.threshold
+
+::: t4perceval.system.matching.join
 
 ::: t4perceval.system.metric.base
 

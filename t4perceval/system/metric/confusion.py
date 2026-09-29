@@ -13,7 +13,7 @@ from t4perceval.component import BACKGROUND_CLASS_ID, MatchStatus
 from t4perceval.core.timeline import TimePoint, TimeRange
 from t4perceval.descriptors import CLASS_ID, EST_INDEX, GT_INDEX, MATCH_STATUS
 from t4perceval.system.base import require
-from t4perceval.system.join import MatchJoin
+from t4perceval.system.matching.join import MatchJoin
 from t4perceval.system.metric.base import MetricSystem
 
 if TYPE_CHECKING:

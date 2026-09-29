@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPath, EntityPathLike
     from t4perceval.core.view import EntityView
-    from t4perceval.system.join import MatchJoin
+    from t4perceval.system.matching.join import MatchJoin
     from t4perceval.typing import NDArrayBool, NDArrayF64
 
 __all__ = (

@@ -171,7 +171,7 @@ class TestMetrics:
     def test_a_metric_over_disagreeing_frames_raises(self, labels: LabelRegistry) -> None:
         # Every geometric metric reaches its inputs through MatchJoin, so the check there
         # covers all of them at once.
-        from t4perceval.system.join import MatchJoin
+        from t4perceval.system.matching.join import MatchJoin
 
         store = two_frames(labels, "base_link", "map")
         run(store, labels, check_frames=False)

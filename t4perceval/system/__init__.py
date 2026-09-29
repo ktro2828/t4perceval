@@ -25,7 +25,7 @@ from t4perceval.system.filter import (
     MaskSystem,
     masked_view,
 )
-from t4perceval.system.join import MatchJoin
+from t4perceval.system.matching.join import MatchJoin
 from t4perceval.system.matching import (
     CenterDistanceBEVMatchingSystem,
     CenterDistanceMatchingSystem,
@@ -50,7 +50,7 @@ from t4perceval.system.metric import (
 )
 from t4perceval.system.points import AlignPointsSystem
 from t4perceval.system.preset import average_precision_sweep
-from t4perceval.system.threshold import Thresholds
+from t4perceval.system.matching.threshold import Thresholds
 from t4perceval.system.transform import TransformEntitySystem
 
 __all__ = (

@@ -1,18 +1,4 @@
-"""Matching systems.
-
-Matching pairs an estimation stream against a ground-truth stream and records the verdict
-as a :class:`~t4perceval.archetype.MatchResults` chunk. Because the verdict is data --
-row indices, a score, a TP/FP/FN status -- it can be stored, re-read and re-analysed,
-which is what ``DynamicObjectWithPerceptionResult`` could not do: it held live object
-references.
-
-Every matcher is only its score matrix: :class:`MatchingSystem` implements the frame loop,
-the feasibility rules and the assignment once. The modes differ in *what* they measure and
-in whether a higher score is better.
-
-Each mode writes to its own ``/matching/<mode>`` entity, so several can run over the same
-frame and be compared afterwards.
-"""
+"""The shared base of every matcher: the frame loop, the feasibility rules, the assignment."""
 
 from __future__ import annotations
 
@@ -22,7 +8,6 @@ import numpy as np
 from attrs import Factory, define, field
 from scipy.optimize import linear_sum_assignment
 
-from t4perceval import geometry
 from t4perceval.archetype.matching import MatchResults
 from t4perceval.component import MatchStatus
 from t4perceval.core.chunk import concat_chunks
@@ -35,7 +20,6 @@ from t4perceval.descriptors import (
     MATCHING_SCORE,
     POSITION,
     QUATERNION,
-    ROI,
     SIZE,
     THRESHOLD,
 )
@@ -46,7 +30,7 @@ from t4perceval.system.base import (
     require_same_frame,
     resolve_frame,
 )
-from t4perceval.system.threshold import Thresholds
+from t4perceval.system.matching.threshold import Thresholds
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -59,18 +43,9 @@ if TYPE_CHECKING:
     from t4perceval.core.view import EntityView
     from t4perceval.typing import NDArrayBool, NDArrayF64
 
-__all__ = (
-    "CenterDistanceBEVMatchingSystem",
-    "CenterDistanceMatchingSystem",
-    "IoU3DMatchingSystem",
-    "IoUBEVMatchingSystem",
-    "IoURoiMatchingSystem",
-    "MatchingSystem",
-    "PlaneDistanceMatchingSystem",
-)
 
 #: Components describing a 3D box, needed by every mode that looks at the box's extent.
-_BOX_3D: tuple[ComponentDescriptor, ...] = (POSITION, QUATERNION, SIZE, CLASS_ID)
+BOX_3D: tuple[ComponentDescriptor, ...] = (POSITION, QUATERNION, SIZE, CLASS_ID)
 
 
 @define(slots=True)
@@ -306,132 +281,3 @@ class MatchingSystem(EntitySystem):
             feasible &= est_class[:, None] == gt_class[None, :]
 
         return feasible
-
-
-@define(slots=True)
-class CenterDistanceMatchingSystem(MatchingSystem):
-    """Match by the 3D distance between box centres."""
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION, CLASS_ID)
-    MATCHING_NAME: ClassVar[str] = "center_distance"
-    DEFAULT_THRESHOLD: ClassVar[float] = 1.0
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        est_position = est_view.component(POSITION).values
-        gt_position = gt_view.component(POSITION).values
-        return np.linalg.norm(est_position[:, None, :] - gt_position[None, :, :], axis=-1)
-
-
-@define(slots=True)
-class CenterDistanceBEVMatchingSystem(MatchingSystem):
-    """Match by the distance between box centres in the xy plane.
-
-    Kept apart from :class:`CenterDistanceMatchingSystem` because a matching mode names
-    the entity a metric later reads, so the two must not share a target. This is the mode
-    the original package's ``center_distance_bev_thresholds`` configured.
-    """
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION, CLASS_ID)
-    MATCHING_NAME: ClassVar[str] = "center_distance_bev"
-    DEFAULT_THRESHOLD: ClassVar[float] = 1.0
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        est_xy = est_view.component(POSITION).values[:, :2]
-        gt_xy = gt_view.component(POSITION).values[:, :2]
-        return np.linalg.norm(est_xy[:, None, :] - gt_xy[None, :, :], axis=-1)
-
-
-@define(slots=True)
-class PlaneDistanceMatchingSystem(MatchingSystem):
-    """Match by the distance between the boxes' nearest faces.
-
-    Two boxes can agree closely on the face the sensor observes while disagreeing about
-    the far side, which is why this mode exists alongside centre distance: it scores what
-    the perception system could actually see. See
-    :func:`t4perceval.geometry.pairwise_plane_distance`.
-
-    Positions must be expressed in the frame the distance from the origin is measured in
-    -- normally ``base_link``, which puts the ego at the origin.
-    """
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = _BOX_3D
-    MATCHING_NAME: ClassVar[str] = "plane_distance"
-    DEFAULT_THRESHOLD: ClassVar[float] = 2.0
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        return geometry.pairwise_plane_distance(
-            est_view.component(POSITION).values,
-            est_view.component(QUATERNION).values,
-            est_view.component(SIZE).values,
-            gt_view.component(POSITION).values,
-            gt_view.component(QUATERNION).values,
-            gt_view.component(SIZE).values,
-        )
-
-
-@define(slots=True)
-class IoUBEVMatchingSystem(MatchingSystem):
-    """Match 3D boxes by the IoU of their footprints.
-
-    This is the 2D IoU the original package computed for 3D tasks -- its
-    ``iou_2d_thresholds`` -- measured on the rotated footprint rather than an
-    axis-aligned box. For image-plane IoU of 2D detections, use
-    :class:`IoURoiMatchingSystem`.
-    """
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = _BOX_3D
-    MATCHING_NAME: ClassVar[str] = "iou_bev"
-    HIGHER_IS_BETTER: ClassVar[bool] = True
-    DEFAULT_THRESHOLD: ClassVar[float] = 0.5
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        return geometry.pairwise_bev_iou(
-            est_view.component(POSITION).values,
-            est_view.component(QUATERNION).values,
-            est_view.component(SIZE).values,
-            gt_view.component(POSITION).values,
-            gt_view.component(QUATERNION).values,
-            gt_view.component(SIZE).values,
-        )
-
-
-@define(slots=True)
-class IoU3DMatchingSystem(MatchingSystem):
-    """Match 3D boxes by the IoU of their volumes."""
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = _BOX_3D
-    MATCHING_NAME: ClassVar[str] = "iou_3d"
-    HIGHER_IS_BETTER: ClassVar[bool] = True
-    DEFAULT_THRESHOLD: ClassVar[float] = 0.5
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        return geometry.pairwise_volume_iou(
-            est_view.component(POSITION).values,
-            est_view.component(QUATERNION).values,
-            est_view.component(SIZE).values,
-            gt_view.component(POSITION).values,
-            gt_view.component(QUATERNION).values,
-            gt_view.component(SIZE).values,
-        )
-
-
-@define(slots=True)
-class IoURoiMatchingSystem(MatchingSystem):
-    """Match 2D detections by the IoU of their image-plane regions.
-
-    This is the ``iou_2d_thresholds`` of the original package's 2D tasks. It requires
-    :data:`~t4perceval.descriptors.ROI` rather than a 3D box, which is why it is a
-    separate system from :class:`IoUBEVMatchingSystem` instead of one class that inspects
-    which components happen to be present.
-    """
-
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (ROI, CLASS_ID)
-    MATCHING_NAME: ClassVar[str] = "iou_roi"
-    HIGHER_IS_BETTER: ClassVar[bool] = True
-    DEFAULT_THRESHOLD: ClassVar[float] = 0.5
-
-    def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        return geometry.pairwise_roi_iou(
-            est_view.component(ROI).values,
-            gt_view.component(ROI).values,
-        )

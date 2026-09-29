@@ -10,7 +10,7 @@ from t4perceval import FRAME, TIMESTAMP, Chunk, Store, TimePoint, TimeRange
 from t4perceval.archetype import MatchResults
 from t4perceval.component import MatchStatus
 from t4perceval.descriptors import CLASS_ID, CONFIDENCE, MATCH_STATUS, POSITION
-from t4perceval.system.join import MatchJoin
+from t4perceval.system.matching.join import MatchJoin
 
 EST = "/estimation/objects"
 GT = "/ground_truth/objects"

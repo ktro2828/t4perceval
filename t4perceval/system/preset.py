@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.system.base import System
     from t4perceval.system.matching import MatchingSystem
-    from t4perceval.system.threshold import ThresholdsLike
+    from t4perceval.system.matching.threshold import ThresholdsLike
 
 __all__ = ("average_precision_sweep",)
 

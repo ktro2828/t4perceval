@@ -36,7 +36,7 @@ class MatchResults(Archetype):
     thing here that a later stage could not recover by following the indices back to the
     objects, because only the matcher knew it -- and with per-class thresholds it differs
     from row to row. Everything else a metric needs is joined; see
-    :class:`~t4perceval.system.join.MatchJoin`.
+    :class:`~t4perceval.system.matching.join.MatchJoin`.
     """
 
     est_index = component_field(EST_INDEX, BatchRowIndex)

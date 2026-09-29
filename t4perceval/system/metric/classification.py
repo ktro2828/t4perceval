@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPath
     from t4perceval.system.base import SystemContext
-    from t4perceval.system.join import MatchJoin
+    from t4perceval.system.matching.join import MatchJoin
 
 __all__ = ("ClassificationSystem",)
 
