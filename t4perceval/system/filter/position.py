@@ -1,4 +1,9 @@
-"""Filters on where an object is: distance from the ego, a box, a map region."""
+"""Filters on where an object is: distance from the ego, a box, a map region.
+
+Each filter reads the column named by its :attr:`COLUMN`, ``POSITION`` here. The same
+predicates over the points of a cloud -- the ``POINT`` column -- are the
+``FilterPointsBy*`` systems in :mod:`t4perceval.system.filter.point`.
+"""
 
 from __future__ import annotations
 
@@ -44,6 +49,8 @@ class FilterByDistanceSystem(MaskSystem):
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION,)
     FILTER_NAME: ClassVar[str] = "distance"
+    #: The ``(N, 3)`` column the distance is measured on.
+    COLUMN: ClassVar[ComponentDescriptor] = POSITION
 
     min_distance: float = field(default=0.0, kw_only=True)
     max_distance: float = field(default=float("inf"), kw_only=True)
@@ -61,7 +68,7 @@ class FilterByDistanceSystem(MaskSystem):
         )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        position = view.component(POSITION).values
+        position = view.component(self.COLUMN).values
         axes = position[:, :2] if self.bev else position
         distance = np.linalg.norm(axes, axis=1)
         return (distance >= self.min_distance) & (distance <= self.max_distance)
@@ -77,6 +84,8 @@ class FilterByRegionSystem(MaskSystem):
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION,)
     FILTER_NAME: ClassVar[str] = "region"
+    #: The ``(N, 3)`` column whose xy is tested.
+    COLUMN: ClassVar[ComponentDescriptor] = POSITION
 
     min_xy: tuple[float, float] = field(
         default=(-float("inf"), -float("inf")),
@@ -122,7 +131,7 @@ class FilterByRegionSystem(MaskSystem):
         )
 
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
-        xy = view.component(POSITION).values[:, :2]
+        xy = view.component(self.COLUMN).values[:, :2]
         lower = np.asarray(self.min_xy, dtype=np.float64)
         upper = np.asarray(self.max_xy, dtype=np.float64)
         return np.all((xy >= lower) & (xy <= upper), axis=1)
@@ -172,6 +181,8 @@ class FilterByMapSystem(MaskSystem):
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION,)
     FILTER_NAME: ClassVar[str] = "map"
+    #: The ``(N, 3)`` column tested against the polygon.
+    COLUMN: ClassVar[ComponentDescriptor] = POSITION
 
     #: The frame every polygon is in. A map is the world, and the world is ``map``.
     MAP_FRAME: ClassVar[str] = "map"
@@ -218,7 +229,7 @@ class FilterByMapSystem(MaskSystem):
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
         if self.polygon is None:
             return np.ones(len(view), dtype=np.bool_)
-        position = view.component(POSITION).values
+        position = view.component(self.COLUMN).values
         if view.frame_id != self.MAP_FRAME:
             position = self._in_map(view, ctx, position)
         return shapely.contains_xy(self.polygon, position[:, 0], position[:, 1])

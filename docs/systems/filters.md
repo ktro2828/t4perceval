@@ -49,13 +49,24 @@ context's registries, and an unknown name raises.
 
 `t4perceval.system.filter.point` -- points of a cloud rather than objects.
 
-| System                   | Requires                | Parameters (default)                      | Keeps rows whose                               |
-| :----------------------- | :---------------------- | :---------------------------------------- | :--------------------------------------------- |
-| `FilterByCoverageSystem` | `point` on both sources | `tolerance` (1e-6), `check_frames` (True) | point has a reference point within `tolerance` |
+| System                         | Requires                | Parameters (default)                                    | Keeps rows whose                                    |
+| :----------------------------- | :---------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
+| `FilterByCoverageSystem`       | `point` on both sources | `tolerance` (1e-6), `check_frames` (True)               | point has a reference point within `tolerance`      |
+| `FilterPointsByDistanceSystem` | `point`                 | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
+| `FilterPointsByRegionSystem`   | `point`                 | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
+| `FilterPointsByMapSystem`      | `point`                 | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
 
-The one filter with two sources: `.between(source, reference)` masks `source` by whether
-`reference` covers it, frame by frame, and writes to `<source>/filter/coverage`. It is how a
-cropped or downsampled estimation leaves the uncovered ground truth out of a segmentation score.
+`FilterByCoverageSystem` is the one filter with two sources: `.between(source, reference)` masks
+`source` by whether `reference` covers it, frame by frame, and writes to `<source>/filter/coverage`.
+It is how a cropped or downsampled estimation leaves the uncovered ground truth out of a
+segmentation score.
+
+The three `FilterPointsBy*` systems are the [position](#position) predicates over the `point`
+column, with the same parameters, the same inclusive bounds and the same targets
+(`<source>/filter/distance`, `/region`, `/map`); `symmetric()` and `on_lanelet()` work the same.
+They are separate classes rather than the object filters pointed at a cloud because
+[`POINT` is not `POSITION`](../archetypes/segmentation.md#point-not-position): a filter has to say
+which of the two it judges, and each refuses the other.
 
 ## Mask
 

@@ -16,17 +16,20 @@ stays queryable instead of becoming a discarded intermediate.
 Every filter is built with `.on(source, **params)` and writes its mask to
 `<source>/filter/<name>`.
 
-| System                     | Requires      | Parameters                                          |
-| :------------------------- | :------------ | :-------------------------------------------------- |
-| `FilterByDistanceSystem`   | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False` |
-| `FilterByRegionSystem`     | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`          |
-| `FilterByMapSystem`        | `position`    | `polygon=None`, `resolver=None`                     |
-| `FilterByLabelSystem`      | `class_id`    | `labels=None`, `exclude=None`                       |
-| `FilterByConfidenceSystem` | `confidence`  | `min_confidence=0.0`, `max_confidence=1.0`          |
-| `FilterByInstanceSystem`   | `instance_id` | `instances=None`, `exclude=None`                    |
-| `FilterBySpeedSystem`      | `velocity`    | `min_speed=0.0`, `max_speed=inf`                    |
-| `FilterByNumPointsSystem`  | `num_points`  | `min_num_points=0`, `max_num_points=None`           |
-| `FilterByVisibilitySystem` | `visibility`  | `min_visibility=VisibilityLevel.NONE`               |
+| System                         | Requires      | Parameters                                          |
+| :----------------------------- | :------------ | :-------------------------------------------------- |
+| `FilterByDistanceSystem`       | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False` |
+| `FilterByRegionSystem`         | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`          |
+| `FilterByMapSystem`            | `position`    | `polygon=None`, `resolver=None`                     |
+| `FilterPointsByDistanceSystem` | `point`       | as `FilterByDistanceSystem`                         |
+| `FilterPointsByRegionSystem`   | `point`       | as `FilterByRegionSystem`                           |
+| `FilterPointsByMapSystem`      | `point`       | as `FilterByMapSystem`                              |
+| `FilterByLabelSystem`          | `class_id`    | `labels=None`, `exclude=None`                       |
+| `FilterByConfidenceSystem`     | `confidence`  | `min_confidence=0.0`, `max_confidence=1.0`          |
+| `FilterByInstanceSystem`       | `instance_id` | `instances=None`, `exclude=None`                    |
+| `FilterBySpeedSystem`          | `velocity`    | `min_speed=0.0`, `max_speed=inf`                    |
+| `FilterByNumPointsSystem`      | `num_points`  | `min_num_points=0`, `max_num_points=None`           |
+| `FilterByVisibilitySystem`     | `visibility`  | `min_visibility=VisibilityLevel.NONE`               |
 
 ```python
 from t4perceval.system import FilterByDistanceSystem
@@ -67,6 +70,16 @@ FilterByRegionSystem.symmetric(path, max_xy=(100.0, 50.0))  # ±100 by ±50, mir
 ```
 
 `symmetric` is the region the original package's `max_x_position` / `max_y_position` described.
+
+Both, and the map filter below, judge an object's `position`. A point cloud such as
+`SemanticSegmentation3D` carries `point` instead, and the same predicates over it are
+`FilterPointsByDistanceSystem`, `FilterPointsByRegionSystem` and `FilterPointsByMapSystem`, with
+the same parameters:
+
+```python
+FilterPointsByDistanceSystem.on("/ground_truth/points", max_distance=50.0)
+FilterPointsByRegionSystem.symmetric("/ground_truth/points", max_xy=(100.0, 50.0))
+```
 
 `FilterBySpeedSystem` uses the L2 norm of the `velocity` column.
 

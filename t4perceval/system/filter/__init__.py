@@ -29,7 +29,12 @@ from t4perceval.system.filter.identity import (
     resolve_class_ids,
 )
 from t4perceval.system.filter.mask import ApplyMaskSystem, CombineMasksSystem, masked_view
-from t4perceval.system.filter.point import FilterByCoverageSystem
+from t4perceval.system.filter.point import (
+    FilterByCoverageSystem,
+    FilterPointsByDistanceSystem,
+    FilterPointsByMapSystem,
+    FilterPointsByRegionSystem,
+)
 from t4perceval.system.filter.quality import (
     FilterByConfidenceSystem,
     FilterByNumPointsSystem,
@@ -55,6 +60,9 @@ __all__ = (
     "FilterByRegionSystem",
     "FilterBySpeedSystem",
     "FilterByVisibilitySystem",
+    "FilterPointsByDistanceSystem",
+    "FilterPointsByMapSystem",
+    "FilterPointsByRegionSystem",
     "MaskSystem",
     "masked_view",
     "resolve_class_ids",
