@@ -986,6 +986,24 @@ class TestApplyMaskCarriesStatic:
         assert rich_store.static(kept.target)[CONFIDENCE].values.tolist() == [0.1]
         assert rich_store.static(SOURCE)[CONFIDENCE].values.tolist() == [0.9]
 
+    def test_masking_in_place_neither_inherits_nor_raises(self, rich_store: Store) -> None:
+        from t4perceval.component import BatchTimeOffset
+        from t4perceval.descriptors import TIME_OFFSET
+
+        rich_store.log_static_components(SOURCE, {TIME_OFFSET: BatchTimeOffset([[0, 100]])})
+        near = FilterByDistanceSystem.on(SOURCE, max_distance=10.0)
+        kept = ApplyMaskSystem.of(SOURCE, near.target, target=SOURCE)
+        ctx = SystemContext(rich_store, FRAME)
+        # A pipeline refuses this wiring (the filter would read what a later system
+        # writes), so in-place masking only ever happens by calling the system directly.
+        Pipeline([near]).run(ctx, TimeRange.single(0))
+
+        (chunk,) = kept(ctx, 0)
+
+        assert chunk.num_rows == 2 and str(chunk.entity_path) == SOURCE
+        assert rich_store.static(SOURCE)[TIME_OFFSET].values.tolist() == [[0, 100]]
+        assert len(rich_store.static_chunks(SOURCE)) == 1
+
     def test_a_second_run_changes_nothing(self, rich_store: Store) -> None:
         from t4perceval.component import BatchTimeOffset
         from t4perceval.descriptors import TIME_OFFSET
