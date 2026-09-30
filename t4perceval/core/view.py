@@ -115,7 +115,14 @@ class EntityView:
         return archetype.from_components(columns)
 
     def to_chunk(self) -> Chunk:
-        """Materialize the selected rows as a chunk, keeping the partition structure."""
+        """Materialize the selected rows as a chunk, keeping the partition structure.
+
+        Only the temporal columns are materialized. The static overlay that
+        :meth:`component` consults is not folded in: a static column keeps its own row
+        count and its own ``frame_id``, neither of which a temporal chunk can carry. A
+        system that passes an entity through re-logs the source's static chunks under its
+        target instead, as :class:`~t4perceval.system.ApplyMaskSystem` does.
+        """
         return self.chunk.select(self.indices)
 
     def partition_ids(self) -> NDArrayI64:

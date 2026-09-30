@@ -315,3 +315,63 @@ class TestColumnRestriction:
 
         assert len(view) == 4
         assert np.asarray(view.component(POSITION).values).shape == (4, 3)
+
+
+class TestStaticInheritance:
+    """An entity's static data may be another's, resolved on every read."""
+
+    def test_inherited_chunks_come_first_and_own_writes_win(self) -> None:
+        store = Store()
+        store.log_static_components("/a", {TIME_OFFSET: BatchTimeOffset([[0, 1]])}, frame_id="map")
+        store.inherit_static("/b", "/a")
+        store.log_static_components("/b", {TIME_OFFSET: BatchTimeOffset([[0, 2]])})
+
+        assert [c.columns[TIME_OFFSET].values[0, 1] for c in store.static_chunks("/b")] == [1, 2]
+        assert store.static("/b")[TIME_OFFSET].values.tolist() == [[0, 2]]
+        assert store.static_frame_id("/b") == "map"
+        assert "/b" in [str(p) for p in store.entity_paths()]
+
+    def test_chains_resolve_and_later_writes_show_through(self) -> None:
+        store = Store()
+        store.inherit_static("/b", "/a")
+        store.inherit_static("/c", "/b")
+        store.log_static_components("/a", {TIME_OFFSET: BatchTimeOffset([[0, 7]])})
+
+        assert store.static("/c")[TIME_OFFSET].values.tolist() == [[0, 7]]
+
+    def test_declaring_twice_is_a_no_op_but_a_cycle_or_a_second_source_raises(self) -> None:
+        store = Store()
+        store.inherit_static("/b", "/a")
+        store.inherit_static("/b", "/a")
+        with pytest.raises(ValueError, match="already inherits"):
+            store.inherit_static("/b", "/c")
+        with pytest.raises(ValueError, match="cannot inherit static data from itself"):
+            store.inherit_static("/a", "/b")
+        with pytest.raises(ValueError, match="cannot inherit static data from itself"):
+            store.inherit_static("/x", "/x")
+
+    def test_a_view_of_the_heir_carries_the_static_overlay(self) -> None:
+        store = Store()
+        store.log("/b", make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.inherit_static("/b", "/a")
+        store.log_static_components("/a", {TIME_OFFSET: BatchTimeOffset([[0, 5]])})
+
+        view = store.latest_at("/b", timeline=FRAME, at=0)
+
+        assert view.component(TIME_OFFSET).values.tolist() == [[0, 5]]
+
+    def test_saving_materializes_the_inherited_chunks(self, tmp_path, labels) -> None:  # noqa: ANN001
+        from t4perceval import Recording
+        from t4perceval.io import read_recording, write_recording
+
+        store = Store()
+        store.log("/b", make_detections([[0.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.inherit_static("/b", "/a")
+        store.log_static_components("/a", {TIME_OFFSET: BatchTimeOffset([[0, 5]])}, frame_id="map")
+
+        reopened = read_recording(
+            write_recording(Recording.of(store, labels=labels), tmp_path / "r")
+        )
+
+        assert reopened.static("/b")[TIME_OFFSET].values.tolist() == [[0, 5]]
+        assert reopened.static_frame_id("/b") == "map"

@@ -110,6 +110,10 @@ class ApplyMaskSystem(EntitySystem):
 
     Point the matcher and the metric at the same materialized entity, so the row indices
     a match result stores refer to the rows both of them see.
+
+    The target's static data is the source's: the system declares that once through
+    :meth:`~t4perceval.core.Store.inherit_static`, and every read resolves it, so a static
+    write the source receives later shows on the target too.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (MASK,)
@@ -159,15 +163,18 @@ class ApplyMaskSystem(EntitySystem):
             time_range=time_range,
         )
         chunk = view.to_chunk()
-        return (
-            Chunk(
-                self.target,
-                chunk.indexes,
-                chunk.offsets,
-                chunk.columns,
-                frame_id=chunk.frame_id,
-            ),
+        kept = Chunk(
+            self.target,
+            chunk.indexes,
+            chunk.offsets,
+            chunk.columns,
+            frame_id=chunk.frame_id,
         )
+        # A mask narrows rows in time; static data has no rows in time to narrow, so the
+        # target's static data simply *is* the source's -- own row counts, own frames,
+        # every later write included -- declared once and resolved on every read.
+        ctx.store.inherit_static(self.target, source)
+        return (kept,)
 
 
 def masked_view(

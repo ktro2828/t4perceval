@@ -926,6 +926,92 @@ class TestPipelineIntegration:
             Pipeline([combined, near])
 
 
+class TestApplyMaskCarriesStatic:
+    """A passthrough target's static data is its source's, resolved on every read."""
+
+    @staticmethod
+    def _apply(store: Store) -> tuple[ApplyMaskSystem, SystemContext]:
+        near = FilterByDistanceSystem.on(SOURCE, max_distance=10.0)
+        kept = ApplyMaskSystem.of(SOURCE, near.target)
+        ctx = SystemContext(store, FRAME)
+        Pipeline([near, kept]).run(ctx, TimeRange.everything())
+        return kept, ctx
+
+    def test_static_columns_show_through_with_their_frame(self, rich_store: Store) -> None:
+        from t4perceval.component import BatchConfidence, BatchTimeOffset
+        from t4perceval.descriptors import CONFIDENCE, TIME_OFFSET
+
+        rich_store.log_static_components(SOURCE, {TIME_OFFSET: BatchTimeOffset([[0, 100]])})
+        rich_store.log_static_components(
+            SOURCE, {CONFIDENCE: BatchConfidence([0.5])}, frame_id="map"
+        )
+        kept, _ = self._apply(rich_store)
+
+        out = rich_store.range(kept.target, timeline=FRAME, time_range=TimeRange.everything())
+        assert len(out) == 2
+        assert out.component(TIME_OFFSET).values.tolist() == [[0, 100], [0, 100]]
+        assert out.component(CONFIDENCE).values.tolist() == [0.5, 0.5], (
+            "static wins, as at the source"
+        )
+        assert rich_store.static_frame_id(kept.target) == "map"
+
+    def test_every_later_write_shows_through_in_order(self, rich_store: Store) -> None:
+        from t4perceval.component import BatchConfidence
+        from t4perceval.descriptors import CONFIDENCE
+
+        kept, _ = self._apply(rich_store)
+        shared = BatchConfidence([0.5])
+        # A, B, then the very same A object again: three writes, the last wins -- and a
+        # reused component object is still a new write.
+        for column in (shared, BatchConfidence([0.9]), shared):
+            rich_store.log_static_components(SOURCE, {CONFIDENCE: column})
+            assert rich_store.static(kept.target)[CONFIDENCE] is column, "no rerun needed"
+
+        assert [c.columns[CONFIDENCE].values[0] for c in rich_store.static_chunks(kept.target)] == [
+            0.5,
+            0.9,
+            0.5,
+        ]
+
+    def test_the_targets_own_static_writes_win(self, rich_store: Store) -> None:
+        from t4perceval.component import BatchConfidence
+        from t4perceval.descriptors import CONFIDENCE
+
+        near = FilterByDistanceSystem.on(SOURCE, max_distance=10.0)
+        kept = ApplyMaskSystem.of(SOURCE, near.target)
+        rich_store.log_static_components(kept.target, {CONFIDENCE: BatchConfidence([0.1])})
+        rich_store.log_static_components(SOURCE, {CONFIDENCE: BatchConfidence([0.9])})
+        Pipeline([near, kept]).run(SystemContext(rich_store, FRAME), TimeRange.everything())
+
+        assert rich_store.static(kept.target)[CONFIDENCE].values.tolist() == [0.1]
+        assert rich_store.static(SOURCE)[CONFIDENCE].values.tolist() == [0.9]
+
+    def test_a_second_run_changes_nothing(self, rich_store: Store) -> None:
+        from t4perceval.component import BatchTimeOffset
+        from t4perceval.descriptors import TIME_OFFSET
+
+        rich_store.log_static_components(SOURCE, {TIME_OFFSET: BatchTimeOffset([[0, 100]])})
+        kept, ctx = self._apply(rich_store)
+        Pipeline([kept]).run(ctx, TimeRange.single(0))
+
+        assert len(rich_store.static_chunks(kept.target)) == 1
+
+    def test_a_multi_row_static_column_does_not_disturb_a_mask(self, rich_store: Store) -> None:
+        # Three static rows against four temporal ones: nothing here asks for that column,
+        # so the mask must not trip over it.
+        from t4perceval.component import BatchTimeOffset
+        from t4perceval.descriptors import TIME_OFFSET
+
+        rich_store.log_static_components(
+            SOURCE, {TIME_OFFSET: BatchTimeOffset([[0, 1], [0, 2], [0, 3]])}
+        )
+        near = FilterByDistanceSystem.on(SOURCE, max_distance=10.0)
+
+        (chunk,) = near(SystemContext(rich_store, FRAME), 0)
+
+        assert chunk.columns[MASK].values.tolist() == [True, False, False, True]
+
+
 class TestFilterByMap:
     """Membership of a polygon in ``map``, whichever frame the source is in."""
 

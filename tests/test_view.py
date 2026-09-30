@@ -14,7 +14,7 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
-from t4perceval.component import BatchTimeOffset
+from t4perceval.component import BatchConfidence, BatchTimeOffset
 from t4perceval.descriptors import CONFIDENCE, INSTANCE_ID, POSITION, TIME_OFFSET
 
 
@@ -158,6 +158,19 @@ class TestStaticColumns:
 
         assert view.has(TIME_OFFSET)
         assert view.component(TIME_OFFSET).values.tolist() == [[0, 100], [0, 100]]
+
+    def test_to_chunk_materializes_temporal_columns_only(self) -> None:
+        # A static column keeps its own row count and frame, which a temporal chunk cannot
+        # carry; passthrough systems re-log static chunks instead of folding them in.
+        chunk = make_detections([[0.0, 0.0, 0.0]], confidences=[0.9]).to_chunk(
+            "/x",
+            at=TimePoint.at(frame=0),
+        )
+        view = EntityView.over(chunk, static={CONFIDENCE: BatchConfidence([0.5])})
+
+        assert view.component(CONFIDENCE).values.tolist() == [0.5], "static wins in the view"
+        assert view.to_chunk().columns[CONFIDENCE].values.tolist() == [0.9]
+        assert TIME_OFFSET not in view.to_chunk().columns
 
     def test_broadcasting_follows_the_narrowed_length(self) -> None:
         chunk = make_detections([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]).to_chunk(
