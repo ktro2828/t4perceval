@@ -172,8 +172,10 @@ class ApplyMaskSystem(EntitySystem):
         )
         # A mask narrows rows in time; static data has no rows in time to narrow, so the
         # target's static data simply *is* the source's -- own row counts, own frames,
-        # every later write included -- declared once and resolved on every read.
-        ctx.store.inherit_static(self.target, source)
+        # every later write included -- declared once and resolved on every read. Masking
+        # in place (target is the source) already sees it and has nothing to inherit.
+        if self.target != source:
+            ctx.store.inherit_static(self.target, source)
         return (kept,)
 
 
