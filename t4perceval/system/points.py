@@ -50,7 +50,7 @@ class AlignPointsSystem(EntitySystem):
     the ground truth does not label cannot be scored. A ground-truth point with no estimation
     point within tolerance raises -- whether such a point is a miss or is outside the
     estimation's scope is an evaluation decision, made explicit by narrowing the ground
-    truth first with :class:`FilterByCoverageSystem`. An estimation point that is the
+    truth first with :class:`FilterPointsByCoverageSystem`. An estimation point that is the
     nearest to two ground-truth points raises as well: coincident points cannot be told
     apart by geometry, so the order is undefined.
 
@@ -159,7 +159,7 @@ class AlignPointsSystem(EntitySystem):
                 f"within {self.tolerance:g} at {where} (nearest is {distances[unmatched].min():.3g} "
                 f"away); the two clouds do not describe the same points. To score only the "
                 f"points the estimation covers, narrow the ground truth first with "
-                f"FilterByCoverageSystem",
+                f"FilterPointsByCoverageSystem",
             )
         used, counts = np.unique(indices, return_counts=True)
         if (counts > 1).any():

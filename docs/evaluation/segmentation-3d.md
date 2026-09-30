@@ -67,13 +67,13 @@ pairs _frames_ by timestamp.
 
 A cropped or downsampled output leaves ground-truth points with no prediction. Whether those are
 misses or simply out of scope is an evaluation decision, so it is a stage you add rather than a
-default: `FilterByCoverageSystem` masks the ground truth by whether a reference point lies within
+default: `FilterPointsByCoverageSystem` masks the ground truth by whether a reference point lies within
 `tolerance`, and the mask records exactly which points were left out.
 
 ```python
-from t4perceval.system import ApplyMaskSystem, FilterByCoverageSystem
+from t4perceval.system import ApplyMaskSystem, FilterPointsByCoverageSystem
 
-covered = FilterByCoverageSystem.between("/ground_truth/points", "/estimation/points")
+covered = FilterPointsByCoverageSystem.between("/ground_truth/points", "/estimation/points")
 gt_kept = ApplyMaskSystem.of("/ground_truth/points", covered.target)
 align = AlignPointsSystem.between("/estimation/points", gt_kept.target)
 iou = SegmentationIoUSystem.between(align.target, gt_kept.target)

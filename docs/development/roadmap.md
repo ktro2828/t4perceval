@@ -361,7 +361,7 @@ be validated on real data immediately.
 - [ ] **Estimation side for lidarseg.** A model's output arrives as a per-point label array over a
       cloud that may be re-ordered or cropped; document (and if a common file format emerges,
       import) how to log it as `SemanticSegmentation3D`, and point at `AlignPointsSystem` /
-      `FilterByCoverageSystem` for the order and coverage questions.
+      `FilterPointsByCoverageSystem` for the order and coverage questions.
 - [ ] **Rosbag `PointCloud2` with a label field.** Decode a segmentation topic (a cloud whose fields
       include a per-point class, as Autoware's lidar segmentation nodes publish) into
       `SemanticSegmentation3D` on `TIMESTAMP`, reusing the `mcap` decoding path and the
