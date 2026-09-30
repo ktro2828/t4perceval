@@ -99,7 +99,8 @@ These hold everywhere, and code may rely on them:
 4. **Static beats temporal** for the same descriptor in a view.
 5. **A batch of zero rows is legal** in every archetype, and an empty frame keeps its `frame_id`.
 6. **`select()` produces independent data**; lazy narrowing is `EntityView`'s job.
-7. **A system writes only its declared targets**, and always through `Chunk`.
+7. **A system writes only its declared targets**, and always through `Chunk` -- or, for a
+   passthrough, by declaring that its target inherits the source's static data.
 8. **A chunk's shape is checked on construction.** Every index has `num_partitions` entries, every
    column `offsets[-1]` rows, `offsets` starts at 0 and never decreases, no timeline appears twice,
    and a static chunk has no index and one partition.

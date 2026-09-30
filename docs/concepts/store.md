@@ -88,7 +88,12 @@ Static rows do not surface through `latest_at` or `range` as partitions; read th
 `static()` (columns) or `static_chunks()` (whole chunks, when the frame matters). Surfacing them
 would invent rows in empty frames and hand index-less chunks to systems that ask a view for its
 times, so a static-only entity reads back as zero rows. For the same reason `EntityView.frame_id`
-reports the temporal chunk's frame only.
+reports the temporal chunk's frame only. A view still _exposes_ the static columns through
+`component()`, a one-row column broadcast across its rows and winning over a temporal column of
+the same descriptor; `to_chunk()` materializes the temporal columns only. A passthrough such as
+`ApplyMaskSystem` therefore declares, with `inherit_static`, that its target's static data _is_ the
+source's: resolved on every read, row count and frame intact, later writes included. Saving the
+store writes the resolved chunks, so a reopened recording needs no such declaration.
 
 Chunks with different column sets may coexist under one entity; the mismatch is reported when a
 `range` spans them, not when they are logged.

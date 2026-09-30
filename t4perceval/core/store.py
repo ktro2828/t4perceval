@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from attrs import evolve
 
 from t4perceval.core.chunk import Chunk, concat_chunks
 from t4perceval.core.entity import as_entity_path
@@ -57,6 +58,10 @@ class Store:
         # the frame it is expressed in as surely as an ego pose does. Reading still folds
         # the list down to columns, so `static()` behaves as it always has.
         self._static: dict[EntityPath, list[Chunk]] = {}
+        # An entity whose static data *is* another's: a passthrough target's rows are its
+        # source's rows, so what is static about the source is static about the target.
+        # Resolved on every read, never copied, so nothing can go stale or out of order.
+        self._static_from: dict[EntityPath, EntityPath] = {}
 
     # -- writing ----------------------------------------------------------------------
 
@@ -104,6 +109,33 @@ class Store:
             Chunk.from_columns(entity_path, columns, is_static=True, frame_id=frame_id),
         )
 
+    def inherit_static(self, entity_path: EntityPathLike, source: EntityPathLike) -> None:
+        """Declare that ``entity_path``'s static data is ``source``'s, resolved on read.
+
+        A passthrough system's target holds the same objects as its source, narrowed or
+        reordered in time; whatever is static about them is static about the target too,
+        and a copy could only ever be a snapshot. The declaration makes the relation hold:
+        a static write the source receives later shows through, in the source's log order,
+        with its own row count and its own ``frame_id``. Static writes made to the target
+        itself come after the inherited ones, so they win. Declaring the same relation
+        twice is a no-op; a self-reference or a cycle raises.
+        """
+        target = as_entity_path(entity_path)
+        origin = as_entity_path(source)
+        if self._static_from.get(target) == origin:
+            return
+        if target in self._static_from:
+            raise ValueError(
+                f"{target} already inherits static data from {self._static_from[target]}",
+            )
+        ancestor: EntityPath | None = origin
+        while ancestor is not None:
+            if ancestor == target:
+                raise ValueError(f"{target} cannot inherit static data from itself via {origin}")
+            ancestor = self._static_from.get(ancestor)
+        self._static_from[target] = origin
+        self._static.setdefault(target, [])
+
     # -- inspection -------------------------------------------------------------------
 
     def entity_paths(self) -> tuple[EntityPath, ...]:
@@ -126,11 +158,22 @@ class Store:
         Columns only. Use :meth:`static_chunks` when the frame the rows are expressed in
         matters -- a transform edge, for instance, states its parent frame there.
         """
-        return _fold_columns(self._static.get(as_entity_path(entity_path), ()))
+        return _fold_columns(self.static_chunks(entity_path))
 
     def static_chunks(self, entity_path: EntityPathLike) -> tuple[Chunk, ...]:
-        """Return the static chunks logged to one entity, in log order."""
-        return tuple(self._static.get(as_entity_path(entity_path), ()))
+        """Return the static chunks of one entity, in log order.
+
+        Inherited chunks (see :meth:`inherit_static`) come first, the entity's own after.
+        """
+        path = as_entity_path(entity_path)
+        own = tuple(self._static.get(path, ()))
+        source = self._static_from.get(path)
+        if source is None:
+            return own
+        # Re-pathed on the way out, so a reader that files a chunk by its own path -- the
+        # writer, the evaluation-store copy, the frame graph -- sees it where it belongs.
+        inherited = tuple(evolve(chunk, entity_path=path) for chunk in self.static_chunks(source))
+        return inherited + own
 
     def static_frame_id(self, entity_path: EntityPathLike) -> str | None:
         """Return the coordinate frame this entity's static data states, if any.
@@ -144,7 +187,7 @@ class Store:
             ValueError: When two static writes state different frames.
         """
         path = as_entity_path(entity_path)
-        stated = {chunk.frame_id for chunk in self._static.get(path, ()) if chunk.frame_id}
+        stated = {chunk.frame_id for chunk in self.static_chunks(path) if chunk.frame_id}
         if len(stated) > 1:
             raise ValueError(
                 f"Static data of {path} states more than one coordinate frame: "
@@ -272,7 +315,7 @@ class Store:
         path: EntityPath,
         components: Iterable[ComponentDescriptor] | None,
     ) -> dict[ComponentDescriptor, Component]:
-        static = _fold_columns(self._static.get(path, ()))
+        static = _fold_columns(self.static_chunks(path))
         if components is None:
             return static
         wanted = set(components)
