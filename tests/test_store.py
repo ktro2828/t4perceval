@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from conftest import make_detections
 
-from t4perceval import FRAME, TIMESTAMP, Detections3D, Store, TimePoint, TimeRange
+from t4perceval import FRAME, TIMESTAMP, Detections3D, Store, TimePoint, TimeRange, concat_chunks
 from t4perceval.component import BatchConfidence, BatchTimeOffset
 from t4perceval.descriptors import CONFIDENCE, POSITION, TIME_OFFSET
 
@@ -68,6 +68,30 @@ class TestLatestAt:
         view = store.latest_at("/x", timeline=FRAME, at=0)
 
         assert view.component(POSITION).values[:, 0].tolist() == [2.0]
+
+    def test_the_last_partition_of_one_chunk_wins_a_tie(self) -> None:
+        """A concatenated chunk keeps append order, so its last same-time partition is newest."""
+        store = Store()
+        store.log("/x", make_detections([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        merged = Store()
+        merged.send_chunk(concat_chunks(store.chunks("/x")))
+
+        view = merged.latest_at("/x", timeline=FRAME, at=0)
+
+        assert view.component(POSITION).values[:, 0].tolist() == [2.0]
+
+    def test_a_tie_inside_a_chunk_still_loses_to_a_later_chunk(self) -> None:
+        store = Store()
+        store.log("/x", make_detections([[1.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        store.log("/x", make_detections([[2.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+        merged = Store()
+        merged.send_chunk(concat_chunks(store.chunks("/x")))
+        merged.log("/x", make_detections([[3.0, 0.0, 0.0]]), at=TimePoint.at(frame=0))
+
+        view = merged.latest_at("/x", timeline=FRAME, at=0)
+
+        assert view.component(POSITION).values[:, 0].tolist() == [3.0]
 
     def test_an_unknown_entity_yields_an_empty_view(self, scene_store: Store) -> None:
         view = scene_store.latest_at("/nope", timeline=FRAME, at=0)

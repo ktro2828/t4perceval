@@ -227,7 +227,9 @@ class Store:
     ) -> EntityView:
         """Return a view of the most recent partition at or before ``at``.
 
-        When several partitions share that time, the most recently logged one wins.
+        When several partitions share that time, the most recently logged one wins --
+        the later chunk, or the later partition within one chunk, since a chunk keeps its
+        partitions in the order they were appended.
         """
         path = as_entity_path(entity_path)
         best: tuple[int, Chunk, int] | None = None
@@ -239,8 +241,11 @@ class Store:
             eligible = np.flatnonzero(index.times <= at)
             if eligible.size == 0:
                 continue
-            partition = int(eligible[np.argmax(index.times[eligible])])
-            time = int(index.times[partition])
+            latest = index.times[eligible].max()
+            # ``argmax`` would stop at the first partition holding the latest time; the
+            # last one is the most recently appended, so it is the one that wins.
+            partition = int(eligible[np.flatnonzero(index.times[eligible] == latest)[-1]])
+            time = int(latest)
             if best is None or time >= best[0]:
                 best = (time, chunk, partition)
 
