@@ -51,12 +51,12 @@ context's registries, and an unknown name raises.
 
 | System                         | Requires                | Parameters (default)                                    | Keeps rows whose                                    |
 | :----------------------------- | :---------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
-| `FilterByCoverageSystem`       | `point` on both sources | `tolerance` (1e-6), `check_frames` (True)               | point has a reference point within `tolerance`      |
+| `FilterPointsByCoverageSystem` | `point` on both sources | `tolerance` (1e-6), `check_frames` (True)               | point has a reference point within `tolerance`      |
 | `FilterPointsByDistanceSystem` | `point`                 | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
 | `FilterPointsByRegionSystem`   | `point`                 | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
 | `FilterPointsByMapSystem`      | `point`                 | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
 
-`FilterByCoverageSystem` is the one filter with two sources: `.between(source, reference)` masks
+`FilterPointsByCoverageSystem` is the one filter with two sources: `.between(source, reference)` masks
 `source` by whether `reference` covers it, frame by frame, and writes to `<source>/filter/coverage`.
 It is how a cropped or downsampled estimation leaves the uncovered ground truth out of a
 segmentation score.

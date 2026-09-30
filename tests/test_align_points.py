@@ -12,7 +12,7 @@ from t4perceval.descriptors import MASK
 from t4perceval.system import (
     AlignPointsSystem,
     ApplyMaskSystem,
-    FilterByCoverageSystem,
+    FilterPointsByCoverageSystem,
     Passthrough,
     Pipeline,
     SegmentationIoUSystem,
@@ -181,31 +181,31 @@ class TestCoverage:
     def test_defaults(self) -> None:
         from t4perceval.system import MaskSystem
 
-        system = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+        system = FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)
         assert str(system.target) == "/ground_truth/points/filter/coverage"
         assert system.REQUIRES == (POINT,) and system.PROVIDES == (MASK,)
         assert isinstance(system, System) and isinstance(system, MaskSystem)
         assert system.requires_for(1) == (POINT,), "the reference must carry points too"
         with pytest.raises(ValueError, match=r"needs exactly two sources \(source, reference\)"):
-            FilterByCoverageSystem((SEG_GT,), "/x")
+            FilterPointsByCoverageSystem((SEG_GT,), "/x")
 
     def test_the_mask_says_which_points_have_a_counterpart(self, seg_labels: LabelRegistry) -> None:
         store = self.cropped(seg_labels)
-        covered = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+        covered = FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)
         Pipeline([covered]).run(SystemContext(store, FRAME), EVERYTHING)
         mask = store.range(covered.target, timeline=FRAME, time_range=EVERYTHING)
         assert mask.component(MASK).values.tolist() == [True, True, False]  # type: ignore[union-attr]
         assert mask.frame_id == "LIDAR_CONCAT"
 
     def test_aligning_alone_refuses_the_uncovered_point(self, seg_labels: LabelRegistry) -> None:
-        with pytest.raises(ValueError, match="FilterByCoverageSystem"):
+        with pytest.raises(ValueError, match="FilterPointsByCoverageSystem"):
             aligned(self.cropped(seg_labels), seg_labels)
 
     def test_the_composition_scores_only_the_covered_points(
         self, seg_labels: LabelRegistry
     ) -> None:
         store = self.cropped(seg_labels)
-        covered = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+        covered = FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)
         gt_kept = ApplyMaskSystem.of(SEG_GT, covered.target)
         align = AlignPointsSystem.between(SEG_EST, gt_kept.target)
         iou = SegmentationIoUSystem.between(align.target, gt_kept.target)
@@ -233,7 +233,7 @@ class TestCoverage:
         )
         make_segmentation(store, SEG_EST, 0, ["car"], labels=seg_labels, points=[[0.002, 0.0, 0.0]])
         for tolerance, expected in ((1e-6, [False, False]), (1e-2, [True, False])):
-            covered = FilterByCoverageSystem.between(
+            covered = FilterPointsByCoverageSystem.between(
                 SEG_GT, SEG_EST, tolerance=tolerance, target=f"/m/{tolerance}"
             )
             Pipeline([covered]).run(SystemContext(store, FRAME), EVERYTHING)
@@ -248,7 +248,7 @@ class TestCoverage:
         store = Store()
         make_segmentation(store, SEG_GT, 0, ["car", "car"], labels=seg_labels)
         make_segmentation(store, SEG_GT, 1, [], labels=seg_labels)
-        covered = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+        covered = FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)
         Pipeline([covered]).run(SystemContext(store, FRAME), EVERYTHING)
         chunk = store.range(covered.target, timeline=FRAME, time_range=EVERYTHING).to_chunk()
         assert chunk.columns[MASK].values.tolist() == [False, False]
@@ -257,7 +257,7 @@ class TestCoverage:
     def test_an_empty_range_is_an_empty_mask(self, seg_labels: LabelRegistry) -> None:
         # Like every other filter: an empty chunk under the target, not no chunk at all.
         store = self.cropped(seg_labels)
-        covered = FilterByCoverageSystem.between(SEG_GT, SEG_EST)
+        covered = FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)
 
         (chunk,) = covered(SystemContext(store, FRAME), 7)
 
@@ -268,7 +268,7 @@ class TestCoverage:
         make_segmentation(store, SEG_GT, 0, ["car"], labels=seg_labels, frame_id="LIDAR_CONCAT")
         make_segmentation(store, SEG_EST, 0, ["car"], labels=seg_labels, frame_id="LIDAR_TOP")
         with pytest.raises(ValueError, match="across coordinate frames"):
-            Pipeline([FilterByCoverageSystem.between(SEG_GT, SEG_EST)]).run(
+            Pipeline([FilterPointsByCoverageSystem.between(SEG_GT, SEG_EST)]).run(
                 SystemContext(store, FRAME), EVERYTHING
             )
 

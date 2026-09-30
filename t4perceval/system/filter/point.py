@@ -1,6 +1,6 @@
 """Filters over the points of a cloud rather than over objects.
 
-:class:`FilterByCoverageSystem` asks whether another cloud covers each point. The
+:class:`FilterPointsByCoverageSystem` asks whether another cloud covers each point. The
 ``FilterPointsBy*`` systems apply the positional predicates of
 :mod:`t4perceval.system.filter.position` -- distance, an xy box, a map polygon -- to the
 ``POINT`` column. They are separate classes rather than the object filters pointed at a
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from t4perceval.typing import NDArrayBool
 
 __all__ = (
-    "FilterByCoverageSystem",
+    "FilterPointsByCoverageSystem",
     "FilterPointsByDistanceSystem",
     "FilterPointsByMapSystem",
     "FilterPointsByRegionSystem",
@@ -46,7 +46,7 @@ __all__ = (
 
 
 @define(slots=True)
-class FilterByCoverageSystem(MaskSystem):
+class FilterPointsByCoverageSystem(MaskSystem):
     """Keep the points of one entity that have a counterpart in another.
 
     Sources are ``(source, reference)``; the mask is over ``source``, true where a
@@ -55,7 +55,7 @@ class FilterByCoverageSystem(MaskSystem):
     left out of the score rather than counted as a miss. That is an evaluation decision, so
     it is a stage you add, and the mask records exactly which points it dropped::
 
-        covered = FilterByCoverageSystem.between(GT, EST)
+        covered = FilterPointsByCoverageSystem.between(GT, EST)
         gt_kept = ApplyMaskSystem.of(GT, covered.target)
         aligned = AlignPointsSystem.between(EST, gt_kept.target)
         iou = SegmentationIoUSystem.between(aligned.target, gt_kept.target)

@@ -15,7 +15,7 @@ recording or on another timeline. Positions, waypoints and segmentation points a
 is rotated only, orientations are composed, and every other column is carried unchanged.
 
 `AlignPointsSystem.between(estimation, ground_truth)` prepares two point clouds for the row-wise
-segmentation metrics; [`FilterByCoverageSystem`](filters.md#point) first reports which rows can
+segmentation metrics; [`FilterPointsByCoverageSystem`](filters.md#point) first reports which rows can
 be compared at all.
 
 ## Where to go next
