@@ -180,6 +180,48 @@ class TestLookup:
 
         assert pose.translation.value.tolist() == LIDAR_OFFSET
 
+    def test_a_later_static_write_wins(self) -> None:
+        """Static data follows the store's rule: the most recent write is the answer."""
+        store = Store()
+        store.log_static(
+            DEFAULT_ROOT / "LIDAR_TOP",
+            transform("LIDAR_TOP", [0.0, 0.0, 1.0]),
+            frame_id="base_link",
+        )
+        # A corrected calibration, logged after the original.
+        store.log_static(
+            DEFAULT_ROOT / "LIDAR_TOP",
+            transform("LIDAR_TOP", [0.0, 0.0, 2.0]),
+            frame_id="base_link",
+        )
+
+        pose = TransformResolver.of(store).lookup(
+            target_frame="base_link",
+            source_frame="LIDAR_TOP",
+        )
+
+        assert pose.translation.value.tolist() == [0.0, 0.0, 2.0]
+
+    def test_a_later_static_write_for_another_child_does_not_hide_an_earlier_one(self) -> None:
+        store = Store()
+        store.log_static(
+            DEFAULT_ROOT / "sensors",
+            transform("LIDAR_TOP", [0.0, 0.0, 2.0]),
+            frame_id="base_link",
+        )
+        store.log_static(
+            DEFAULT_ROOT / "sensors",
+            transform("CAM_FRONT", [1.0, 0.0, 0.0]),
+            frame_id="base_link",
+        )
+
+        resolver = TransformResolver.of(store)
+        lidar = resolver.lookup(target_frame="base_link", source_frame="LIDAR_TOP")
+        cam = resolver.lookup(target_frame="base_link", source_frame="CAM_FRONT")
+
+        assert lidar.translation.value.tolist() == [0.0, 0.0, 2.0]
+        assert cam.translation.value.tolist() == [1.0, 0.0, 0.0]
+
     def test_a_temporal_chain_without_a_time_is_rejected(self, scene: Store) -> None:
         with pytest.raises(ValueError, match="needs a time on the 'frame' timeline"):
             TransformResolver.of(scene).lookup(target_frame="map", source_frame="LIDAR_TOP")

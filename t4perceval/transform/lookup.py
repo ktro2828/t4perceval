@@ -176,7 +176,10 @@ class TransformResolver:
 
     def _static_pose(self, edge: TransformEdge) -> Pose:
         where = f"Static data of {edge.entity_path}"
-        for chunk in self.source.static_chunks(edge.entity_path):
+        # Newest write first: static data follows the store's rule that a later write
+        # wins, so a corrected calibration logged after the original must be the one
+        # found. Chunks that do not name the child are skipped, not consulted.
+        for chunk in reversed(self.source.static_chunks(edge.entity_path)):
             column = chunk.columns.get(CHILD_FRAME_ID)
             if column is not None and column.matching(edge.child).size:
                 return _pose_of(chunk, edge.child, where=where)
