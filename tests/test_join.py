@@ -270,6 +270,44 @@ class TestEdges:
         with pytest.raises(ValueError, match=r"reference frame\(s\) \[7\]"):
             join_of(store)
 
+    def test_reports_an_index_beyond_the_rows_of_its_frame(self) -> None:
+        """An out-of-range index must not spill over into the next frame's rows."""
+        store = Store()
+        store.log(EST, objects([0.0]), at=TimePoint.at(frame=0))
+        store.log(GT, objects([0.1]), at=TimePoint.at(frame=0))
+        store.log(EST, objects([5.0]), at=TimePoint.at(frame=1))
+        store.log(GT, objects([5.1]), at=TimePoint.at(frame=1))
+        # Frame 0 has a single estimation, so local index 1 names nothing there -- without
+        # a bound check it would resolve to range row 1, which is frame 1's object.
+        store.log(MATCHING, matches([1], [0], [MatchStatus.TP]), at=TimePoint.at(frame=0))
+
+        with pytest.raises(
+            ValueError, match=r"index 1 at frame 0, but /estimation/objects has only 1 row"
+        ):
+            join_of(store)
+
+    def test_reports_an_index_beyond_the_last_frame(self) -> None:
+        store = Store()
+        store.log(EST, objects([0.0, 1.0]), at=TimePoint.at(frame=0))
+        store.log(GT, objects([0.1]), at=TimePoint.at(frame=0))
+        store.log(MATCHING, matches([0], [1], [MatchStatus.TP]), at=TimePoint.at(frame=0))
+
+        with pytest.raises(
+            ValueError, match=r"index 1 at frame 0, but /ground_truth/objects has only 1 row"
+        ):
+            join_of(store)
+
+    def test_reports_a_match_against_an_entity_with_no_rows(self) -> None:
+        store = Store()
+        store.log(EST, objects([0.0]), at=TimePoint.at(frame=0))
+        store.log(GT, make_detections([]), at=TimePoint.at(frame=0))
+        store.log(MATCHING, matches([0], [0], [MatchStatus.TP]), at=TimePoint.at(frame=0))
+
+        with pytest.raises(
+            ValueError, match=r"index 0 at frame 0, but /ground_truth/objects has only 0 row"
+        ):
+            join_of(store)
+
     def test_reports_a_matching_entity_without_indices(self) -> None:
         store = Store()
         store.log(EST, objects([0.0]), at=TimePoint.at(frame=0))
