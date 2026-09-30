@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pytest
-from conftest import make_detections, make_ego_scene
+from conftest import make_detections, make_ego_scene, make_segmentation
 
 from t4perceval import (
     FRAME,
     Detections3D,
+    SemanticSegmentation3D,
     Trackings3D,
     Chunk,
     InstanceRegistry,
@@ -34,6 +35,9 @@ from t4perceval.system import (
     FilterByRegionSystem,
     FilterBySpeedSystem,
     FilterByVisibilitySystem,
+    FilterPointsByDistanceSystem,
+    FilterPointsByMapSystem,
+    FilterPointsByRegionSystem,
     MaskSystem,
     Pipeline,
     SystemContext,
@@ -59,6 +63,13 @@ ALL_FILTERS: tuple[type[MaskSystem], ...] = (
     FilterBySpeedSystem,
     FilterByNumPointsSystem,
     FilterByVisibilitySystem,
+)
+
+#: The positional filters over a cloud's ``point`` column rather than an object's ``position``.
+POINT_FILTERS: tuple[type[MaskSystem], ...] = (
+    FilterPointsByDistanceSystem,
+    FilterPointsByRegionSystem,
+    FilterPointsByMapSystem,
 )
 
 
@@ -151,7 +162,7 @@ def mask_of(system: MaskSystem, ctx: SystemContext, at: object = 0) -> list[bool
 class TestFamilyProperties:
     """Properties every filter must share, so a new one cannot drift."""
 
-    @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
+    @pytest.mark.parametrize("cls", ALL_FILTERS + POINT_FILTERS, ids=lambda c: c.__name__)
     def test_declares_a_single_source_and_provides_a_mask(self, cls: type[MaskSystem]) -> None:
         system = cls.on(SOURCE)
 
@@ -167,14 +178,14 @@ class TestFamilyProperties:
     ) -> None:
         assert mask_of(cls.on(SOURCE), rich_context) == [True] * 4
 
-    @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
+    @pytest.mark.parametrize("cls", ALL_FILTERS + POINT_FILTERS, ids=lambda c: c.__name__)
     def test_writes_under_the_source_path(self, cls: type[MaskSystem]) -> None:
         system = cls.on(SOURCE)
 
         assert system.target.is_descendant_of(system.sources[0])
         assert str(system.target) == f"{SOURCE}/filter/{cls.FILTER_NAME}"
 
-    @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
+    @pytest.mark.parametrize("cls", ALL_FILTERS + POINT_FILTERS, ids=lambda c: c.__name__)
     def test_the_target_name_can_be_overridden(self, cls: type[MaskSystem]) -> None:
         assert str(cls.on(SOURCE, name="critical").target) == f"{SOURCE}/filter/critical"
 
@@ -237,7 +248,7 @@ class TestFamilyProperties:
 
         assert chunk.num_rows == 0
 
-    @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
+    @pytest.mark.parametrize("cls", ALL_FILTERS + POINT_FILTERS, ids=lambda c: c.__name__)
     def test_a_missing_component_is_reported(self, cls: type[MaskSystem]) -> None:
         # An entity carrying one unrelated column is missing whatever any filter needs.
         store = Store()
@@ -253,7 +264,7 @@ class TestFamilyProperties:
         with pytest.raises(ValueError, match="missing required component"):
             list(system(SystemContext(store, FRAME), 0))
 
-    @pytest.mark.parametrize("cls", ALL_FILTERS, ids=lambda c: c.__name__)
+    @pytest.mark.parametrize("cls", ALL_FILTERS + POINT_FILTERS, ids=lambda c: c.__name__)
     def test_rejects_more_than_one_source(self, cls: type[MaskSystem]) -> None:
         with pytest.raises(ValueError, match="needs exactly one source"):
             cls(("/a", "/b"), "/out")
@@ -404,6 +415,185 @@ class TestFilterByRegion:
     def test_rejects_a_contradictory_range(self) -> None:
         with pytest.raises(ValueError, match=r"max_xy\[y\] .* must not be below min_xy\[y\]"):
             FilterByRegionSystem.on(SOURCE, min_xy=(0.0, 10.0), max_xy=(1.0, 1.0))
+
+
+class TestPointPositionFilters:
+    """The positional predicates over a cloud's ``point`` column."""
+
+    CLOUD = "/ground_truth/points"
+
+    #: rich_store's positions, so the expected masks read the same as the object filters'.
+    POINTS = [[1.0, 0.0, 0.0], [50.0, 0.0, 0.0], [0.0, 120.0, 0.0], [3.0, 4.0, 0.0]]
+
+    @pytest.fixture
+    def cloud_store(self, labels: LabelRegistry) -> Store:
+        store = Store()
+        make_segmentation(
+            store,
+            self.CLOUD,
+            0,
+            ["car", "truck", "pedestrian", "car"],
+            labels=labels,
+            points=self.POINTS,
+            frame_id="base_link",
+        )
+        return store
+
+    @pytest.fixture
+    def cloud_context(self, cloud_store: Store, labels: LabelRegistry) -> SystemContext:
+        return SystemContext(cloud_store, FRAME, labels=labels)
+
+    @pytest.mark.parametrize("cls", POINT_FILTERS, ids=lambda c: c.__name__)
+    def test_requires_the_point_column(self, cls: type[MaskSystem]) -> None:
+        from t4perceval.descriptors import POINT
+
+        assert cls.REQUIRES == (POINT,)
+        assert cls.COLUMN == POINT
+
+    @pytest.mark.parametrize("cls", POINT_FILTERS, ids=lambda c: c.__name__)
+    def test_default_parameters_are_a_no_op(
+        self,
+        cls: type[MaskSystem],
+        cloud_context: SystemContext,
+    ) -> None:
+        assert mask_of(cls.on(self.CLOUD), cloud_context) == [True] * 4
+
+    @pytest.mark.parametrize("cls", POINT_FILTERS, ids=lambda c: c.__name__)
+    def test_keeps_the_partition_structure_of_the_cloud(
+        self,
+        cls: type[MaskSystem],
+        cloud_context: SystemContext,
+    ) -> None:
+        (chunk,) = cls.on(self.CLOUD)(cloud_context, TimeRange.everything())
+
+        assert chunk.num_rows == 4
+        assert chunk.num_partitions == 1
+        assert chunk.frame_id == "base_link"
+
+    def test_distance_bounds_the_radial_distance(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=10.0)
+
+        assert mask_of(system, cloud_context) == [True, False, False, True]
+
+    def test_distance_applies_a_minimum_too(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByDistanceSystem.on(self.CLOUD, min_distance=2.0, max_distance=60.0)
+
+        assert mask_of(system, cloud_context) == [False, True, False, True]
+
+    def test_distance_bev_ignores_the_z_axis(self, labels: LabelRegistry) -> None:
+        store = Store()
+        make_segmentation(
+            store,
+            self.CLOUD,
+            0,
+            ["car", "car"],
+            labels=labels,
+            points=[[3.0, 4.0, 100.0], [3.0, 4.0, 0.0]],
+            frame_id="base_link",
+        )
+        ctx = SystemContext(store, FRAME)
+
+        assert mask_of(FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=5.0), ctx) == [
+            False,
+            True,
+        ]
+        assert mask_of(
+            FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=5.0, bev=True), ctx
+        ) == [True, True]
+
+    def test_region_bounds_the_xy_box(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByRegionSystem.symmetric(self.CLOUD, max_xy=(5.0, 5.0))
+
+        assert mask_of(system, cloud_context) == [True, False, False, True]
+
+    def test_region_bounds_each_axis_independently(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByRegionSystem.on(self.CLOUD, max_xy=(60.0, 1.0))
+
+        assert mask_of(system, cloud_context) == [True, True, False, False]
+
+    SQUARE = [[-5.0, -5.0], [5.0, -5.0], [5.0, 5.0], [-5.0, 5.0]]
+
+    def test_map_tests_xy_against_the_polygon(self, labels: LabelRegistry) -> None:
+        # Already in map, so no /tf is needed.
+        store = Store()
+        make_segmentation(
+            store,
+            self.CLOUD,
+            0,
+            ["car"] * 4,
+            labels=labels,
+            points=self.POINTS,
+            frame_id="map",
+        )
+        system = FilterPointsByMapSystem.on(self.CLOUD, polygon=self.SQUARE)
+
+        assert mask_of(system, SystemContext(store, FRAME)) == [True, False, False, True]
+
+    #: In map the point is at x = 1, 11, 21 on y = 1; this keeps x in [8, 15]: frame 1 only.
+    MIDDLE = [[8.0, -2.0], [15.0, -2.0], [15.0, 2.0], [8.0, 2.0]]
+
+    def test_map_moves_a_base_link_cloud_with_the_ego(self, labels: LabelRegistry) -> None:
+        store = make_ego_scene(Store())
+        for frame in range(3):
+            make_segmentation(
+                store,
+                self.CLOUD,
+                frame,
+                ["car"],
+                labels=labels,
+                points=[[1.0, 1.0, 0.0]],
+                frame_id="base_link",
+            )
+        system = FilterPointsByMapSystem.on(self.CLOUD, polygon=self.MIDDLE)
+        ctx = SystemContext(store, FRAME)
+
+        assert [mask_of(system, ctx, at=frame) for frame in range(3)] == [[False], [True], [False]]
+
+    def test_map_lands_under_the_cloud(self) -> None:
+        system = FilterPointsByMapSystem.on(self.CLOUD, polygon=self.SQUARE)
+
+        assert str(system.target) == f"{self.CLOUD}/filter/map"
+
+    def test_a_point_filter_refuses_an_object_entity(self, rich_context: SystemContext) -> None:
+        # POINT is not POSITION: pointing the cloud filter at objects is a wiring error.
+        system = FilterPointsByDistanceSystem.on(SOURCE, max_distance=10.0)
+
+        with pytest.raises(ValueError, match="missing required component"):
+            list(system(rich_context, 0))
+
+    def test_an_object_filter_still_refuses_a_cloud(self, cloud_context: SystemContext) -> None:
+        system = FilterByDistanceSystem.on(self.CLOUD, max_distance=10.0)
+
+        with pytest.raises(ValueError, match="missing required component"):
+            list(system(cloud_context, 0))
+
+    def test_the_mask_applies_to_the_cloud(self, cloud_context: SystemContext) -> None:
+        near = FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=10.0)
+        kept = ApplyMaskSystem.of(self.CLOUD, near.target)
+
+        Pipeline([near, kept]).run(cloud_context, 0)
+        view = cloud_context.store.range(
+            kept.target, timeline=FRAME, time_range=TimeRange.everything()
+        )
+
+        assert len(view) == 2
+        cloud = view.materialize(SemanticSegmentation3D)
+        assert cloud.point.values[:, 0].tolist() == [1.0, 3.0]
+
+    def test_the_mask_reads_back_as_a_view(self, cloud_context: SystemContext) -> None:
+        near = FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=10.0)
+        (chunk,) = near(cloud_context, 0)
+        cloud_context.store.send_chunk(chunk)
+
+        view = masked_view(
+            cloud_context.store,
+            self.CLOUD,
+            near.target,
+            timeline=FRAME,
+            time_range=TimeRange.single(0),
+        )
+
+        assert view.materialize(SemanticSegmentation3D).point.values[:, 0].tolist() == [1.0, 3.0]
 
 
 class TestFilterByLabel:

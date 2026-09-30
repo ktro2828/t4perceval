@@ -52,7 +52,10 @@ every 2D archetype.
 `SemanticSegmentation3D.point` uses the **`POINT`** descriptor, deliberately not `POSITION`. A
 labelled point is not an object with a pose, and the separate name stops
 `FilterByDistanceSystem` -- or any other system asking for a 3D object position -- from being
-pointed at a point cloud and appearing to work. A coordinate transform still moves it as a point.
+pointed at a point cloud and appearing to work. A coordinate transform still moves it as a point,
+and the same predicates over points are their own systems: `FilterPointsByDistanceSystem`,
+`FilterPointsByRegionSystem` and `FilterPointsByMapSystem` in
+[`t4perceval.system.filter.point`](../systems/filters.md#point).
 
 Both use `BatchPosition3D` as the underlying column type. That is the descriptor-versus-type
 distinction again: the type says what the numbers look like, the descriptor says what they mean.

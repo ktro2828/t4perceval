@@ -1,4 +1,13 @@
-"""Filtering the points of one cloud by whether the other cloud covers them."""
+"""Filters over the points of a cloud rather than over objects.
+
+:class:`FilterByCoverageSystem` asks whether another cloud covers each point. The
+``FilterPointsBy*`` systems apply the positional predicates of
+:mod:`t4perceval.system.filter.position` -- distance, an xy box, a map polygon -- to the
+``POINT`` column. They are separate classes rather than the object filters pointed at a
+cloud on purpose: ``POINT`` is not ``POSITION`` (see
+:class:`~t4perceval.archetype.SemanticSegmentation3D`), so a filter has to say which of
+the two it means.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +22,11 @@ from t4perceval.descriptors import POINT
 from t4perceval.geometry import nearest_points
 from t4perceval.system.base import require, require_same_frame
 from t4perceval.system.filter.base import MaskSystem
+from t4perceval.system.filter.position import (
+    FilterByDistanceSystem,
+    FilterByMapSystem,
+    FilterByRegionSystem,
+)
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -23,7 +37,12 @@ if TYPE_CHECKING:
     from t4perceval.system.base import SystemContext
     from t4perceval.typing import NDArrayBool
 
-__all__ = ("FilterByCoverageSystem",)
+__all__ = (
+    "FilterByCoverageSystem",
+    "FilterPointsByDistanceSystem",
+    "FilterPointsByMapSystem",
+    "FilterPointsByRegionSystem",
+)
 
 
 @define(slots=True)
@@ -112,3 +131,45 @@ class FilterByCoverageSystem(MaskSystem):
             )
             keep[start:stop] = distances <= self.tolerance
         return keep
+
+
+@define(slots=True)
+class FilterPointsByDistanceSystem(FilterByDistanceSystem):
+    """Keep the points whose distance from the origin is within ``[min, max]``.
+
+    :class:`~t4perceval.system.filter.position.FilterByDistanceSystem` over the ``point``
+    column of a cloud such as :class:`~t4perceval.archetype.SemanticSegmentation3D`. The
+    parameters, the inclusive bounds and ``bev`` mean the same; the distance is measured in
+    the frame the cloud declares, so it has to be ``base_link`` for "distance from the
+    ego". The mask is written to ``<source>/filter/distance``.
+    """
+
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)
+    COLUMN: ClassVar[ComponentDescriptor] = POINT
+
+
+@define(slots=True)
+class FilterPointsByRegionSystem(FilterByRegionSystem):
+    """Keep the points whose xy lies inside an axis-aligned region.
+
+    :class:`~t4perceval.system.filter.position.FilterByRegionSystem` over the ``point``
+    column; ``symmetric()`` builds the mirrored box as it does for objects. The mask is
+    written to ``<source>/filter/region``.
+    """
+
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)
+    COLUMN: ClassVar[ComponentDescriptor] = POINT
+
+
+@define(slots=True)
+class FilterPointsByMapSystem(FilterByMapSystem):
+    """Keep the points whose xy lies inside a polygon stated in ``map``.
+
+    :class:`~t4perceval.system.filter.position.FilterByMapSystem` over the ``point``
+    column: a cloud not in ``map`` is moved there per frame through the ego pose before the
+    test, and ``on_lanelet()`` builds the polygon from a Lanelet2 map. The mask is written
+    to ``<source>/filter/map`` (``/filter/lanelet`` from ``on_lanelet()``).
+    """
+
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)
+    COLUMN: ClassVar[ComponentDescriptor] = POINT
