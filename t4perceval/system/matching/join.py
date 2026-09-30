@@ -7,7 +7,9 @@ result instead would duplicate most of the object columns, so the indices are re
 here, once, for every metric to reuse.
 
 The resolution is not a plain gather: ``est_index`` is a row index *within its frame*, so
-it has to be offset by where that frame starts in the range being evaluated.
+it has to be offset by where that frame starts in the range being evaluated. An index that
+does not fit inside its frame is rejected rather than offset, because the sum would land on
+a row of a neighbouring frame and be gathered without complaint.
 """
 
 from __future__ import annotations
@@ -33,42 +35,77 @@ if TYPE_CHECKING:
 __all__ = ("MatchJoin",)
 
 
-def _frame_starts(view: EntityView, timeline: Timeline) -> tuple[NDArrayI64, NDArrayI64]:
-    """Return the distinct frame times of ``view`` and the row each frame starts at.
+@define(frozen=True, slots=True)
+class _Frames:
+    """Where each distinct frame of a view starts, and how many rows it holds.
 
     ``Store.range()`` orders partitions by time, so all rows sharing a time are
     contiguous even when they came from several chunks -- the first such partition is
-    where the frame starts.
+    where the frame starts, and the frame runs until the next one begins.
     """
-    chunk = view.chunk
-    index = chunk.index(timeline)
-    if index is None or chunk.num_partitions == 0:
-        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
 
-    times, first = np.unique(index.times, return_index=True)
-    return times, chunk.offsets[:-1][first]
+    times: NDArrayI64 = field(eq=cmp_using(eq=np.array_equal))
+    starts: NDArrayI64 = field(eq=cmp_using(eq=np.array_equal))
+    sizes: NDArrayI64 = field(eq=cmp_using(eq=np.array_equal))
+
+    @classmethod
+    def of(cls, view: EntityView, timeline: Timeline) -> Self:
+        chunk = view.chunk
+        index = chunk.index(timeline)
+        empty = np.empty(0, dtype=np.int64)
+        if index is None or chunk.num_partitions == 0:
+            return cls(empty, empty, empty)
+
+        times, first = np.unique(index.times, return_index=True)
+        starts = chunk.offsets[:-1][first]
+        ends = np.append(starts[1:], chunk.num_rows)
+        return cls(times, starts, ends - starts)
 
 
 def _resolve(
     local: NDArrayI64,
     match_times: NDArrayI64,
-    frame_times: NDArrayI64,
-    frame_starts: NDArrayI64,
+    frames: _Frames,
+    *,
+    entity: EntityPathLike,
 ) -> NDArrayI64:
-    """Turn per-frame row indices into row indices over the whole range."""
+    """Turn per-frame row indices into row indices over the whole range.
+
+    Raises:
+        ValueError: If a match row names a frame ``entity`` has no rows at, or an index
+            beyond the rows that frame holds.
+    """
     rows = np.full(local.shape, -1, dtype=np.int64)
     present = local >= 0
-    if not present.any() or frame_times.size == 0:
+    if not present.any():
         return rows
 
-    slots = np.searchsorted(frame_times, match_times[present])
-    if np.any(slots >= frame_times.size) or np.any(frame_times[slots] != match_times[present]):
-        missing = sorted(set(match_times[present].tolist()) - set(frame_times.tolist()))
+    wanted = match_times[present]
+    if frames.times.size == 0:
+        missing = sorted(set(wanted.tolist()))
         raise ValueError(
-            f"Match rows reference frame(s) {missing} that the joined entity does not have",
+            f"Match rows reference frame(s) {missing} that {entity} does not have",
         )
 
-    rows[present] = frame_starts[slots] + local[present]
+    slots = np.searchsorted(frames.times, wanted)
+    slots = np.minimum(slots, frames.times.size - 1)
+    if np.any(frames.times[slots] != wanted):
+        missing = sorted(set(wanted.tolist()) - set(frames.times.tolist()))
+        raise ValueError(
+            f"Match rows reference frame(s) {missing} that {entity} does not have",
+        )
+
+    offsets = local[present]
+    sizes = frames.sizes[slots]
+    out_of_range = offsets >= sizes
+    if np.any(out_of_range):
+        first = int(np.flatnonzero(out_of_range)[0])
+        raise ValueError(
+            f"Match row references index {int(offsets[first])} at frame "
+            f"{int(wanted[first])}, but {entity} has only {int(sizes[first])} row(s) there",
+        )
+
+    rows[present] = frames.starts[slots] + offsets
     return rows
 
 
@@ -119,8 +156,8 @@ class MatchJoin:
             require(matches, EST_INDEX, GT_INDEX)
 
         match_times = matches.times(timeline) if len(matches) else np.empty(0, dtype=np.int64)
-        est_times, est_starts = _frame_starts(est_view, timeline)
-        gt_times, gt_starts = _frame_starts(gt_view, timeline)
+        est_frames = _Frames.of(est_view, timeline)
+        gt_frames = _Frames.of(gt_view, timeline)
 
         est_local = (
             matches.component(EST_INDEX).values if len(matches) else np.empty(0, dtype=np.int64)
@@ -134,8 +171,8 @@ class MatchJoin:
             est_view,
             gt_view,
             timeline,
-            _resolve(est_local, match_times, est_times, est_starts),
-            _resolve(gt_local, match_times, gt_times, gt_starts),
+            _resolve(est_local, match_times, est_frames, entity=estimation),
+            _resolve(gt_local, match_times, gt_frames, entity=ground_truth),
         )
 
     def __len__(self) -> int:
