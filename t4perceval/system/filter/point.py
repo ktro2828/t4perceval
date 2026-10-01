@@ -2,9 +2,9 @@
 
 :class:`FilterPointsByCoverageSystem` asks whether another cloud covers each point. The
 ``FilterPointsBy*`` systems apply the positional predicates of
-:mod:`t4perceval.system.filter.position` -- distance, an xy box, a map polygon -- to the
-``POINT`` column. They are separate classes rather than the object filters pointed at a
-cloud on purpose: ``POINT`` is not ``POSITION`` (see
+:mod:`t4perceval.system.filter.position` -- distance, an xy box, a polar grid, a map
+polygon -- to the ``POINT`` column. They are separate classes rather than the object filters
+pointed at a cloud on purpose: ``POINT`` is not ``POSITION`` (see
 :class:`~t4perceval.archetype.SemanticSegmentation3D`), so a filter has to say which of
 the two it means.
 """
@@ -25,6 +25,7 @@ from t4perceval.system.filter.base import MaskSystem
 from t4perceval.system.filter.position import (
     FilterByDistanceSystem,
     FilterByMapSystem,
+    FilterByPolarGridSystem,
     FilterByRegionSystem,
 )
 
@@ -41,6 +42,7 @@ __all__ = (
     "FilterPointsByCoverageSystem",
     "FilterPointsByDistanceSystem",
     "FilterPointsByMapSystem",
+    "FilterPointsByPolarGridSystem",
     "FilterPointsByRegionSystem",
 )
 
@@ -155,6 +157,19 @@ class FilterPointsByRegionSystem(FilterByRegionSystem):
     :class:`~t4perceval.system.filter.position.FilterByRegionSystem` over the ``point``
     column; ``symmetric()`` builds the mirrored box as it does for objects. The mask is
     written to ``<source>/filter/region``.
+    """
+
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)
+    COLUMN: ClassVar[ComponentDescriptor] = POINT
+
+
+@define(slots=True)
+class FilterPointsByPolarGridSystem(FilterByPolarGridSystem):
+    """Keep the points that lie in a cell of the polar grid around the origin.
+
+    :class:`~t4perceval.system.filter.position.FilterByPolarGridSystem` over the ``point``
+    column, with the same distance and angle bounds. The mask is written to
+    ``<source>/filter/polar_grid``.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)

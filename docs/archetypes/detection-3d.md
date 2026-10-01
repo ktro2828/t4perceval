@@ -44,7 +44,7 @@ The first five are positional; every optional field is keyword-only.
 
 | Component present | Enables                                                                        |
 | :---------------- | :----------------------------------------------------------------------------- |
-| `position`        | every 3D matcher, `FilterByDistanceSystem`, `FilterByRegionSystem`             |
+| `position`        | every 3D matcher, the `FilterBy{Distance,Region,PolarGrid,Map}System` filters  |
 | `quaternion`      | `PlaneDistance` / `IoUBEV` / `IoU3D` matchers, `AveragePrecisionHeadingSystem` |
 | `size`            | `PlaneDistance` / `IoUBEV` / `IoU3D` matchers                                  |
 | `class_id`        | every matcher, every metric, `FilterByLabelSystem`                             |

@@ -1,4 +1,4 @@
-"""Filters on where an object is: distance from the ego, a box, a map region.
+"""Filters on where an object is: distance from the ego, a box, a polar grid, a map region.
 
 Each filter reads the column named by its :attr:`COLUMN`, ``POSITION`` here. The same
 predicates over the points of a cloud -- the ``POINT`` column -- are the
@@ -135,6 +135,83 @@ class FilterByRegionSystem(MaskSystem):
         lower = np.asarray(self.min_xy, dtype=np.float64)
         upper = np.asarray(self.max_xy, dtype=np.float64)
         return np.all((xy >= lower) & (xy <= upper), axis=1)
+
+
+@define(slots=True)
+class FilterByPolarGridSystem(MaskSystem):
+    """Keep objects whose xy position lies in a cell of the polar grid around the origin.
+
+    The cell is bounded in polar coordinates: distance in ``[min_distance, max_distance]``
+    and azimuth in ``[min_angle, max_angle]``. The azimuth is in radians, counter-clockwise
+    from the x axis -- in ``base_link`` 0 is straight ahead and ``+pi/2`` is the left. Both
+    bounds are inclusive, like the rest of the family, so the defaults -- every distance,
+    the full turn -- pass every row.
+
+    The grid is laid out in the frame the source chunk declares, so "around the ego" needs
+    the rows in ``base_link``. Distance is measured in the xy plane; ``z`` is ignored.
+
+    ``min_angle`` may lie anywhere, so a cell may cross the ``+-pi`` seam::
+
+        front = FilterByPolarGridSystem.on(
+            "/ground_truth/objects",
+            max_distance=50.0,
+            min_angle=np.deg2rad(-45.0),
+            max_angle=np.deg2rad(45.0),
+        )
+        rear = FilterByPolarGridSystem.on(
+            "/ground_truth/objects",
+            min_angle=np.deg2rad(170.0),
+            max_angle=np.deg2rad(190.0),
+        )
+    """
+
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION,)
+    FILTER_NAME: ClassVar[str] = "polar_grid"
+    #: The ``(N, 3)`` column whose xy is tested.
+    COLUMN: ClassVar[ComponentDescriptor] = POSITION
+
+    min_distance: float = field(default=0.0, kw_only=True)
+    max_distance: float = field(default=float("inf"), kw_only=True)
+    min_angle: float = field(default=-np.pi, kw_only=True)
+    """Lower azimuth bound in radians. Any value; the cell starts here and runs
+    counter-clockwise to :attr:`max_angle`."""
+    max_angle: float = field(default=np.pi, kw_only=True)
+    """Upper azimuth bound in radians, at least :attr:`min_angle` and at most ``2 * pi``
+    above it."""
+
+    def __attrs_post_init__(self) -> None:
+        super().__attrs_post_init__()
+        if self.min_distance < 0.0:
+            raise ValueError(f"min_distance must be non-negative, got {self.min_distance}")
+        check_range(
+            self.min_distance,
+            self.max_distance,
+            low_name="min_distance",
+            high_name="max_distance",
+        )
+        check_range(self.min_angle, self.max_angle, low_name="min_angle", high_name="max_angle")
+        if self.span > 2.0 * np.pi:
+            raise ValueError(
+                f"max_angle - min_angle must be at most 2*pi radians, got {self.span} "
+                f"(are the angles in degrees?)",
+            )
+
+    @property
+    def span(self) -> float:
+        """The angular width of the cell in radians, ``max_angle - min_angle``."""
+        return self.max_angle - self.min_angle
+
+    def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
+        angle_tolerance: float = 1e-9
+
+        xy = view.component(self.COLUMN).values[:, :2]
+        distance = np.hypot(xy[:, 0], xy[:, 1])
+        in_distance = (distance >= self.min_distance) & (distance <= self.max_distance)
+        # Unwrap relative to min_angle so a cell may cross the +-pi seam.
+        # The relative angle lies in [0, 2*pi), which is why a full turn keeps everything.
+        relative = np.mod(np.arctan2(xy[:, 1], xy[:, 0]) - self.min_angle, 2.0 * np.pi)
+        relative = np.where(relative >= 2.0 * np.pi - angle_tolerance, 0.0, relative)
+        return in_distance & (relative <= self.span + angle_tolerance)
 
 
 def _as_geometry(value: Any) -> BaseGeometry | None:
