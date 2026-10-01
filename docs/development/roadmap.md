@@ -556,9 +556,9 @@ Real but unscheduled; none of them blocks a phase above.
       schema metadata. Parquet round-trip verified
 - [x] Add `pyarrow` as a direct dependency
 - [x] System protocol / `SystemContext` / `Pipeline` (order validation)
-- [x] The filter systems — a shared `MaskSystem` base plus 9 kinds
-      (`FilterByDistance` / `Region` / `Map` / `Label` / `Confidence` / `Instance` /
-      `Speed` / `NumPoints` / `Visibility`)
+- [x] The filter systems — a shared `MaskSystem` base plus 10 kinds
+      (`FilterByDistance` / `Region` / `PolarGrid` / `Map` / `Label` / `Confidence` /
+      `Instance` / `Speed` / `NumPoints` / `Visibility`)
 - [x] `t4perceval.lanelet` — a Lanelet2 `.osm` read into region polygons with the
       standard-library XML parser and shapely (no `lanelet2` binding, no projection: the
       nodes' `local_x` / `local_y` are the map frame). `FilterByMapSystem.on_lanelet()`

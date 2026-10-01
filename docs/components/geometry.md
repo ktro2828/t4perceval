@@ -13,8 +13,8 @@ from t4perceval.component import BatchPosition3D
 BatchPosition3D([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]])
 ```
 
-Descriptor: `POSITION`. Required by every 3D matcher, `FilterByDistanceSystem` and
-`FilterByRegionSystem`.
+Descriptor: `POSITION`. Required by every 3D matcher, `FilterByDistanceSystem`,
+`FilterByRegionSystem`, `FilterByPolarGridSystem` and `FilterByMapSystem`.
 
 `BatchPosition2D` is the `(N, 2)` counterpart.
 

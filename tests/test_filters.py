@@ -32,11 +32,13 @@ from t4perceval.system import (
     FilterByLabelSystem,
     FilterByNumPointsSystem,
     FilterByMapSystem,
+    FilterByPolarGridSystem,
     FilterByRegionSystem,
     FilterBySpeedSystem,
     FilterByVisibilitySystem,
     FilterPointsByDistanceSystem,
     FilterPointsByMapSystem,
+    FilterPointsByPolarGridSystem,
     FilterPointsByRegionSystem,
     MaskSystem,
     Pipeline,
@@ -56,6 +58,7 @@ SOURCE = "/estimation/objects"
 ALL_FILTERS: tuple[type[MaskSystem], ...] = (
     FilterByDistanceSystem,
     FilterByRegionSystem,
+    FilterByPolarGridSystem,
     FilterByMapSystem,
     FilterByLabelSystem,
     FilterByConfidenceSystem,
@@ -69,6 +72,7 @@ ALL_FILTERS: tuple[type[MaskSystem], ...] = (
 POINT_FILTERS: tuple[type[MaskSystem], ...] = (
     FilterPointsByDistanceSystem,
     FilterPointsByRegionSystem,
+    FilterPointsByPolarGridSystem,
     FilterPointsByMapSystem,
 )
 
@@ -417,6 +421,156 @@ class TestFilterByRegion:
             FilterByRegionSystem.on(SOURCE, min_xy=(0.0, 10.0), max_xy=(1.0, 1.0))
 
 
+class TestFilterByPolarGrid:
+    """A cell in polar coordinates: a distance range crossed with an azimuth range."""
+
+    def test_bounds_the_distance(self, rich_context: SystemContext) -> None:
+        system = FilterByPolarGridSystem.on(SOURCE, min_distance=2.0, max_distance=60.0)
+
+        assert mask_of(system, rich_context) == [False, True, False, True]
+
+    def test_bounds_the_angle(self, rich_context: SystemContext) -> None:
+        # (1, 0) and (50, 0) at 0 degrees; (0, 120) at 90; (3, 4) at 53.
+        ahead = FilterByPolarGridSystem.on(
+            SOURCE, min_angle=np.deg2rad(-45.0), max_angle=np.deg2rad(45.0)
+        )
+        left = FilterByPolarGridSystem.on(
+            SOURCE, min_angle=np.deg2rad(45.0), max_angle=np.deg2rad(135.0)
+        )
+
+        assert mask_of(ahead, rich_context) == [True, True, False, False]
+        assert mask_of(left, rich_context) == [False, False, True, True]
+
+    def test_bounds_distance_and_angle_together(self, rich_context: SystemContext) -> None:
+        system = FilterByPolarGridSystem.on(
+            SOURCE, max_distance=10.0, min_angle=np.deg2rad(-45.0), max_angle=np.deg2rad(45.0)
+        )
+
+        assert mask_of(system, rich_context) == [True, False, False, False]
+
+    def test_angles_run_counter_clockwise_from_the_x_axis(self) -> None:
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections(
+                [[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [-10.0, 0.0, 0.0], [0.0, -10.0, 0.0]]
+            ),
+            at=TimePoint.at(frame=0),
+        )
+        ctx = SystemContext(store, FRAME)
+        quarter = np.pi / 4
+
+        masks = [
+            mask_of(
+                FilterByPolarGridSystem.on(
+                    SOURCE, min_angle=centre - quarter, max_angle=centre + quarter
+                ),
+                ctx,
+            )
+            for centre in (0.0, np.pi / 2, np.pi, 3 * np.pi / 2)
+        ]
+
+        # front, left, rear, right.
+        assert masks == [
+            [True, False, False, False],
+            [False, True, False, False],
+            [False, False, True, False],
+            [False, False, False, True],
+        ]
+
+    def test_a_cell_may_cross_the_seam(self) -> None:
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections(
+                [[-10.0, 0.0, 0.0], [-10.0, 1.0, 0.0], [-10.0, -1.0, 0.0], [10.0, 0.0, 0.0]]
+            ),
+            at=TimePoint.at(frame=0),
+        )
+        rear = FilterByPolarGridSystem.on(
+            SOURCE, min_angle=np.deg2rad(170.0), max_angle=np.deg2rad(190.0)
+        )
+
+        assert mask_of(rear, SystemContext(store, FRAME)) == [True, True, True, False]
+
+    def test_the_full_turn_has_no_gap_at_the_seam(self) -> None:
+        # arctan2 gives +pi for (-10, 0) and -pi for (-10, -0.0).
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections([[-10.0, 0.0, 0.0], [-10.0, -0.0, 0.0]]),
+            at=TimePoint.at(frame=0),
+        )
+        ctx = SystemContext(store, FRAME)
+
+        assert mask_of(FilterByPolarGridSystem.on(SOURCE), ctx) == [True, True]
+        assert mask_of(
+            FilterByPolarGridSystem.on(SOURCE, min_angle=0.0, max_angle=2 * np.pi), ctx
+        ) == [True, True]
+
+    def test_bounds_are_inclusive(self) -> None:
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections(
+                [
+                    [0.0, 0.0, 0.0],  # on min_distance
+                    [50.0, 0.0, 0.0],  # on max_distance, on min_angle
+                    [0.0, 50.0, 0.0],  # on max_distance, on max_angle
+                ]
+            ),
+            at=TimePoint.at(frame=0),
+        )
+        system = FilterByPolarGridSystem.on(
+            SOURCE, max_distance=50.0, min_angle=0.0, max_angle=np.pi / 2
+        )
+
+        assert mask_of(system, SystemContext(store, FRAME)) == [True, True, True]
+
+    def test_bounds_stay_inclusive_under_rounding(self) -> None:
+        # atan2 of a point placed exactly on a bound lands a few ULPs either side of it;
+        # without slack the modulo rejects hundreds of lower edges in a sweep like this.
+        angles = np.linspace(-np.pi, np.pi, 2001)
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections(np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], 1)),
+            at=TimePoint.at(frame=0),
+        )
+        ctx = SystemContext(store, FRAME)
+
+        for index in (0, 500, 1000, 1500, 2000):
+            edge = float(angles[index])
+            lower = FilterByPolarGridSystem.on(SOURCE, min_angle=edge, max_angle=edge + 0.5)
+            upper = FilterByPolarGridSystem.on(SOURCE, min_angle=edge - 0.5, max_angle=edge)
+            assert mask_of(lower, ctx)[index], f"lower edge {edge} rejected"
+            assert mask_of(upper, ctx)[index], f"upper edge {edge} rejected"
+
+        # And a point clearly past an edge is still out: the slack is a nanoradian.
+        outside = FilterByPolarGridSystem.on(SOURCE, min_angle=0.0, max_angle=1.0)
+        assert not mask_of(outside, ctx)[np.searchsorted(angles, 1.01)]
+
+    def test_ignores_the_z_axis(self) -> None:
+        store = Store()
+        store.log(SOURCE, make_detections([[3.0, 4.0, 999.0]]), at=TimePoint.at(frame=0))
+        system = FilterByPolarGridSystem.on(SOURCE, max_distance=5.0)
+
+        assert mask_of(system, SystemContext(store, FRAME)) == [True]
+
+    @pytest.mark.parametrize(
+        ("params", "match"),
+        [
+            ({"min_distance": -1.0}, "must be non-negative"),
+            ({"min_distance": 10.0, "max_distance": 1.0}, "max_distance .* must not be below"),
+            ({"min_angle": 1.0, "max_angle": 0.0}, "max_angle .* must not be below"),
+            ({"min_angle": 0.0, "max_angle": 180.0}, r"at most 2\*pi"),
+        ],
+    )
+    def test_rejects_a_contradictory_cell(self, params: dict[str, float], match: str) -> None:
+        with pytest.raises(ValueError, match=match):
+            FilterByPolarGridSystem.on(SOURCE, **params)
+
+
 class TestPointPositionFilters:
     """The positional predicates over a cloud's ``point`` column."""
 
@@ -508,6 +662,16 @@ class TestPointPositionFilters:
 
     def test_region_bounds_each_axis_independently(self, cloud_context: SystemContext) -> None:
         system = FilterPointsByRegionSystem.on(self.CLOUD, max_xy=(60.0, 1.0))
+
+        assert mask_of(system, cloud_context) == [True, True, False, False]
+
+    def test_polar_grid_bounds_distance_and_angle(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByPolarGridSystem.on(
+            self.CLOUD,
+            max_distance=100.0,
+            min_angle=np.deg2rad(-45.0),
+            max_angle=np.deg2rad(45.0),
+        )
 
         assert mask_of(system, cloud_context) == [True, True, False, False]
 

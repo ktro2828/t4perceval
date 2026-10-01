@@ -10,17 +10,21 @@ judges.
 
 ## Position
 
-`t4perceval.system.filter.position` -- where an object is. All three require `position`.
+`t4perceval.system.filter.position` -- where an object is. All four require `position`.
 
-| System                   | Parameters (default)                                    | Keeps rows whose                                    |
-| :----------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
-| `FilterByDistanceSystem` | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
-| `FilterByRegionSystem`   | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
-| `FilterByMapSystem`      | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
+| System                    | Parameters (default)                                                          | Keeps rows whose                                    |
+| :------------------------ | :---------------------------------------------------------------------------- | :-------------------------------------------------- |
+| `FilterByDistanceSystem`  | `min_distance` (0), `max_distance` (inf), `bev` (False)                       | distance from the origin is in range; 3D or xy only |
+| `FilterByRegionSystem`    | `min_xy` (-inf), `max_xy` (inf)                                               | xy lies inside an axis-aligned box                  |
+| `FilterByPolarGridSystem` | `min_distance` (0), `max_distance` (inf), `min_angle` (-pi), `max_angle` (pi) | xy distance and azimuth are both in range           |
+| `FilterByMapSystem`       | `polygon` (None), `resolver` (None)                                           | xy lies inside a polygon stated in `map`            |
 
-Distance and region are measured **in the frame the source declares**; a distance from the ego
-needs the rows in `base_link`. `FilterByRegionSystem.symmetric(source, max_xy=)` mirrors the box
-about the origin. The map filter is the one filter that looks the ego pose up itself, so a
+Distance, region and polar grid are measured **in the frame the source declares**; a distance from
+the ego needs the rows in `base_link`. `FilterByRegionSystem.symmetric(source, max_xy=)` mirrors
+the box about the origin. `FilterByPolarGridSystem` bounds a cell in polar coordinates: xy distance in
+`[min_distance, max_distance]` and azimuth in `[min_angle, max_angle]`, in radians
+counter-clockwise from `+x`; `min_angle` may lie anywhere, so a cell may cross the `±pi` seam.
+The map filter is the one filter that looks the ego pose up itself, so a
 `base_link` source needs no transform first; `FilterByMapSystem.on_lanelet(source, lanelet_map,
 subtypes=)` builds its polygon from a [Lanelet2 map](../reference/api/lanelet.md).
 
@@ -49,21 +53,23 @@ context's registries, and an unknown name raises.
 
 `t4perceval.system.filter.point` -- points of a cloud rather than objects.
 
-| System                         | Requires                | Parameters (default)                                    | Keeps rows whose                                    |
-| :----------------------------- | :---------------------- | :------------------------------------------------------ | :-------------------------------------------------- |
-| `FilterPointsByCoverageSystem` | `point` on both sources | `tolerance` (1e-6), `check_frames` (True)               | point has a reference point within `tolerance`      |
-| `FilterPointsByDistanceSystem` | `point`                 | `min_distance` (0), `max_distance` (inf), `bev` (False) | distance from the origin is in range; 3D or xy only |
-| `FilterPointsByRegionSystem`   | `point`                 | `min_xy` (-inf), `max_xy` (inf)                         | xy lies inside an axis-aligned box                  |
-| `FilterPointsByMapSystem`      | `point`                 | `polygon` (None), `resolver` (None)                     | xy lies inside a polygon stated in `map`            |
+| System                          | Requires                | Parameters (default)                                                          | Keeps rows whose                                    |
+| :------------------------------ | :---------------------- | :---------------------------------------------------------------------------- | :-------------------------------------------------- |
+| `FilterPointsByCoverageSystem`  | `point` on both sources | `tolerance` (1e-6), `check_frames` (True)                                     | point has a reference point within `tolerance`      |
+| `FilterPointsByDistanceSystem`  | `point`                 | `min_distance` (0), `max_distance` (inf), `bev` (False)                       | distance from the origin is in range; 3D or xy only |
+| `FilterPointsByRegionSystem`    | `point`                 | `min_xy` (-inf), `max_xy` (inf)                                               | xy lies inside an axis-aligned box                  |
+| `FilterPointsByPolarGridSystem` | `point`                 | `min_distance` (0), `max_distance` (inf), `min_angle` (-pi), `max_angle` (pi) | xy distance and azimuth are both in range           |
+| `FilterPointsByMapSystem`       | `point`                 | `polygon` (None), `resolver` (None)                                           | xy lies inside a polygon stated in `map`            |
 
 `FilterPointsByCoverageSystem` is the one filter with two sources: `.between(source, reference)` masks
 `source` by whether `reference` covers it, frame by frame, and writes to `<source>/filter/coverage`.
 It is how a cropped or downsampled estimation leaves the uncovered ground truth out of a
 segmentation score.
 
-The three `FilterPointsBy*` systems are the [position](#position) predicates over the `point`
+The four `FilterPointsBy*` systems are the [position](#position) predicates over the `point`
 column, with the same parameters, the same inclusive bounds and the same targets
-(`<source>/filter/distance`, `/region`, `/map`); `symmetric()` and `on_lanelet()` work the same.
+(`<source>/filter/distance`, `/region`, `/polar_grid`, `/map`); `symmetric()` and `on_lanelet()`
+work the same.
 They are separate classes rather than the object filters pointed at a cloud because
 [`POINT` is not `POSITION`](../archetypes/segmentation.md#point-not-position): a filter has to say
 which of the two it judges, and each refuses the other.

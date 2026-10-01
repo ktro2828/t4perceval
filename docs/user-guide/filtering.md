@@ -16,20 +16,22 @@ stays queryable instead of becoming a discarded intermediate.
 Every filter is built with `.on(source, **params)` and writes its mask to
 `<source>/filter/<name>`.
 
-| System                         | Requires      | Parameters                                          |
-| :----------------------------- | :------------ | :-------------------------------------------------- |
-| `FilterByDistanceSystem`       | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False` |
-| `FilterByRegionSystem`         | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`          |
-| `FilterByMapSystem`            | `position`    | `polygon=None`, `resolver=None`                     |
-| `FilterPointsByDistanceSystem` | `point`       | as `FilterByDistanceSystem`                         |
-| `FilterPointsByRegionSystem`   | `point`       | as `FilterByRegionSystem`                           |
-| `FilterPointsByMapSystem`      | `point`       | as `FilterByMapSystem`                              |
-| `FilterByLabelSystem`          | `class_id`    | `labels=None`, `exclude=None`                       |
-| `FilterByConfidenceSystem`     | `confidence`  | `min_confidence=0.0`, `max_confidence=1.0`          |
-| `FilterByInstanceSystem`       | `instance_id` | `instances=None`, `exclude=None`                    |
-| `FilterBySpeedSystem`          | `velocity`    | `min_speed=0.0`, `max_speed=inf`                    |
-| `FilterByNumPointsSystem`      | `num_points`  | `min_num_points=0`, `max_num_points=None`           |
-| `FilterByVisibilitySystem`     | `visibility`  | `min_visibility=VisibilityLevel.NONE`               |
+| System                          | Requires      | Parameters                                                              |
+| :------------------------------ | :------------ | :---------------------------------------------------------------------- |
+| `FilterByDistanceSystem`        | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False`                     |
+| `FilterByRegionSystem`          | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`                              |
+| `FilterByPolarGridSystem`       | `position`    | `min_distance=0.0`, `max_distance=inf`, `min_angle=-pi`, `max_angle=pi` |
+| `FilterByMapSystem`             | `position`    | `polygon=None`, `resolver=None`                                         |
+| `FilterPointsByDistanceSystem`  | `point`       | as `FilterByDistanceSystem`                                             |
+| `FilterPointsByRegionSystem`    | `point`       | as `FilterByRegionSystem`                                               |
+| `FilterPointsByPolarGridSystem` | `point`       | as `FilterByPolarGridSystem`                                            |
+| `FilterPointsByMapSystem`       | `point`       | as `FilterByMapSystem`                                                  |
+| `FilterByLabelSystem`           | `class_id`    | `labels=None`, `exclude=None`                                           |
+| `FilterByConfidenceSystem`      | `confidence`  | `min_confidence=0.0`, `max_confidence=1.0`                              |
+| `FilterByInstanceSystem`        | `instance_id` | `instances=None`, `exclude=None`                                        |
+| `FilterBySpeedSystem`           | `velocity`    | `min_speed=0.0`, `max_speed=inf`                                        |
+| `FilterByNumPointsSystem`       | `num_points`  | `min_num_points=0`, `max_num_points=None`                               |
+| `FilterByVisibilitySystem`      | `visibility`  | `min_visibility=VisibilityLevel.NONE`                                   |
 
 ```python
 from t4perceval.system import FilterByDistanceSystem
@@ -71,15 +73,50 @@ FilterByRegionSystem.symmetric(path, max_xy=(100.0, 50.0))  # ±100 by ±50, mir
 
 `symmetric` is the region the original package's `max_x_position` / `max_y_position` described.
 
-Both, and the map filter below, judge an object's `position`. A point cloud such as
+These, the polar grid and the map filter below judge an object's `position`. A point cloud such as
 `SemanticSegmentation3D` carries `point` instead, and the same predicates over it are
-`FilterPointsByDistanceSystem`, `FilterPointsByRegionSystem` and `FilterPointsByMapSystem`, with
-the same parameters:
+`FilterPointsByDistanceSystem`, `FilterPointsByRegionSystem`, `FilterPointsByPolarGridSystem` and
+`FilterPointsByMapSystem`, with the same parameters:
 
 ```python
 FilterPointsByDistanceSystem.on("/ground_truth/points", max_distance=50.0)
 FilterPointsByRegionSystem.symmetric("/ground_truth/points", max_xy=(100.0, 50.0))
 ```
+
+## Polar grid
+
+`FilterByPolarGridSystem` bounds one cell of the polar grid around the origin: a distance range
+crossed with an azimuth range. It narrows a score to "within 50 m, ahead" or "the far left" in
+one filter.
+
+```python
+import numpy as np
+from t4perceval.system import FilterByPolarGridSystem
+
+# Within 50 m, in the 90 degree cone ahead.
+front_near = FilterByPolarGridSystem.on(
+    "/ground_truth/objects",
+    max_distance=50.0,
+    min_angle=np.deg2rad(-45.0),
+    max_angle=np.deg2rad(45.0),
+)
+front_near.target  # /ground_truth/objects/filter/polar_grid
+
+# 20 to 80 m, in a 20 degree cone across the rear.
+rear = FilterByPolarGridSystem.on(
+    "/ground_truth/objects",
+    min_distance=20.0,
+    max_distance=80.0,
+    min_angle=np.deg2rad(170.0),
+    max_angle=np.deg2rad(190.0),
+)
+```
+
+Distance is measured in the xy plane. The angle is in radians, counter-clockwise from `+x`; in
+`base_link` 0 is straight ahead and `+pi/2` is the left. `min_angle` may lie anywhere and
+`max_angle` runs counter-clockwise from it, at most a full turn, so a cell may cross the `±pi`
+seam as `rear` does above. Like the rest of the family the bounds are inclusive, and the defaults
+pass every row. The grid is laid out in the frame the source declares, and `z` is ignored.
 
 `FilterBySpeedSystem` uses the L2 norm of the `velocity` column.
 

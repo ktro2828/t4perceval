@@ -33,6 +33,7 @@ from t4perceval.system.filter.point import (
     FilterPointsByCoverageSystem,
     FilterPointsByDistanceSystem,
     FilterPointsByMapSystem,
+    FilterPointsByPolarGridSystem,
     FilterPointsByRegionSystem,
 )
 from t4perceval.system.filter.quality import (
@@ -44,6 +45,7 @@ from t4perceval.system.filter.quality import (
 from t4perceval.system.filter.position import (
     FilterByDistanceSystem,
     FilterByMapSystem,
+    FilterByPolarGridSystem,
     FilterByRegionSystem,
 )
 
@@ -56,12 +58,14 @@ __all__ = (
     "FilterByLabelSystem",
     "FilterByNumPointsSystem",
     "FilterByMapSystem",
+    "FilterByPolarGridSystem",
     "FilterByRegionSystem",
     "FilterBySpeedSystem",
     "FilterByVisibilitySystem",
     "FilterPointsByCoverageSystem",
     "FilterPointsByDistanceSystem",
     "FilterPointsByMapSystem",
+    "FilterPointsByPolarGridSystem",
     "FilterPointsByRegionSystem",
     "MaskSystem",
     "masked_view",
