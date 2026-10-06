@@ -1,9 +1,9 @@
 # SemanticSegmentation2D / SemanticSegmentation3D
 
-A class per labelled pixel or point. Neither archetype names its elements: **the row is the
-element**, and an estimation corresponds to a ground truth because both enumerate the same elements
-in the same order. See [Segmentation](../evaluation/segmentation-3d.md) for the metrics that rest
-on that.
+A class per labelled pixel or point. Neither archetype names its elements: an estimation
+corresponds to a ground truth because both enumerate the same elements in the same order -- the
+points of one cloud, one per row, or the pixels of one image, one `(H, W)` image per row. See
+[Segmentation](../evaluation/segmentation-3d.md) for the metrics that rest on that.
 
 ## SemanticSegmentation3D
 
@@ -23,29 +23,32 @@ SemanticSegmentation3D(
 
 ## SemanticSegmentation2D
 
-| Component  | Requirement | Shape  | dtype | Description                   |
-| :--------- | :---------- | :----- | :---- | :---------------------------- |
-| `class_id` | Required    | `(N,)` | `i32` | semantic class, one per pixel |
+| Component        | Requirement | Shape         | dtype | Description                    |
+| :--------------- | :---------- | :------------ | :---- | :----------------------------- |
+| `class_id_image` | Required    | `(H, W)` mono | `i32` | one class per pixel, one image |
 
-The row **is** the pixel: row `i` is pixel `(i // width, i % width)` and an image has
-`height * width` rows. The image size is not a column -- it would be the same pair repeated per pixel
--- but a one-row **static** [`BatchImageSize`](../components/geometry.md#batchimagesize) on the entity:
+The one component is a **mono** [`ClassIdImage`](../components/geometry.md#batchclassidimage): an
+entity holds one image per point in time, as it holds one transform, so `len()` is 1 and the image
+is read back as a value, not a column. The image size is not logged separately -- it is the row shape
+of the column.
 
 ```python
 from t4perceval import SemanticSegmentation2D
-from t4perceval.component import BatchImageSize
-from t4perceval.descriptors import IMAGE_SIZE
 
-segmentation = SemanticSegmentation2D.from_label_map(label_image)  # (H, W) -> N = H*W
+segmentation = SemanticSegmentation2D(class_id_image=label_image)  # (H, W) int
 store.log(path, segmentation, at=TimePoint.at(frame=0), frame_id="CAM_FRONT")
-store.log_static_components(path, {IMAGE_SIZE: BatchImageSize([[height, width]])})
 
-segmentation.as_label_map(height, width)  # back to (H, W)
+segmentation.class_id_image.value  # the (H, W) image
+segmentation.class_id_image.height, segmentation.class_id_image.width
 ```
 
-`EntityView.component(IMAGE_SIZE)` broadcasts the single row over every pixel of a view;
-`store.static(path)[IMAGE_SIZE]` reads it un-broadcast. `frame_id` is the camera channel, as for
-every 2D archetype.
+Every image on an entity shares one column, and a wildcard dimension is inferred once per column, so
+the resolution is an invariant of the entity: a `range` that spans a resolution change raises in
+`concat_chunks` (`column class_id_image has row shapes (1080, 1920) and (720, 1280)`) instead of
+misaligning pixels. `latest_at(...).materialize(SemanticSegmentation2D)` reads one image back; a
+`range` over several frames is a stack of images, read as a column with
+`view.component(CLASS_ID_IMAGE)` of shape `(frames, H, W)`, not as this archetype. `frame_id` is the
+camera channel, as for every 2D archetype.
 
 ## POINT, not POSITION
 
@@ -62,8 +65,8 @@ distinction again: the type says what the numbers look like, the descriptor says
 
 ## Neither has optional components
 
-`SemanticSegmentation3D` is exactly two columns and `SemanticSegmentation2D` exactly one -- like a
-mask, a column whose meaning is fixed by the entity it sits on.
+`SemanticSegmentation3D` is exactly two columns and `SemanticSegmentation2D` exactly one mono image
+-- like a mask, a component whose meaning is fixed by the entity it sits on.
 
 ## Where to go next
 

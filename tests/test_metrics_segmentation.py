@@ -21,8 +21,13 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
-from t4perceval.component import ALL_CLASSES, BACKGROUND_CLASS_ID, BatchImageSize, BatchPosition3D
-from t4perceval.descriptors import CLASS_ID, IMAGE_SIZE, POINT
+from t4perceval.component import (
+    ALL_CLASSES,
+    BACKGROUND_CLASS_ID,
+    BatchClassIdImage,
+    BatchPosition3D,
+)
+from t4perceval.descriptors import CLASS_ID, CLASS_ID_IMAGE, POINT
 from t4perceval.io import chunk_from_table, chunk_to_table, read_recording, write_recording
 from t4perceval.label import UNKNOWN_CLASS_ID
 from t4perceval.system import (
@@ -105,8 +110,11 @@ class TestWiring:
         assert SegmentationIoUSystem.PROVIDES == MetricValues.required_descriptors()
         assert SegmentationConfusionMatrixSystem.PROVIDES == ConfusionMatrix.required_descriptors()
         system = SegmentationIoUSystem.between(SEG_EST, SEG_GT)
-        assert system.REQUIRES == (CLASS_ID,)
-        assert system.requires_for(0) == system.requires_for(1) == (CLASS_ID,)
+        # Either label column satisfies the contract, which `REQUIRES` cannot express, so it
+        # is empty and the check is made per frame against `LABELS`.
+        assert system.REQUIRES == ()
+        assert system.LABELS == (CLASS_ID_IMAGE, CLASS_ID)
+        assert system.requires_for(0) == system.requires_for(1) == ()
         assert isinstance(system, System)
         assert isinstance(SegmentationConfusionMatrixSystem.between(SEG_EST, SEG_GT), System)
 
@@ -135,7 +143,9 @@ class TestWiring:
                     frame_id="LIDAR_CONCAT",
                 ),
             )
-        with pytest.raises(ValueError, match=r"missing required component\(s\): class_id"):
+        with pytest.raises(
+            ValueError, match=r"missing required component\(s\): class_id_image or class_id"
+        ):
             run(store, SegmentationIoUSystem.between(SEG_EST, SEG_GT), labels=seg_labels)
 
     def test_no_matcher_is_involved(self, seg_labels: LabelRegistry) -> None:
@@ -367,7 +377,7 @@ class TestPointOrder:
     ) -> None:
         store = Store()
         for path, image in (("/gt", [[ROAD, CAR]]), ("/est", [[CAR, ROAD]])):
-            store.log(path, SemanticSegmentation2D.from_label_map(image), at=TimePoint.at(frame=0))
+            store.log(path, SemanticSegmentation2D(class_id_image=image), at=TimePoint.at(frame=0))
         iou = SegmentationIoUSystem.between("/est", "/gt")
         run(store, iou, labels=seg_labels)
         assert (
@@ -538,11 +548,10 @@ class TestPersistence:
         ):
             store.log(
                 path,
-                SemanticSegmentation2D.from_label_map(image),
+                SemanticSegmentation2D(class_id_image=image),
                 at=TimePoint.at(frame=0),
                 frame_id="CAM_FRONT",
             )
-            store.log_static_components(path, {IMAGE_SIZE: BatchImageSize([[2, 3]])})
         iou = SegmentationIoUSystem.between("/estimation/pixels", "/ground_truth/pixels")
         run(store, iou, labels=seg_labels)
         recording = Recording.of(store, labels=seg_labels)
@@ -553,7 +562,11 @@ class TestPersistence:
             before = recording.range(target, timeline=FRAME, time_range=EVERYTHING).to_chunk()
             after = restored.range(target, timeline=FRAME, time_range=EVERYTHING).to_chunk()
             assert after == before
-        assert restored.static("/ground_truth/pixels")[IMAGE_SIZE] == BatchImageSize([[2, 3]])
+        reopened = restored.range("/ground_truth/pixels", timeline=FRAME, time_range=EVERYTHING)
+        assert type(reopened.component(CLASS_ID_IMAGE)) is BatchClassIdImage, "registry resolves"
+        assert restored.latest_at("/ground_truth/pixels", timeline=FRAME, at=0).materialize(
+            SemanticSegmentation2D
+        ).class_id_image.value.tolist() == [[ROAD, CAR, CAR], [CAR, CAR, ROAD]]
         assert MetricValues.from_chunk(
             restored.range(iou.targets[2], timeline=FRAME, time_range=EVERYTHING).to_chunk()
         ).aggregate == pytest.approx(5 / 6)
@@ -629,11 +642,10 @@ class TestDimensionalityParity:
         for path, names in (("/ground_truth/pixels", gt), ("/estimation/pixels", est)):
             store.log(
                 path,
-                SemanticSegmentation2D.from_label_map(seg_labels.encode(names).reshape(1, 3)),
+                SemanticSegmentation2D(class_id_image=seg_labels.encode(names).reshape(1, 3)),
                 at=TimePoint.at(frame=0),
                 frame_id="CAM_FRONT",
             )
-            store.log_static_components(path, {IMAGE_SIZE: BatchImageSize([[1, 3]])})
 
         flat = SegmentationIoUSystem.between(
             "/estimation/pixels", "/ground_truth/pixels", target="/2d"
@@ -649,20 +661,87 @@ class TestDimensionalityParity:
                     getattr(two, column).values, getattr(three, column).values
                 )
 
-    def test_mismatched_image_sizes_are_a_row_count_error(self, seg_labels: LabelRegistry) -> None:
+    def test_2d_counts_pool_across_frames_and_honour_ignore(
+        self, seg_labels: LabelRegistry
+    ) -> None:
+        store = Store()
+        frames = (
+            ([[ROAD, CAR], [CAR, PEDESTRIAN]], [[ROAD, CAR], [ROAD, PEDESTRIAN]]),
+            ([[CAR, CAR], [ROAD, ROAD]], [[CAR, ROAD], [ROAD, ROAD]]),
+        )
+        for frame, (gt, est) in enumerate(frames):
+            for path, image in (("/gt", gt), ("/est", est)):
+                store.log(
+                    path,
+                    SemanticSegmentation2D(class_id_image=image),
+                    at=TimePoint.at(frame=frame),
+                    frame_id="CAM_FRONT",
+                )
+        iou = SegmentationIoUSystem.between("/est", "/gt", ignore=["pedestrian"])
+        run(store, iou, labels=seg_labels)
+
+        values = store.range(iou.targets[0], timeline=FRAME, time_range=EVERYTHING).materialize(
+            MetricValues
+        )
+        # car: 4 gt pixels, 2 predicted right, 0 extra predictions -> IoU 2/4.
+        assert values.of_class(CAR) == pytest.approx(2 / 4)
+        # road: 3 gt pixels all found, plus 2 car pixels called road -> IoU 3/5.
+        assert values.of_class(ROAD) == pytest.approx(3 / 5)
+        assert PEDESTRIAN not in values.class_id.values.tolist(), "ignored, not evaluated"
+
+    def test_mismatched_image_sizes_are_refused(self, seg_labels: LabelRegistry) -> None:
         store = Store()
         store.log(
             "/gt",
-            SemanticSegmentation2D.from_label_map(np.zeros((2, 3), dtype=np.int32)),
+            SemanticSegmentation2D(class_id_image=np.zeros((2, 3), dtype=np.int32)),
             at=TimePoint.at(frame=0),
         )
         store.log(
             "/est",
-            SemanticSegmentation2D.from_label_map(np.zeros((3, 3), dtype=np.int32)),
+            SemanticSegmentation2D(class_id_image=np.zeros((3, 3), dtype=np.int32)),
             at=TimePoint.at(frame=0),
         )
-        with pytest.raises(ValueError, match=r"hold 9 and 6 row\(s\) at frame=0"):
+        with pytest.raises(
+            ValueError, match=r"hold images of \(3, 3\) and \(2, 3\) pixels at frame=0"
+        ):
             run(store, SegmentationIoUSystem.between("/est", "/gt"), labels=seg_labels)
+
+    def test_the_same_pixel_count_in_a_different_shape_is_refused(
+        self, seg_labels: LabelRegistry
+    ) -> None:
+        store = Store()
+        store.log(
+            "/gt", SemanticSegmentation2D(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0)
+        )
+        store.log(
+            "/est",
+            SemanticSegmentation2D(class_id_image=np.zeros((3, 2))),
+            at=TimePoint.at(frame=0),
+        )
+        with pytest.raises(ValueError, match=r"images of \(3, 2\) and \(2, 3\) pixels"):
+            run(store, SegmentationIoUSystem.between("/est", "/gt"), labels=seg_labels)
+
+    def test_a_resolution_change_on_one_entity_is_refused_by_the_column(
+        self, seg_labels: LabelRegistry
+    ) -> None:
+        # The resolution is the column's row shape, so it is an invariant of the entity:
+        # a range over a change fails loudly instead of misaligning pixels.
+        store = Store()
+        store.log(
+            "/gt", SemanticSegmentation2D(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0)
+        )
+        store.log(
+            "/gt", SemanticSegmentation2D(class_id_image=np.ones((3, 3))), at=TimePoint.at(frame=1)
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=r"Cannot concatenate chunks of /gt: column class_id_image has row shapes "
+            r"\(2, 3\) and \(3, 3\)",
+        ):
+            store.range("/gt", timeline=FRAME, time_range=EVERYTHING)
+        latest = store.latest_at("/gt", timeline=FRAME, at=1).materialize(SemanticSegmentation2D)
+        assert latest.class_id_image.value.shape == (3, 3), "one partition still reads"
 
     def test_unknown_class_id_is_the_default_ignore(self, seg_labels: LabelRegistry) -> None:
         assert UNKNOWN_CLASS_ID == -1

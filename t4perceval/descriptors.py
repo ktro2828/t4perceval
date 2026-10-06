@@ -14,6 +14,7 @@ from t4perceval.core.descriptor import ComponentDescriptor
 
 __all__ = (
     "CLASS_ID",
+    "CLASS_ID_IMAGE",
     "CONFIDENCE",
     "COUNT",
     "ESTIMATION_CLASS_ID",
@@ -29,7 +30,6 @@ __all__ = (
     "MODE_CONFIDENCE",
     "MODE_VALID",
     "NUM_POINTS",
-    "IMAGE_SIZE",
     "POINT",
     "POSITION",
     "QUATERNION",
@@ -56,10 +56,11 @@ VELOCITY = ComponentDescriptor("velocity", component_type="BatchVelocity")
 # --- 2D geometry ---------------------------------------------------------------------
 ROI = ComponentDescriptor("roi", component_type="BatchRoi")
 SIZE_2D = ComponentDescriptor("size_2d", component_type="BatchSize2D")
-IMAGE_SIZE = ComponentDescriptor("image_size", component_type="BatchImageSize")
 
 # --- semantics -----------------------------------------------------------------------
 CLASS_ID = ComponentDescriptor("class_id", component_type="BatchClassId")
+# Mono, like the transform descriptors: an entity holds one label image per point in time.
+CLASS_ID_IMAGE = ComponentDescriptor("class_id_image", component_type="ClassIdImage")
 CONFIDENCE = ComponentDescriptor("confidence", component_type="BatchConfidence")
 INSTANCE_ID = ComponentDescriptor("instance_id", component_type="BatchInstanceId")
 

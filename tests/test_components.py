@@ -7,8 +7,8 @@ from attrs import define
 from t4perceval import ANY, Component, MonoComponent
 from t4perceval.component import (
     BatchClassId,
+    BatchClassIdImage,
     BatchConfidence,
-    BatchImageSize,
     BatchMask,
     BatchPosition2D,
     BatchPosition3D,
@@ -20,6 +20,7 @@ from t4perceval.component import (
     BatchVector3D,
     BatchVelocity,
     BatchWaypoints3D,
+    ClassIdImage,
     FrameId,
     Position3D,
     Quaternion,
@@ -181,24 +182,6 @@ class TestSemanticColumns:
         assert roi.y_max[0] == 50
         assert roi.area()[0] == 1200
 
-    def test_image_size_is_height_then_width(self) -> None:
-        size = BatchImageSize([[480, 640]])
-
-        assert size.values.dtype == np.int32
-        assert size.values.shape == (1, 2)
-        assert (size.height[0], size.width[0]) == (480, 640)
-        assert size.num_pixels()[0] == 307_200
-
-    def test_image_size_rejects_negative_sizes(self) -> None:
-        with pytest.raises(ValueError, match="non-negative"):
-            BatchImageSize([[-1, 4]])
-        assert BatchImageSize([[0, 0]]).num_pixels().tolist() == [0]
-
-    def test_image_size_is_two_wide(self) -> None:
-        with pytest.raises(ValueError):
-            BatchImageSize([[1, 2, 3]])
-        assert BatchImageSize.empty().values.shape == (0, 2)
-
     def test_mask_reports_what_it_keeps(self) -> None:
         mask = BatchMask([True, False, True])
 
@@ -207,6 +190,39 @@ class TestSemanticColumns:
 
     def test_visibility_is_ordered_so_a_threshold_works(self) -> None:
         assert VisibilityLevel.UNAVAILABLE < VisibilityLevel.NONE < VisibilityLevel.FULL
+
+
+class TestClassIdImages:
+    """One ``(H, W)`` label image per row; the resolution is the row shape."""
+
+    def test_the_row_is_an_image(self) -> None:
+        images = BatchClassIdImage(np.arange(12).reshape(2, 2, 3))
+
+        assert images.values.dtype == np.int32
+        assert images.values.shape == (2, 2, 3)
+        assert len(images) == 2
+        assert (images.height, images.width) == (2, 3)
+        assert images.num_pixels() == 6
+
+    def test_as_class_id_flattens_row_major_image_by_image(self) -> None:
+        flat = BatchClassIdImage(np.arange(12).reshape(2, 2, 3)).as_class_id()
+
+        assert isinstance(flat, BatchClassId)
+        assert flat.values.tolist() == list(range(12))
+
+    def test_the_resolution_is_a_wildcard_so_empty_needs_it(self) -> None:
+        assert BatchClassIdImage.empty(2, 3).values.shape == (0, 2, 3)
+        with pytest.raises(ValueError, match=r"expects 2 size\(s\)"):
+            BatchClassIdImage.empty()
+
+    def test_a_flat_vector_is_not_an_image(self) -> None:
+        with pytest.raises(ValueError, match=r"must have shape \(N, \*, \*\), got \(3,\)"):
+            BatchClassIdImage([0, 1, 2])
+
+    def test_a_zero_sized_side_is_refused(self) -> None:
+        # Arrow cannot encode a fixed-size list of size 0, so refuse it before write time.
+        with pytest.raises(ValueError, match=r"non-zero height and width, got \(0, 5\)"):
+            BatchClassIdImage(np.zeros((1, 0, 5)))
 
 
 class TestComponentHierarchy:
@@ -241,6 +257,24 @@ class TestMonoComponents:
     def test_there_is_no_empty_form(self) -> None:
         with pytest.raises(TypeError, match="no empty form"):
             Position3D.empty()
+
+    def test_a_wildcard_mono_is_written_as_the_bare_value(self) -> None:
+        # The resolution is a wildcard, so the match is on rank and known dimensions,
+        # not on the exact shape -- that is what lets an `(H, W)` image in without a row axis.
+        image = ClassIdImage([[0, 1], [2, 3]])
+
+        assert image.value.tolist() == [[0, 1], [2, 3]]
+        assert image.values.shape == (1, 2, 2)
+        assert ClassIdImage(np.zeros((1, 2, 2))).values.shape == (1, 2, 2), "one-row form"
+        assert type(image.as_batch()) is BatchClassIdImage
+
+    def test_a_wildcard_mono_still_holds_exactly_one_value(self) -> None:
+        with pytest.raises(ValueError, match="exactly one value"):
+            ClassIdImage(np.zeros((2, 2, 2)))
+        with pytest.raises(ValueError, match=r"must have shape \(N, \*, \*\), got \(0,\)"):
+            ClassIdImage([])
+        with pytest.raises(TypeError, match="no empty form"):
+            ClassIdImage.empty()
 
     def test_a_rotation_is_scipy_ready(self) -> None:
         # xyzw, like BatchQuaternion, so nothing reorders on the way to scipy.
@@ -309,7 +343,9 @@ class TestArrowRoundTrip:
             BatchPosition3D.empty(),
             FrameId("base_link"),
             Position3D([1.0, 2.0, 3.0]),
-            BatchImageSize([[2, 3]]),
+            BatchClassIdImage(np.arange(12, dtype=np.int32).reshape(2, 2, 3)),
+            BatchClassIdImage.empty(2, 3),
+            ClassIdImage([[0, 1, 2], [3, 4, 5]]),
         ],
     )
     def test_round_trips_through_arrow(self, column: Component) -> None:

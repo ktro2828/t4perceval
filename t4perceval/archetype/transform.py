@@ -37,9 +37,10 @@ class Transform3D(Archetype):
     The parent belongs on the chunk because ``frame_id`` already means "the frame these
     rows are expressed in", and that is exactly true of a transform's row.
 
-    Every component here is **mono** (:class:`~t4perceval.core.component.MonoComponent`),
-    unlike every other archetype in the package. Those describe *N* objects; this describes
-    one relationship, of which an entity holds exactly one per point in time. So the
+    Every component here is **mono** (:class:`~t4perceval.core.component.MonoComponent`).
+    Most archetypes describe *N* objects; this describes one relationship, of which an entity
+    holds exactly one per point in time -- as :class:`~t4perceval.archetype.SemanticSegmentation2D`
+    holds one label image. So the
     translation is a ``(3,)`` value rather than an ``(N, 3)`` column, and the frame name is
     a ``str`` -- there is no row to index into, and "what if it has three rows?" is not a
     question the type can be asked. Underneath it is still a one-row column, so the chunk,

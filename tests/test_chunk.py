@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from t4perceval import FRAME, TIMESTAMP, Chunk, ComponentDescriptor, TimeColumn, concat_chunks
-from t4perceval.component import BatchConfidence, BatchPosition3D
+from t4perceval.component import BatchConfidence, BatchPosition2D, BatchPosition3D
 
 POSITION = ComponentDescriptor("position")
 CONFIDENCE = ComponentDescriptor("confidence")
@@ -206,6 +206,19 @@ class TestConcat:
         other = Chunk("/estimation/objects", (), [0, 5], chunk.columns, frame_id="base_link")
 
         with pytest.raises(ValueError, match="different timelines"):
+            concat_chunks([chunk, other])
+
+    def test_rejects_a_different_row_shape(self) -> None:
+        chunk = two_frame_chunk()
+        other = Chunk(
+            chunk.entity_path,
+            chunk.indexes,
+            chunk.offsets,
+            {**chunk.columns, POSITION: BatchPosition2D(np.zeros((chunk.num_rows, 2)))},
+            frame_id=chunk.frame_id,
+        )
+
+        with pytest.raises(ValueError, match=r"column position has row shapes \(3,\) and \(2,\)"):
             concat_chunks([chunk, other])
 
     def test_rejects_a_different_column_set(self) -> None:

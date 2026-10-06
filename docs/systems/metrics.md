@@ -29,13 +29,15 @@ others work per frame or per scene alike.
 
 ## Over aligned label columns
 
-Segmentation has no matching stage: the two entities are compared row by row. These build with
-`.between(estimation, ground_truth, **params)` and share `SegmentationMetricSystem`.
+Segmentation has no matching stage: the two entities are compared element by element. These build
+with `.between(estimation, ground_truth, **params)` and share `SegmentationMetricSystem`. Either
+label column satisfies them, which a `REQUIRES` tuple cannot say, so `REQUIRES` is empty and a
+missing label column is reported per frame at run time.
 
-| System                              | Requires   | Parameters (default)                                           | Writes                                                        |
-| :---------------------------------- | :--------- | :------------------------------------------------------------- | :------------------------------------------------------------ |
-| `SegmentationIoUSystem`             | `class_id` | `ignore` (()), `check_frames` (True), `point_tolerance` (1e-6) | `/metrics/segmentation/{iou,accuracy,pixel_accuracy}`         |
-| `SegmentationConfusionMatrixSystem` | `class_id` | as above                                                       | `ConfusionMatrix` at `/metrics/segmentation/confusion_matrix` |
+| System                              | Requires                       | Parameters (default)                                           | Writes                                                        |
+| :---------------------------------- | :----------------------------- | :------------------------------------------------------------- | :------------------------------------------------------------ |
+| `SegmentationIoUSystem`             | `class_id` or `class_id_image` | `ignore` (()), `check_frames` (True), `point_tolerance` (1e-6) | `/metrics/segmentation/{iou,accuracy,pixel_accuracy}`         |
+| `SegmentationConfusionMatrixSystem` | `class_id` or `class_id_image` | as above                                                       | `ConfusionMatrix` at `/metrics/segmentation/confusion_matrix` |
 
 When both entities carry `point`, the coordinates are compared row by row within
 `point_tolerance`, so a reordered cloud is refused rather than scored against the wrong points;

@@ -19,7 +19,6 @@ from t4perceval import (
     Detections3D,
     MatchResults,
     Predictions3D,
-    SemanticSegmentation2D,
     SemanticSegmentation3D,
     Trackings2D,
     Trackings3D,
@@ -45,7 +44,7 @@ def empty_archetypes() -> dict[str, Callable[[], Archetype]]:
         "Trackings2D": lambda: Trackings2D(roi=[], class_id=[], confidence=[], instance_id=[]),
         "Predictions3D": lambda: make_predictions([], []),
         "Classifications2D": lambda: Classifications2D(class_id=[], confidence=[]),
-        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(class_id=[]),
+        # Transform3D and SemanticSegmentation2D are mono: one value, so no zero-row form.
         "SemanticSegmentation3D": lambda: SemanticSegmentation3D(point=[], class_id=[]),
         "Trajectories3D": lambda: Trajectories3D.empty(num_modes=2, num_timesteps=3),
         "MatchResults": MatchResults.empty,
@@ -76,7 +75,7 @@ def populated_archetypes() -> dict[str, Callable[[], Archetype]]:
             class_id=[0, 1, 2],
             confidence=[0.1, 0.2, 0.3],
         ),
-        "SemanticSegmentation2D": lambda: SemanticSegmentation2D(class_id=[0, 1, 2]),
+        # Transform3D and SemanticSegmentation2D are mono: one value, so no three-row form.
         "SemanticSegmentation3D": lambda: SemanticSegmentation3D(
             point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             class_id=[0, 1, 2],

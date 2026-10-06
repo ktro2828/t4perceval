@@ -1,6 +1,6 @@
 # Geometry components
 
-Positions, rotations, sizes, velocities and image-plane regions.
+Positions, rotations, sizes, velocities, image-plane regions and label images.
 
 ## BatchPosition3D
 
@@ -86,18 +86,22 @@ rois.x_max, rois.y_max  # derived
 
 Descriptor: `ROI`. Required by `IoURoiMatchingSystem`.
 
-## BatchImageSize
+## BatchClassIdImage
 
-`(N, 2)` `i32` -- an image size as `(height, width)`, non-negative.
+`(N, H, W)` `i32` -- one `(H, W)` class-id image per row. `H` and `W` are wildcard dimensions,
+inferred once per column, so every image in a column has the same resolution and a zero-sized side is
+refused.
 
 ```python
-size = BatchImageSize([[1080, 1920]])
-size.height, size.width, size.num_pixels()
+images = BatchClassIdImage(np.zeros((2, 1080, 1920), dtype=np.int32))
+images.height, images.width, images.num_pixels()  # ints: the same for every row
+images.as_class_id()  # BatchClassId of N * H * W rows, image by image, each row-major
 ```
 
-Descriptor: `IMAGE_SIZE`. Logged **once, static**, on a
-[`SemanticSegmentation2D`](../archetypes/segmentation.md) entity, whose rows are the pixels of the
-image in row-major order; a view broadcasts the single row over every pixel.
+Descriptor: `CLASS_ID_IMAGE`. The archetype field is the **mono** `ClassIdImage`, written and read as
+a bare `(H, W)` value, because [`SemanticSegmentation2D`](../archetypes/segmentation.md) holds one
+image per point in time; storage widens it to a one-row `BatchClassIdImage`, and a `range` over
+several frames reads back as a stack. The segmentation metrics consume `as_class_id()`.
 
 ## Vectorized geometry
 

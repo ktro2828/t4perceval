@@ -178,7 +178,7 @@ concatenated chunks.
 ## Segmentation: IoU, accuracy, confusion
 
 Segmentation has no matching stage. Estimation and ground truth label the same elements in the same
-order, so the systems take the two entities directly and compare them row by row:
+order, so the systems take the two entities directly and compare them element by element:
 
 ```python
 from t4perceval.system import SegmentationConfusionMatrixSystem, SegmentationIoUSystem
@@ -193,7 +193,9 @@ SegmentationConfusionMatrixSystem.between(EST, GT)  # long-form count matrix
 | `check_frames`    |  `True` | refuse two entities that state different coordinate frames (two cameras, say)                                                                                            |
 | `point_tolerance` |  `1e-6` | when both carry `point`, the largest row-wise distance still accepted as the same point; `None` skips the check. Reorder a permuted cloud first with `AlignPointsSystem` |
 
-Both depend on `class_id` alone, so one implementation scores a 2D label image and a 3D point cloud.
+Both read `class_id` (3D, a label per point) or `class_id_image` (2D, one image per frame, flattened
+row-major), so one implementation scores both; either column satisfies the contract, so `REQUIRES`
+is empty and a missing label column is reported when the metric runs.
 Everything comes from one count matrix over `(ground-truth class, estimated class)`, pooled over the
 frames in range.
 
