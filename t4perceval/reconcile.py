@@ -17,7 +17,12 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 from attrs import evolve
 
-from t4perceval.descriptors import CLASS_ID, ESTIMATION_CLASS_ID, GROUND_TRUTH_CLASS_ID
+from t4perceval.descriptors import (
+    CLASS_ID,
+    CLASS_ID_IMAGE,
+    ESTIMATION_CLASS_ID,
+    GROUND_TRUTH_CLASS_ID,
+)
 from t4perceval.label import BACKGROUND_CLASS_ID, UNKNOWN_CLASS_ID
 
 if TYPE_CHECKING:
@@ -30,9 +35,11 @@ if TYPE_CHECKING:
 
 __all__ = ("CLASS_ID_DESCRIPTORS", "class_id_lut", "remap_class_ids")
 
-#: Every descriptor whose values are class ids.
+#: Every descriptor whose values are class ids, whatever the row shape: a label image is
+#: remapped pixel by pixel, exactly as a column of one id per row is.
 CLASS_ID_DESCRIPTORS: tuple[ComponentDescriptor, ...] = (
     CLASS_ID,
+    CLASS_ID_IMAGE,
     GROUND_TRUTH_CLASS_ID,
     ESTIMATION_CLASS_ID,
 )

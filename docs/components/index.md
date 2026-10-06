@@ -7,12 +7,12 @@ share memory with a writable array you passed in.
 This section is a **schema catalogue**: what each column means, what shape it has, and what
 depends on it.
 
-| Page                      | Covers                                                       |
-| :------------------------ | :----------------------------------------------------------- |
-| [Geometry](geometry.md)   | positions, rotations, sizes, velocities, ROIs, pixels        |
-| [Object](object.md)       | class, confidence, instance, quality, trajectories           |
-| [Transform](transform.md) | translation, rotation and frame names -- the mono components |
-| [Metrics](metrics.md)     | masks, match verdicts, metric values, counts                 |
+| Page                      | Covers                                                      |
+| :------------------------ | :---------------------------------------------------------- |
+| [Geometry](geometry.md)   | positions, rotations, sizes, velocities, ROIs, label images |
+| [Object](object.md)       | class, confidence, instance, quality, trajectories          |
+| [Transform](transform.md) | translation, rotation and frame names -- mono components    |
+| [Metrics](metrics.md)     | masks, match verdicts, metric values, counts                |
 
 ## Every column at a glance
 
@@ -26,7 +26,7 @@ depends on it.
 | `BatchConfidence`                                   | `(N,)`         | `f64`          | constrained to `[0, 1]`                    |
 | `BatchInstanceId`                                   | `(N,)`         | `i64`          | interned by `InstanceRegistry`             |
 | `BatchNumPoints`                                    | `(N,)`         | `i32`          |                                            |
-| `BatchImageSize`                                    | `(N, 2)`       | `i32`          | `(height, width)`, logged static           |
+| `BatchClassIdImage`                                 | `(N, H, W)`    | `i32`          | one label image per row; `H, W` per column |
 | `BatchVisibility` / `BatchMatchStatus`              | `(N,)`         | `i8`           | ordered enums                              |
 | `BatchMask`                                         | `(N,)`         | `bool`         | a filter's verdict                         |
 | `BatchRowIndex`                                     | `(N,)`         | `i64`          | `-1` means "no counterpart"                |
@@ -38,12 +38,13 @@ depends on it.
 | `BatchTimestepValid`                                | `(N, M, T)`    | `bool`         |                                            |
 | `BatchTimeOffset`                                   | `(N, T)`       | `i64`          | nanoseconds, strictly increasing           |
 | `Position3D` / `Quaternion` / `FrameId`             | one value      | `f64` / `str`  | **mono** -- see [Transform](transform.md)  |
+| `ClassIdImage`                                      | one `(H, W)`   | `i32`          | **mono** -- `SemanticSegmentation2D`       |
 
 ## Naming rules
 
 - A component that holds several rows is prefixed **`Batch`**.
 - Its **mono** counterpart -- one value, no row index -- drops the prefix: `Position3D`,
-  `Quaternion`, `FrameId`.
+  `Quaternion`, `FrameId`, `ClassIdImage`.
 - A descriptor is named for **meaning**, not for the archetype that declared it: `POSITION` is
   `"position"` in `Detections3D` and in `Trackings3D` alike.
 
@@ -67,7 +68,7 @@ BatchPosition3D.from_array(values)
 ```
 
 Shapes with wildcard dimensions need them supplied when empty: `BatchWaypoints3D.empty(2, 5)` for
-2 modes and 5 timesteps.
+2 modes and 5 timesteps, `BatchClassIdImage.empty(1080, 1920)` for an image size.
 
 ## Where to go next
 

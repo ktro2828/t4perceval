@@ -320,6 +320,12 @@ logic should depend on semantic components rather than dimensionality wherever p
 expose `CLASS_ID`, one metric implementation can operate on both.
 
 - [x] Decide the 2D/3D sharing boundary — everything: both archetypes expose `CLASS_ID` and the row is the element, so one implementation serves both. `SemanticSegmentation2D` became `class_id` alone (the row is the pixel) with a static `IMAGE_SIZE`; `pixel` was removed
+- [x] Redesign `SemanticSegmentation2D` as one **mono** `(H, W)` `ClassIdImage` per frame. The
+      static `IMAGE_SIZE` sidecar needed a second `log` call, nothing read it, and a resolution
+      change was a silent last-write-wins; the image size is now the column's row shape, an
+      invariant of the entity that `concat_chunks` enforces. `BatchImageSize` / `IMAGE_SIZE` /
+      `from_label_map` / `as_label_map` are gone. The metrics read `CLASS_ID` or `CLASS_ID_IMAGE`
+      (flattened row-major), so one implementation still serves both
 - [x] Segmentation metric documentation, and an
       [evaluation page](../evaluation/segmentation-3d.md) that stops saying "not implemented yet"
 
@@ -368,11 +374,12 @@ be validated on real data immediately.
       `AUTOWARE_CLASS_NAMES`-style enum → name → registry-id mapping. Bags are large and clouds are
       dense, so this is also where the per-frame `range()` cost of the segmentation metrics gets
       measured on real sizes.
-- [ ] **2D label images.** Import a camera segmentation mask as `SemanticSegmentation2D.from_label_map`
-      with the static `IMAGE_SIZE`, `frame_id` = camera channel, from whatever the dataset provides
-      (T4 has no 2D segmentation table today; a bag `Image` topic with class ids is the likely
-      source). Confirm on a real image that a 2M-pixel entity per frame is acceptable in memory and
-      in `.t4eval` size, or decide that 2D needs run-length / dense-image storage after all.
+- [ ] **2D label images.** Import a camera segmentation mask as
+      `SemanticSegmentation2D(class_id_image=...)`, `frame_id` = camera channel, from whatever the
+      dataset provides (T4 has no 2D segmentation table today; a bag `Image` topic with class ids is
+      the likely source). Confirm on a real image that a 2M-pixel image per frame is acceptable in
+      memory and in `.t4eval` size (it is a dense `int32` fixed-size list in Arrow), or decide that
+      2D needs run-length storage after all.
 - [ ] **End-to-end check on the fixture.** Once the T4 import exists, extend `examples/evaluate_t4.py`
       to score a synthetic estimation against the fixture's real lidarseg labels -- the example
       currently prints that the dataset has no boxes and stops.
@@ -607,8 +614,8 @@ Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers conv
 - [x] `t4perceval.reconcile` — expressing one registry's class ids in another's.
 
 Deferred deliberately: segmentation (no system consumed `POINT`, and
-`SemanticSegmentation2D` carried no image width — resolved in [P2](#p2-segmentation-support)) and
-sensor data.
+`SemanticSegmentation2D` carried its image size as a static sidecar — resolved in
+[P2](#p2-segmentation-support)) and sensor data.
 
 ### MCAP / ROS bag importer
 

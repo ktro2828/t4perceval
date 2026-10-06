@@ -30,7 +30,7 @@ The parent belongs on the chunk because `frame_id` already means "the frame thes
 in", and that is exactly true of a transform's own row. A point in the child frame maps into the
 parent as `p_parent = R p_child + t`.
 
-`Transform3D` is the one archetype whose components are **mono** -- it describes a single
+`Transform3D` is an archetype whose components are all **mono** -- it describes a single
 relationship, not `N` objects -- so its fields are values rather than columns:
 
 ```python

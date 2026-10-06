@@ -1,10 +1,12 @@
 """Segmentation metrics: an element-wise comparison with no matching stage.
 
 Segmentation labels a pixel or a point, not an object, so estimation and ground truth are
-already aligned row by row and there is nothing to pair. The systems here take two sources
-instead of a matching result plus two entities, and depend on ``CLASS_ID`` alone -- so one
-implementation serves :class:`~t4perceval.archetype.SemanticSegmentation2D` and
-:class:`~t4perceval.archetype.SemanticSegmentation3D` alike. Everything is derived from one
+already aligned element by element and there is nothing to pair. The systems here take two
+sources instead of a matching result plus two entities, and read one label column -- either
+``CLASS_ID``, a label per row, or ``CLASS_ID_IMAGE``, one label image per row flattened
+row-major -- so one implementation serves
+:class:`~t4perceval.archetype.SemanticSegmentation3D` and
+:class:`~t4perceval.archetype.SemanticSegmentation2D` alike. Everything is derived from one
 count matrix over ``(ground-truth class, estimated class)``.
 """
 
@@ -17,12 +19,12 @@ import numpy as np
 from attrs import define, field
 
 from t4perceval.archetype.metric import ConfusionMatrix, MetricValues
-from t4perceval.component import ALL_CLASSES, BACKGROUND_CLASS_ID
+from t4perceval.component import ALL_CLASSES, BACKGROUND_CLASS_ID, BatchClassIdImage
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.timeline import TimePoint, TimeRange
-from t4perceval.descriptors import CLASS_ID, POINT
+from t4perceval.descriptors import CLASS_ID, CLASS_ID_IMAGE, POINT
 from t4perceval.label import UNKNOWN_CLASS_ID
-from t4perceval.system.base import EntitySystem, require, require_same_frame
+from t4perceval.system.base import EntitySystem, require_same_frame
 from t4perceval.system.filter import resolve_class_ids
 from t4perceval.system.metric.base import MetricRow, nan_mean, registry_classes, reporting_time
 
@@ -32,8 +34,10 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from t4perceval.core.chunk import Chunk
+    from t4perceval.core.component import Component
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPath, EntityPathLike
+    from t4perceval.core.view import EntityView
     from t4perceval.system.base import SystemContext
     from t4perceval.typing import NDArrayI32, NDArrayI64
 
@@ -60,12 +64,14 @@ def _slots(classes: NDArrayI32, ids: NDArrayI32) -> NDArrayI64:
 class SegmentationMetricSystem(EntitySystem):
     """Base for a metric over two element-wise aligned label columns.
 
-    Sources are ``(estimation, ground_truth)``. Row ``i`` of one is compared with row ``i``
-    of the other at every time, so both must hold the same number of rows per frame and
-    enumerate the same elements in the same order -- the pixels of one label image, or the
-    points of one cloud. A frame where the counts differ raises rather than misaligning
-    silently, and the check is made per frame: a whole-range comparison would shift every
-    later row when one side lacked a frame.
+    Sources are ``(estimation, ground_truth)``. Element ``i`` of one is compared with element
+    ``i`` of the other at every time, so both must enumerate the same elements in the same
+    order: the points of one cloud, a label per row under ``CLASS_ID``, or the pixels of one
+    image, one ``(H, W)`` row under ``CLASS_ID_IMAGE`` flattened row-major. Each frame must
+    hold the same number of rows on both sides and, for images, the same ``(H, W)``. A frame
+    where they differ raises rather than misaligning silently, and the check is made per
+    frame: a whole-range comparison would shift every later element when one side lacked a
+    frame.
 
     A point cloud's order is not something a model guarantees, so when both entities carry
     ``POINT`` the coordinates are compared row by row as well, and a frame whose points
@@ -83,7 +89,12 @@ class SegmentationMetricSystem(EntitySystem):
     Subclasses implement :meth:`emit`, turning the accumulated count matrix into chunks.
     """
 
-    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (CLASS_ID,)
+    # Empty, not `(CLASS_ID,)`: either label descriptor satisfies the contract, which a tuple
+    # of required descriptors cannot say, so the check is made per frame at run time.
+    REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = ()
+
+    #: The label columns accepted, in the order they are looked for on an entity.
+    LABELS: ClassVar[tuple[ComponentDescriptor, ...]] = (CLASS_ID_IMAGE, CLASS_ID)
 
     #: Default target path is ``/metrics/<METRIC_NAME>``; may contain ``/``.
     METRIC_NAME: ClassVar[str] = "segmentation"
@@ -168,35 +179,57 @@ class SegmentationMetricSystem(EntitySystem):
             single = TimeRange.single(time)
             est_view = ctx.store.range(estimation, timeline=ctx.timeline, time_range=single)
             gt_view = ctx.store.range(ground_truth, timeline=ctx.timeline, time_range=single)
-            if len(est_view):
-                require(est_view, *self.REQUIRES)
-            if len(gt_view):
-                require(gt_view, *self.REQUIRES)
+            est_labels = self._label_column(est_view) if len(est_view) else None
+            gt_labels = self._label_column(gt_view) if len(gt_view) else None
             if self.check_frames:
                 require_same_frame(est_view, gt_view)
+            where = f"{ctx.timeline.name}={time}"
             if len(est_view) != len(gt_view):
                 raise ValueError(
                     f"{estimation} and {ground_truth} must label the same elements, but hold "
-                    f"{len(est_view)} and {len(gt_view)} row(s) at {ctx.timeline.name}={time}",
+                    f"{len(est_view)} and {len(gt_view)} row(s) at {where}",
                 )
-            if not len(gt_view):
+            if est_labels is None or gt_labels is None:
                 continue
-            self._require_same_points(est_view, gt_view, where=f"{ctx.timeline.name}={time}")
+            if est_labels.row_shape != gt_labels.row_shape:
+                raise ValueError(
+                    f"{estimation} and {ground_truth} must label the same elements, but hold "
+                    f"images of {est_labels.row_shape} and {gt_labels.row_shape} pixels at "
+                    f"{where}",
+                )
+            self._require_same_points(est_view, gt_view, where=where)
             latest = time
             self._accumulate(
                 cells,
-                gt_view.component(CLASS_ID).values,  # type: ignore[union-attr]
-                est_view.component(CLASS_ID).values,  # type: ignore[union-attr]
+                self._flatten(gt_labels),
+                self._flatten(est_labels),
                 known,
                 ignored,
                 ground_truth=ground_truth,
-                where=f"{ctx.timeline.name}={time}",
+                where=where,
             )
 
         classes = known if known is not None else self._observed(cells)
         axes = [*(int(class_id) for class_id in classes), BACKGROUND_CLASS_ID]
         counts = self._densify(cells, axes)
         return self.emit(counts, axes, ctx, reporting_time(latest, time_range))
+
+    @classmethod
+    def _label_column(cls, view: EntityView) -> Component:
+        """Return the view's label column, whichever of :attr:`LABELS` carries it."""
+        for descriptor in cls.LABELS:
+            column = view.component(descriptor)
+            if column is not None:
+                return column
+        names = " or ".join(descriptor.component for descriptor in cls.LABELS)
+        raise ValueError(f"{view.entity_path} is missing required component(s): {names}")
+
+    @staticmethod
+    def _flatten(column: Component) -> NDArrayI32:
+        """Return the labels one per element, the pixels of an image in row-major order."""
+        if isinstance(column, BatchClassIdImage):
+            return column.as_class_id().values
+        return column.values
 
     def _require_same_points(self, est_view, gt_view, *, where: str) -> None:  # noqa: ANN001
         """Raise when both entities carry points and the rows are not the same points."""

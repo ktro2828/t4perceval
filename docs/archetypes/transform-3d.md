@@ -35,9 +35,9 @@ is not describes nothing, and the resolver would have to defend against it on ev
 
 ## Mono components
 
-`Transform3D` is the **only** archetype whose components are mono. Every other archetype describes
-`N` objects; this describes one relationship, of which an entity holds exactly one per point in
-time.
+`Transform3D` is an archetype whose components are all mono. Most archetypes describe `N` objects;
+this describes one relationship, of which an entity holds exactly one per point in time. The other
+mono archetype is [`SemanticSegmentation2D`](segmentation.md), one label image per frame.
 
 ```python
 from t4perceval import Transform3D

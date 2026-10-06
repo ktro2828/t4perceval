@@ -112,8 +112,8 @@ disagree.
   which side to move and which frame graph answers for it -- the pipeline cannot guess. The one
   exception is `FilterByMapSystem`: its predicate is about the world, so it looks the ego pose up
   itself.
-- `Transform3D` is the only archetype with **mono** components, which is a special case in the model
-  even though storage stays columnar underneath.
+- `Transform3D` has **mono** components (as `SemanticSegmentation2D` later would), which is a special
+  case in the model even though storage stays columnar underneath.
 - Bag transforms live on `TIMESTAMP` only, because a `/tf` sample between two object messages has no
   frame index, so a caller has to know which axis to resolve on.
 - `check_frames=False` exists, and an escape hatch is a thing that can be reached for too readily.

@@ -1,7 +1,8 @@
 # Transform components
 
-The only **mono** components in the package. A mono component holds exactly one value, written and
-read without a row index, because it describes one relationship rather than `N` objects.
+The transform's **mono** components. A mono component holds exactly one value, written and read
+without a row index, because it describes one relationship rather than `N` objects. The other mono
+component in the package is [`ClassIdImage`](geometry.md#batchclassidimage), one label image.
 
 ```python
 from t4perceval.component import FrameId, Position3D, Quaternion

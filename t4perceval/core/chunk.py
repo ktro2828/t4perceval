@@ -267,6 +267,14 @@ def concat_chunks(chunks: Sequence[Chunk]) -> Chunk:
             raise ValueError("Cannot concatenate chunks with different timelines")
         if set(chunk.columns) != set(head.columns):
             raise ValueError("Cannot concatenate chunks with different columns")
+        for descriptor, column in head.columns.items():
+            other = chunk.columns[descriptor]
+            if other.row_shape != column.row_shape:
+                raise ValueError(
+                    f"Cannot concatenate chunks of {head.entity_path}: column "
+                    f"{descriptor.component} has row shapes {column.row_shape} and "
+                    f"{other.row_shape}",
+                )
         if chunk.is_static != head.is_static:
             raise ValueError("Cannot concatenate static and temporal chunks")
         if chunk.frame_id != head.frame_id:

@@ -2,7 +2,7 @@
 
 Semantic segmentation labels a _point_ or a _pixel_, not an object, so there is nothing to pair:
 estimation and ground truth are already aligned element by element. The matching stage does not
-apply, and a metric here is a per-class count over aligned rows rather than a set of verdicts.
+apply, and a metric here is a per-class count over aligned elements rather than a set of verdicts.
 
 ```text
 /ground_truth/points ─┐   SegmentationIoUSystem ─────────────▶ /metrics/segmentation/iou
@@ -11,27 +11,31 @@ apply, and a metric here is a per-class count over aligned rows rather than a se
                           SegmentationConfusionMatrixSystem ──▶ /metrics/segmentation/confusion_matrix
 ```
 
-## The row is the element
+## The element is the point or the pixel
 
-Neither archetype names its elements. Row `i` of the estimation is compared with row `i` of the
-ground truth, at every frame -- so both must hold the same number of rows per frame and enumerate
-the same elements in the same order: the pixels of one image, or the points of one cloud. That is
-the ordinary case when a model labels the cloud the ground truth was annotated on, and it is exactly
-how a filter's `mask` relates to the entity it was computed over.
+Neither archetype names its elements. Element `i` of the estimation is compared with element `i` of
+the ground truth, at every frame -- so both must enumerate the same elements in the same order. For
+a point cloud the element is the row, under `class_id`. For a label image the element is the pixel
+of one `(H, W)` image held in a single row, under `class_id_image`, flattened row-major. That is the
+ordinary case when a model labels the cloud or the image the ground truth was annotated on, and it is
+exactly how a filter's `mask` relates to the entity it was computed over.
 
-A frame where the counts differ is an error, not a misalignment:
+A frame where the two sides differ is an error, not a misalignment -- in the row count, or for images
+in the resolution:
 
 ```text
 ValueError: /estimation/points and /ground_truth/points must label the same elements, but hold
 2 and 3 row(s) at frame=1
+ValueError: /estimation/pixels and /ground_truth/pixels must label the same elements, but hold
+images of (720, 1280) and (1080, 1920) pixels at frame=1
 ```
 
-The check is made per frame, because a whole-range comparison would silently shift every later row
-when one side lacked a frame.
+The check is made per frame, because a whole-range comparison would silently shift every later
+element when one side lacked a frame.
 
 ## Point order
 
-A label image has a fixed order -- the row is the pixel -- but a point cloud does not: a model, or the
+A label image has a fixed order -- its pixels are row-major -- but a point cloud does not: a model, or the
 node that publishes its output, does not promise to list the points in the order the ground truth
 does. So when both entities carry `point`, the metrics also compare the coordinates row by row and
 refuse a frame whose points differ by more than `point_tolerance` (default `1e-6`):
@@ -108,41 +112,41 @@ before it is scored.
 
 ### 2D
 
-A label image is one class per pixel in row-major order. The image size is not a column -- it would
-be the same value repeated per pixel -- but a one-row **static** component on the entity:
+A label image is one `(H, W)` class-id image per frame, held as a **mono** component -- one value,
+not `H * W` rows. The image size is not logged separately: it is the row shape of the column, so
+every image on an entity has the same resolution and a `range` over a resolution change raises.
 
 ```python
 from t4perceval import SemanticSegmentation2D
-from t4perceval.component import BatchImageSize
-from t4perceval.descriptors import IMAGE_SIZE
 
 store.log(
     "/ground_truth/pixels",
-    SemanticSegmentation2D.from_label_map(label_image),  # (H, W) -> N = H*W rows
+    SemanticSegmentation2D(class_id_image=label_image),  # (H, W) int
     at=TimePoint.at(frame=0),
     frame_id="CAM_FRONT",
 )
-store.log_static_components("/ground_truth/pixels", {IMAGE_SIZE: BatchImageSize([[height, width]])})
 ```
 
-`as_label_map(height, width)` restores the image. `frame_id` is the camera channel, as for every 2D
-archetype.
+`latest_at(...).materialize(SemanticSegmentation2D).class_id_image.value` reads the image back.
+`frame_id` is the camera channel, as for every 2D archetype.
 
 ## Required components
 
 ```text
 SemanticSegmentation3D          SemanticSegmentation2D
-├── point      required         └── class_id   required     one per pixel, row-major
+├── point      required         └── class_id_image   required     one (H, W) image, mono
 └── class_id   required
-                                static on the entity: IMAGE_SIZE  (height, width)
 ```
 
 Neither archetype has optional components.
 
 ## Filtering
 
-`FilterByLabelSystem` works, because it only needs `class_id`. The geometric filters need `POSITION`
-and so do **not** apply to `SemanticSegmentation3D` despite its `point` column -- by design.
+`FilterByLabelSystem` works on `SemanticSegmentation3D`, because it only needs `class_id`. It does
+not apply to `SemanticSegmentation2D`: a mask is a verdict per row, and the row there is the whole
+image, so leave classes out of a 2D evaluation with `ignore=` instead. The geometric filters need
+`POSITION` and so do **not** apply to `SemanticSegmentation3D` despite its `point` column -- by
+design.
 
 Applying the **same** mask to both entities keeps them aligned:
 
@@ -168,9 +172,9 @@ matrix = SegmentationConfusionMatrixSystem.between("/estimation/points", "/groun
 Pipeline([iou, matrix]).run(ctx, TimeRange.everything())
 ```
 
-Both systems depend on `class_id` alone, so the same implementation scores a 2D label image and a
-3D point cloud. Everything is derived from one count matrix over `(ground-truth class, estimated
-class)`, pooled over the frames in range.
+Both systems read one label column -- `class_id` for a point cloud, `class_id_image` for a label
+image, flattened row-major -- so the same implementation scores both. Everything is derived from
+one count matrix over `(ground-truth class, estimated class)`, pooled over the frames in range.
 
 ### Reading the results
 

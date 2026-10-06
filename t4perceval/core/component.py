@@ -66,12 +66,18 @@ def _coerce_column(value: ArrayLike, self_: Component) -> NDArray[Any]:
 
     expected_ndim = 1 + len(cls.SHAPE)
 
-    if cls.MONO and array.shape == cls.SHAPE:
+    if (
+        cls.MONO
+        and array.ndim == len(cls.SHAPE)
+        and all(expected in (ANY, actual) for expected, actual in zip(cls.SHAPE, array.shape))
+    ):
         # A mono component is written as the value itself -- `Position3D([1.0, 2.0, 3.0])`,
-        # `FrameId("lidar")` -- so the row axis is added here. Matched on the exact shape
-        # rather than the rank, so `Position3D([])` still falls through to the empty-input
-        # branch and reports zero rows instead of a nonsense shape.
-        array = array.reshape(1, *cls.SHAPE)
+        # `FrameId("lidar")`, `ClassIdImage(image)` -- so the row axis is added here. Matched
+        # on the rank *and* every dimension (a wildcard matches any size), not on the exact
+        # shape, so a mono with a wildcard dimension works; `Position3D([])` still falls
+        # through, because its one dimension is 0 where the type wants 3, and reports zero
+        # rows instead of a nonsense shape.
+        array = array[np.newaxis]
 
     if array.size == 0 and array.ndim != expected_ndim and ANY not in cls.SHAPE:
         # An empty input can only mean zero rows, and with a fully concrete per-row shape
