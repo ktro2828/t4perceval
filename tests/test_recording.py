@@ -13,12 +13,14 @@ from t4perceval import (
     Detections3D,
     InstanceRegistry,
     LabelRegistry,
+    SemanticSegmentation2D,
     Store,
     TimePoint,
     TimeRange,
     Trackings3D,
 )
-from t4perceval.descriptors import CLASS_ID, POSITION
+from t4perceval.component import BatchClassIdImage
+from t4perceval.descriptors import CLASS_ID, CLASS_ID_IMAGE, POSITION
 from t4perceval.evaluation import SourceSpec, build_evaluation_store, build_evaluation_store_from
 from t4perceval.reconcile import class_id_lut, remap_class_ids
 from t4perceval.recording import Recording, RecordingMetadata, SourceInfo
@@ -169,6 +171,21 @@ class TestReconcile:
 
         assert remapped.columns[CLASS_ID].values.tolist() == [1, 0]
         assert remapped.columns[POSITION] is chunk.columns[POSITION]
+
+    def test_remapping_covers_a_label_image_pixel_by_pixel(self) -> None:
+        # The image is a class-id column with an (H, W) row shape, so a recording whose
+        # registry orders the classes differently must have it remapped like any other.
+        source = LabelRegistry.from_names(["car", "pedestrian"])
+        target = LabelRegistry.from_names(["pedestrian", "car"])
+        image = SemanticSegmentation2D(class_id_image=[[0, 1, -1], [1, 0, -2]])
+        chunk = image.to_chunk("/pixels", at=TimePoint.at(frame=0), frame_id="CAM_FRONT")
+
+        remapped = remap_class_ids(chunk, class_id_lut(source, target))
+
+        column = remapped.columns[CLASS_ID_IMAGE]
+        assert type(column) is BatchClassIdImage, "the column type survives the remap"
+        assert column.values.shape == (1, 2, 3)
+        assert column.values[0].tolist() == [[1, 0, -1], [0, 1, -2]], "sentinels untouched"
 
 
 class TestMaterialization:
