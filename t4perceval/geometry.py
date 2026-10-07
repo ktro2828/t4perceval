@@ -246,13 +246,13 @@ def corner_displacements(
     est_corners = bev_corners(est_position, est_quaternion, est_size)
     gt_corners = bev_corners(gt_position, gt_quaternion, gt_size)
 
-    if len(est_corners) == 0:
-        return np.empty((0,), dtype=np.float64)
     if len(gt_corners) != len(est_corners):
         raise ValueError(
             "corner_displacements compares aligned rows, "
             f"got {len(est_corners)} estimations and {len(gt_corners)} ground truths"
         )
+    if len(est_corners) == 0:
+        return np.empty((0,), dtype=np.float64)
 
     rolled = np.stack([np.roll(est_corners, shift, axis=1) for shift in range(4)])  # (4, N, 4, 2)
     gap = np.linalg.norm(rolled - gt_corners[None], axis=-1).mean(axis=-1)  # (4, N)

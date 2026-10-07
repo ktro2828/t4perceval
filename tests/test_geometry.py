@@ -390,3 +390,8 @@ class TestCornerDisplacements:
     def test_mismatched_lengths_are_rejected(self) -> None:
         with pytest.raises(ValueError, match="aligned rows"):
             corner_displacements(ORIGIN * 2, NO_ROTATION * 2, SIZE * 2, ORIGIN, NO_ROTATION, SIZE)
+
+    def test_an_empty_estimation_against_ground_truths_is_rejected(self) -> None:
+        empty = np.empty((0, 3))
+        with pytest.raises(ValueError, match="aligned rows"):
+            corner_displacements(empty, np.empty((0, 4)), empty, ORIGIN, NO_ROTATION, SIZE)
