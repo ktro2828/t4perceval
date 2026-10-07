@@ -35,6 +35,12 @@ if TYPE_CHECKING:
 
 __all__ = ("HeadingFlipRateSystem",)
 
+#: Slack in radians added to the threshold before comparing. A heading error is computed
+#: through a quaternion round trip, so two headings exactly ``flip_threshold`` apart come
+#: back a few ULPs off; without this a pair sitting on the boundary could be counted as a
+#: flip on one input and not on another. The slack is far below any annotation precision.
+_FLIP_TOLERANCE = 1e-9
+
 
 @define(slots=True)
 class HeadingFlipRateSystem(MetricSystem):
@@ -44,7 +50,8 @@ class HeadingFlipRateSystem(MetricSystem):
     that of its ground truth as the shortest angular distance in ``[0, pi]`` (see
     :func:`~t4perceval.geometry.heading_errors`). A true positive whose error is strictly
     above :attr:`flip_threshold` is a flip, and the rate is the flips divided by the true
-    positives. The absolute number of flips is not reported: it is the rate times the
+    positives. "Strictly above" is read with a tolerance of a nanoradian, so a pair sitting
+    exactly on the threshold is never a flip whichever way floating point rounds it. The absolute number of flips is not reported: it is the rate times the
     true-positive count, which the matching entity already carries.
 
     A class with no true positive reports ``NaN`` with its ground-truth count as support.
@@ -111,7 +118,7 @@ class HeadingFlipRateSystem(MetricSystem):
 
             values = errors[true_positive]
             values = values[~np.isnan(values)]
-            num_flips = int(np.count_nonzero(values > self.flip_threshold))
+            num_flips = int(np.count_nonzero(values > self.flip_threshold + _FLIP_TOLERANCE))
             rate = num_flips / values.size if values.size else float("nan")
 
             rows.append((int(class_id), threshold, rate, num_ground_truth))

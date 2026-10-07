@@ -127,16 +127,31 @@ class TestValues:
 
         assert metrics.of_class(0) == pytest.approx(1.0)
 
-    def test_an_error_at_the_threshold_is_not_a_flip(self, labels: LabelRegistry) -> None:
+    # The quaternion round trip lands a few ULPs either side of pi/2 depending on the
+    # headings: the first pair comes back exactly on it, the other three a hair above.
+    @pytest.mark.parametrize(
+        ("gt_degrees", "est_degrees"),
+        [(0.0, 90.0), (68.3, 158.3), (-77.8, -167.8), (-176.1, -266.1)],
+    )
+    def test_an_error_exactly_at_the_threshold_is_not_a_flip(
+        self, labels: LabelRegistry, gt_degrees: float, est_degrees: float
+    ) -> None:
         store = Store()
-        boxes(store, 0, GT, [(10.0, 0.0, 0.0, "car")], labels)
-        boxes(store, 0, EST, [(10.0, 0.0, 90.0, "car")], labels)
+        boxes(store, 0, GT, [(10.0, 0.0, gt_degrees, "car")], labels)
+        boxes(store, 0, EST, [(10.0, 0.0, est_degrees, "car")], labels)
 
-        # The quaternion round trip may land a hair above pi/2, so test the boundary from
-        # just below instead of exactly at it.
-        metrics = heading_flip_of(store, labels, flip_threshold=np.radians(90.0) + 1e-6)
+        metrics = heading_flip_of(store, labels, flip_threshold=np.pi / 2.0)
 
         assert metrics.of_class(0) == pytest.approx(0.0)
+
+    def test_an_error_just_above_the_threshold_is_a_flip(self, labels: LabelRegistry) -> None:
+        store = Store()
+        boxes(store, 0, GT, [(10.0, 0.0, 0.0, "car")], labels)
+        boxes(store, 0, EST, [(10.0, 0.0, 90.0 + 1e-4, "car")], labels)
+
+        metrics = heading_flip_of(store, labels, flip_threshold=np.pi / 2.0)
+
+        assert metrics.of_class(0) == pytest.approx(1.0)
 
     def test_the_rate_is_the_flipped_fraction(self, labels: LabelRegistry) -> None:
         store = Store()
