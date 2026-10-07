@@ -10,14 +10,15 @@ These build with `.on(matching, estimation, ground_truth, **params)` and share `
 Each requires `est_index`, `gt_index` and `match_status` on the matching entity, plus the columns
 below on the two object entities.
 
-| System                          | Estimation needs                           | Ground truth needs        | Parameters (default)                                                 | Writes                                                   |
-| :------------------------------ | :----------------------------------------- | :------------------------ | :------------------------------------------------------------------- | :------------------------------------------------------- |
-| `AveragePrecisionSystem`        | `class_id`, `confidence`                   | `class_id`                | `min_recall` (0.1), `min_precision` (0.1), `num_recall_points` (101) | AP per class at `/metrics/ap`                            |
-| `AveragePrecisionHeadingSystem` | `class_id`, `confidence`, `quaternion`     | `class_id`, `quaternion`  | as above                                                             | APH per class at `/metrics/aph`                          |
-| `ClearSystem`                   | `class_id`, `instance_id`                  | `class_id`, `instance_id` | --                                                                   | `/metrics/clear/{mota,motp,id_switch}`                   |
-| `PathDisplacementSystem`        | `class_id`, `waypoints`, `mode_confidence` | `class_id`, `waypoints`   | `top_k` (3), `miss_tolerance` (2.0), `kernel` (None)                 | `/metrics/displacement/{ade,fde,miss_rate}`              |
-| `ClassificationSystem`          | `class_id`                                 | `class_id`                | --                                                                   | `/metrics/classification/{accuracy,precision,recall,f1}` |
-| `ConfusionMatrixSystem`         | `class_id`                                 | `class_id`                | --                                                                   | `ConfusionMatrix` at `/metrics/confusion_matrix`         |
+| System                          | Estimation needs                             | Ground truth needs                           | Parameters (default)                                                 | Writes                                                   |
+| :------------------------------ | :------------------------------------------- | :------------------------------------------- | :------------------------------------------------------------------- | :------------------------------------------------------- |
+| `AveragePrecisionSystem`        | `class_id`, `confidence`                     | `class_id`                                   | `min_recall` (0.1), `min_precision` (0.1), `num_recall_points` (101) | AP per class at `/metrics/ap`                            |
+| `AveragePrecisionHeadingSystem` | `class_id`, `confidence`, `quaternion`       | `class_id`, `quaternion`                     | as above                                                             | APH per class at `/metrics/aph`                          |
+| `ClearSystem`                   | `class_id`, `instance_id`                    | `class_id`, `instance_id`                    | --                                                                   | `/metrics/clear/{mota,motp,id_switch}`                   |
+| `PathDisplacementSystem`        | `class_id`, `waypoints`, `mode_confidence`   | `class_id`, `waypoints`                      | `top_k` (3), `miss_tolerance` (2.0), `kernel` (None)                 | `/metrics/displacement/{ade,fde,miss_rate}`              |
+| `CornerErrorSystem`             | `class_id`, `position`, `quaternion`, `size` | `class_id`, `position`, `quaternion`, `size` | `percentiles` ((95.0,))                                              | `/metrics/corner_error/{mean,max,p95}`                   |
+| `ClassificationSystem`          | `class_id`                                   | `class_id`                                   | --                                                                   | `/metrics/classification/{accuracy,precision,recall,f1}` |
+| `ConfusionMatrixSystem`         | `class_id`                                   | `class_id`                                   | --                                                                   | `ConfusionMatrix` at `/metrics/confusion_matrix`         |
 
 `MeanAveragePrecisionSystem.of(sources, target="/metrics/map")` is the one metric that reads other
 metrics: it averages the `MetricValues` of several AP entities across thresholds and classes.

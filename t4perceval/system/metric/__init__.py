@@ -11,6 +11,7 @@ from t4perceval.system.metric.base import (
 )
 from t4perceval.system.metric.classification import ClassificationSystem
 from t4perceval.system.metric.confusion import ConfusionMatrixSystem
+from t4perceval.system.metric.corner_error import CornerErrorSystem
 from t4perceval.system.metric.detection import (
     AveragePrecisionHeadingSystem,
     AveragePrecisionSystem,
@@ -31,6 +32,7 @@ __all__ = (
     "ClassificationSystem",
     "ClearSystem",
     "ConfusionMatrixSystem",
+    "CornerErrorSystem",
     "MeanAveragePrecisionSystem",
     "MetricRow",
     "MetricSystem",

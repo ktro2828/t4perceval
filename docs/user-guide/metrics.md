@@ -16,17 +16,18 @@ ap.target  # /metrics/ap
 
 ## The metric family
 
-| System                              | Writes                                                             | Needs from the objects                     |
-| :---------------------------------- | :----------------------------------------------------------------- | :----------------------------------------- |
-| `AveragePrecisionSystem`            | `/metrics/ap`                                                      | `class_id`, `confidence`                   |
-| `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`     |
-| `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                 |
-| `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                  |
-| `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence` |
-| `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                 |
-| `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                 |
-| `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)             |
-| `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)             |
+| System                              | Writes                                                             | Needs from the objects                       |
+| :---------------------------------- | :----------------------------------------------------------------- | :------------------------------------------- |
+| `AveragePrecisionSystem`            | `/metrics/ap`                                                      | `class_id`, `confidence`                     |
+| `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`       |
+| `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                   |
+| `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                    |
+| `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence`   |
+| `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size` |
+| `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                   |
+| `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                   |
+| `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)               |
+| `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)               |
 
 A metric that produces several results from one shared computation -- MOTA, MOTP and ID switches all
 come out of the same identity tracking -- writes **one entity per result** and lists them all in

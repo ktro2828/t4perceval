@@ -95,6 +95,7 @@ concatenates across frames without special handling, and it densifies on demand.
 | `MeanAveragePrecisionSystem`    | as given                                                           | `MetricValues`    |
 | `ClearSystem`                   | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `MetricValues`    |
 | `PathDisplacementSystem`        | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `MetricValues`    |
+| `CornerErrorSystem`             | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `MetricValues`    |
 | `ClassificationSystem`          | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `MetricValues`    |
 | `ConfusionMatrixSystem`         | `/metrics/confusion_matrix`                                        | `ConfusionMatrix` |
 

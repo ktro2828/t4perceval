@@ -9,6 +9,7 @@ from t4perceval.geometry import (
     bev_area,
     bev_corners,
     canonical_bev_corners,
+    corner_displacements,
     pairwise_bev_intersection_area,
     pairwise_bev_iou,
     pairwise_height_intersection,
@@ -340,3 +341,57 @@ class TestPlaneDistance:
             empty4,
             empty3,
         ).shape == (1, 0)
+
+
+class TestCornerDisplacements:
+    def test_a_translation_moves_every_corner_by_the_same_amount(self) -> None:
+        shifted = corner_displacements(
+            [[1.0, 0.0, 0.0]], NO_ROTATION, SIZE, ORIGIN, NO_ROTATION, SIZE
+        )
+
+        assert shifted.shape == (1,)
+        assert shifted[0] == pytest.approx(1.0)
+
+    def test_a_half_turn_is_the_same_footprint(self) -> None:
+        turned = corner_displacements(ORIGIN, [yaw(np.pi)], SIZE, ORIGIN, NO_ROTATION, SIZE)
+
+        assert turned[0] == pytest.approx(0.0, abs=1e-9)
+
+    def test_a_quarter_turn_of_a_square_is_the_same_footprint(self) -> None:
+        square = [[2.0, 2.0, 2.0]]
+        turned = corner_displacements(ORIGIN, [yaw(np.pi / 2)], square, ORIGIN, NO_ROTATION, square)
+
+        assert turned[0] == pytest.approx(0.0, abs=1e-9)
+
+    def test_a_quarter_turn_of_a_rectangle_is_not(self) -> None:
+        turned = corner_displacements(ORIGIN, [yaw(np.pi / 2)], SIZE, ORIGIN, NO_ROTATION, SIZE)
+
+        # The 4x2 footprint has corners (±2, ±1); a quarter turn puts them at (∓1, ±2).
+        # The best cyclic shift pairs each with its neighbour one step around, so every
+        # corner is sqrt(1^2 + 1^2) from its counterpart.
+        assert turned[0] == pytest.approx(np.sqrt(2.0))
+
+    def test_rows_are_paired_not_crossed(self) -> None:
+        est_position = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        gt_position = [[1.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        rotation = NO_ROTATION * 2
+        size = SIZE * 2
+
+        gaps = corner_displacements(est_position, rotation, size, gt_position, rotation, size)
+
+        np.testing.assert_allclose(gaps, [1.0, 0.0])
+
+    def test_empty_input_gives_an_empty_result(self) -> None:
+        empty = np.empty((0, 3))
+        gaps = corner_displacements(empty, np.empty((0, 4)), empty, empty, np.empty((0, 4)), empty)
+
+        assert gaps.shape == (0,)
+
+    def test_mismatched_lengths_are_rejected(self) -> None:
+        with pytest.raises(ValueError, match="aligned rows"):
+            corner_displacements(ORIGIN * 2, NO_ROTATION * 2, SIZE * 2, ORIGIN, NO_ROTATION, SIZE)
+
+    def test_an_empty_estimation_against_ground_truths_is_rejected(self) -> None:
+        empty = np.empty((0, 3))
+        with pytest.raises(ValueError, match="aligned rows"):
+            corner_displacements(empty, np.empty((0, 4)), empty, ORIGIN, NO_ROTATION, SIZE)

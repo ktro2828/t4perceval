@@ -111,6 +111,7 @@ The pairwise geometry the matchers use is public, so you can call it directly:
 from t4perceval.geometry import (
     bev_area,
     bev_corners,
+    corner_displacements,
     pairwise_bev_iou,
     pairwise_plane_distance,
     pairwise_roi_iou,
@@ -119,6 +120,9 @@ from t4perceval.geometry import (
 )
 
 bev_corners(position, quaternion, size)  # (N, 4, 2) footprint corners
+corner_displacements(
+    est_position, est_quaternion, est_size, gt_position, gt_quaternion, gt_size
+)  # (N,) mean corner distance of aligned pairs
 bev_area(size)  # (N,)
 volume(size)  # (N,)
 
