@@ -87,14 +87,14 @@ class TestTargets:
 
         assert [str(t) for t in metric.targets] == [
             "/metrics/corner_error/mean",
-            "/metrics/corner_error/p95",
             "/metrics/corner_error/max",
+            "/metrics/corner_error/p95",
         ]
 
     def test_one_entity_per_requested_percentile(self) -> None:
         metric = CornerErrorSystem.on("/matching", EST, GT, percentiles=(50.0, 97.5))
 
-        assert [t.name for t in metric.targets] == ["mean", "p50", "p97.5", "max"]
+        assert [t.name for t in metric.targets] == ["mean", "max", "p50", "p97.5"]
 
     def test_no_percentiles_leaves_mean_and_max(self) -> None:
         metric = CornerErrorSystem.on("/matching", EST, GT, percentiles=())
@@ -134,7 +134,7 @@ class TestValues:
 
         metrics = corner_error_of(store, labels, percentiles=(50.0, 95.0))
 
-        for name in ("mean", "p50", "p95", "max"):
+        for name in ("mean", "max", "p50", "p95"):
             assert metrics[name].of_class(0) == pytest.approx(1.0), name
 
     def test_a_yaw_error_moves_the_corners(self, labels: LabelRegistry) -> None:

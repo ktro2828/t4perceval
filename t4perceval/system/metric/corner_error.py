@@ -57,7 +57,7 @@ class CornerErrorSystem(MetricSystem):
     estimation are compared with those of its ground truth under the best cyclic corner
     assignment (see :func:`~t4perceval.geometry.corner_displacements`). The per-class
     statistics of those distances are written to one entity each under :attr:`target`:
-    ``mean``, one ``p<N>`` per entry of :attr:`percentiles`, and ``max``.
+    ``mean``, ``max``, then one ``p<N>`` per entry of :attr:`percentiles`.
 
     A class with no true positive reports ``NaN`` with its ground-truth count as support.
     The threshold column carries the threshold the matching was run at.
@@ -100,7 +100,7 @@ class CornerErrorSystem(MetricSystem):
     def targets(self) -> tuple[EntityPath, ...]:
         root = as_entity_path(self.target)
         percentiles = tuple(root / f"p{_number_token(p)}" for p in self.percentiles)
-        return (root / "mean", *percentiles, root / "max")
+        return (root / "mean", root / "max", *percentiles)
 
     def compute(self, join: MatchJoin, ctx: SystemContext) -> dict[EntityPath, list[MetricRow]]:
         classes = self.classes(ctx, join)
@@ -153,8 +153,8 @@ class CornerErrorSystem(MetricSystem):
             else:
                 statistics = [
                     float(values.mean()),
-                    *(float(np.percentile(values, p)) for p in self.percentiles),
                     float(values.max()),
+                    *(float(np.percentile(values, p)) for p in self.percentiles),
                 ]
 
             for rows, value in zip(results.values(), statistics, strict=True):

@@ -23,7 +23,7 @@ ap.target  # /metrics/ap
 | `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                   |
 | `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                    |
 | `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence`   |
-| `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/p95`, `/max`                       | `class_id`, `position`, `quaternion`, `size` |
+| `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size` |
 | `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                   |
 | `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                   |
 | `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)               |
