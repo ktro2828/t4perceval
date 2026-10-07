@@ -25,6 +25,7 @@ __all__ = (
     "bev_area",
     "bev_corners",
     "canonical_bev_corners",
+    "corner_displacements",
     "nearest_points",
     "pairwise_bev_intersection_area",
     "pairwise_bev_iou",
@@ -222,6 +223,40 @@ def canonical_bev_corners(corners: NDArrayF64) -> NDArrayF64:
     angles = np.arctan2(offset[:, :, 1], offset[:, :, 0])
     order = np.argsort(angles, axis=1)
     return np.take_along_axis(corners, order[:, :, None], axis=1)
+
+
+def corner_displacements(
+    est_position: ArrayLike,
+    est_quaternion: ArrayLike,
+    est_size: ArrayLike,
+    gt_position: ArrayLike,
+    gt_quaternion: ArrayLike,
+    gt_size: ArrayLike,
+) -> NDArrayF64:
+    """Return the mean footprint-corner distance of each aligned pair, with shape ``(N,)``.
+
+    Row ``i`` of the estimation is compared with row ``i`` of the ground truth. The
+    distance is the mean over the four corners under the best of the four cyclic corner
+    assignments, so a box whose yaw is parameterised a quarter or half turn away from the
+    ground truth's is not punished as a gross error for a footprint it actually covers.
+
+    Corner distance couples position, size and yaw into one number in metres, measured at
+    the box outline rather than at its centre.
+    """
+    est_corners = bev_corners(est_position, est_quaternion, est_size)
+    gt_corners = bev_corners(gt_position, gt_quaternion, gt_size)
+
+    if len(est_corners) == 0:
+        return np.empty((0,), dtype=np.float64)
+    if len(gt_corners) != len(est_corners):
+        raise ValueError(
+            "corner_displacements compares aligned rows, "
+            f"got {len(est_corners)} estimations and {len(gt_corners)} ground truths"
+        )
+
+    rolled = np.stack([np.roll(est_corners, shift, axis=1) for shift in range(4)])  # (4, N, 4, 2)
+    gap = np.linalg.norm(rolled - gt_corners[None], axis=-1).mean(axis=-1)  # (4, N)
+    return gap.min(axis=0)
 
 
 def _nearest_plane_order(gt_corners: NDArrayF64) -> NDArrayI64:
