@@ -10,6 +10,7 @@ from t4perceval.geometry import (
     bev_corners,
     canonical_bev_corners,
     corner_displacements,
+    heading_errors,
     pairwise_bev_intersection_area,
     pairwise_bev_iou,
     pairwise_height_intersection,
@@ -395,3 +396,48 @@ class TestCornerDisplacements:
         empty = np.empty((0, 3))
         with pytest.raises(ValueError, match="aligned rows"):
             corner_displacements(empty, np.empty((0, 4)), empty, ORIGIN, NO_ROTATION, SIZE)
+
+
+class TestHeadingErrors:
+    def test_the_same_heading_has_no_error(self) -> None:
+        errors = heading_errors([yaw(0.3)], [yaw(0.3)])
+
+        assert errors.shape == (1,)
+        assert errors[0] == pytest.approx(0.0, abs=1e-9)
+
+    def test_a_small_error_is_measured_as_is(self) -> None:
+        errors = heading_errors([yaw(0.5)], [yaw(0.2)])
+
+        assert errors[0] == pytest.approx(0.3)
+
+    def test_wraps_across_the_pi_boundary(self) -> None:
+        # 170 against -170 degrees are 20 degrees apart, not 340.
+        errors = heading_errors([yaw(np.radians(170.0))], [yaw(np.radians(-170.0))])
+
+        assert errors[0] == pytest.approx(np.radians(20.0))
+
+    def test_a_half_turn_is_the_largest_error(self) -> None:
+        errors = heading_errors([yaw(np.pi)], [yaw(0.0)])
+
+        assert errors[0] == pytest.approx(np.pi)
+
+    def test_rows_are_paired_not_crossed(self) -> None:
+        errors = heading_errors([yaw(0.0), yaw(1.0)], [yaw(0.0), yaw(0.5)])
+
+        np.testing.assert_allclose(errors, [0.0, 0.5], atol=1e-9)
+
+    def test_a_missing_side_yields_nan(self) -> None:
+        nan = [np.nan] * 4
+        errors = heading_errors([yaw(0.0), nan], [yaw(0.0), yaw(0.0)])
+
+        assert errors[0] == pytest.approx(0.0, abs=1e-9)
+        assert np.isnan(errors[1])
+
+    def test_empty_input_gives_an_empty_result(self) -> None:
+        errors = heading_errors(np.empty((0, 4)), np.empty((0, 4)))
+
+        assert errors.shape == (0,)
+
+    def test_mismatched_lengths_are_rejected(self) -> None:
+        with pytest.raises(ValueError, match="aligned rows"):
+            heading_errors([yaw(0.0), yaw(0.0)], [yaw(0.0)])

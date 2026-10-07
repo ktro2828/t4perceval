@@ -24,6 +24,7 @@ ap.target  # /metrics/ap
 | `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                    |
 | `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence`   |
 | `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size` |
+| `HeadingFlipRateSystem`             | `/metrics/heading_flip_rate`                                       | `class_id`, `quaternion`                     |
 | `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                   |
 | `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                   |
 | `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)               |
