@@ -112,6 +112,7 @@ from t4perceval.geometry import (
     bev_area,
     bev_corners,
     corner_displacements,
+    heading_errors,
     pairwise_bev_iou,
     pairwise_plane_distance,
     pairwise_roi_iou,
@@ -123,6 +124,7 @@ bev_corners(position, quaternion, size)  # (N, 4, 2) footprint corners
 corner_displacements(
     est_position, est_quaternion, est_size, gt_position, gt_quaternion, gt_size
 )  # (N,) mean corner distance of aligned pairs
+heading_errors(est_quaternion, gt_quaternion)  # (N,) absolute yaw error wrapped to [0, pi]
 bev_area(size)  # (N,)
 volume(size)  # (N,)
 

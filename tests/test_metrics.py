@@ -30,6 +30,7 @@ from t4perceval.system import (
     ClassificationSystem,
     ClearSystem,
     CornerErrorSystem,
+    HeadingFlipRateSystem,
     MetricSystem,
     PathDisplacementSystem,
     Pipeline,
@@ -52,6 +53,7 @@ ALL_METRICS: tuple[type[MetricSystem], ...] = (
     PathDisplacementSystem,
     ClassificationSystem,
     CornerErrorSystem,
+    HeadingFlipRateSystem,
 )
 
 
