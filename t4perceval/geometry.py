@@ -26,6 +26,7 @@ __all__ = (
     "bev_corners",
     "canonical_bev_corners",
     "corner_displacements",
+    "heading_errors",
     "nearest_points",
     "pairwise_bev_intersection_area",
     "pairwise_bev_iou",
@@ -257,6 +258,42 @@ def corner_displacements(
     rolled = np.stack([np.roll(est_corners, shift, axis=1) for shift in range(4)])  # (4, N, 4, 2)
     gap = np.linalg.norm(rolled - gt_corners[None], axis=-1).mean(axis=-1)  # (4, N)
     return gap.min(axis=0)
+
+
+def heading_errors(est_quaternion: ArrayLike, gt_quaternion: ArrayLike) -> NDArrayF64:
+    """Return the absolute yaw error of each aligned pair, wrapped to ``[0, pi]``, shape ``(N,)``.
+
+    Row ``i`` of the estimation is compared with row ``i`` of the ground truth. The error is
+    the shortest angular distance between the two headings, so ``350`` against ``10`` degrees
+    is ``20`` degrees, not ``340``. A pair in which either quaternion is not finite -- a match
+    row with no estimation or no ground truth -- yields ``NaN`` rather than an exception.
+
+    Args:
+        est_quaternion: Estimated rotations in ``xyzw`` order, ``(N, 4)``.
+        gt_quaternion: Ground-truth rotations in ``xyzw`` order, ``(N, 4)``.
+    """
+    est_quaternion = np.asarray(est_quaternion, dtype=np.float64).reshape(-1, 4)
+    gt_quaternion = np.asarray(gt_quaternion, dtype=np.float64).reshape(-1, 4)
+
+    if len(est_quaternion) != len(gt_quaternion):
+        raise ValueError(
+            "heading_errors compares aligned rows, "
+            f"got {len(est_quaternion)} estimations and {len(gt_quaternion)} ground truths"
+        )
+
+    errors = np.full(len(est_quaternion), np.nan, dtype=np.float64)
+    if len(est_quaternion) == 0:
+        return errors
+
+    finite = np.isfinite(est_quaternion).all(axis=1) & np.isfinite(gt_quaternion).all(axis=1)
+    if not finite.any():
+        return errors
+
+    est_yaw = Rotation.from_quat(est_quaternion[finite]).as_euler("xyz")[:, 2]
+    gt_yaw = Rotation.from_quat(gt_quaternion[finite]).as_euler("xyz")[:, 2]
+    diff = np.abs(est_yaw - gt_yaw)
+    errors[finite] = np.abs((diff + np.pi) % (2.0 * np.pi) - np.pi)
+    return errors
 
 
 def _nearest_plane_order(gt_corners: NDArrayF64) -> NDArrayI64:

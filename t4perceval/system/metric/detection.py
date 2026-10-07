@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 from attrs import define, field
 
+from t4perceval import geometry
 from t4perceval.archetype.metric import MetricValues
 from t4perceval.component import ALL_CLASSES, MatchStatus
 from t4perceval.core.entity import as_entity_path
@@ -200,26 +201,15 @@ class AveragePrecisionHeadingSystem(AveragePrecisionSystem):
     METRIC_NAME: ClassVar[str] = "aph"
 
     def tp_weight(self, join: MatchJoin, is_true_positive: NDArrayBool) -> NDArrayF64:
-        est_yaw = self._yaw(join, side="estimation")
-        gt_yaw = self._yaw(join, side="ground_truth")
+        if not is_true_positive.any():
+            return np.zeros(len(join), dtype=np.float64)
 
-        error = np.abs(est_yaw - gt_yaw) % (2.0 * np.pi)
-        error = np.minimum(error, 2.0 * np.pi - error)
+        error = geometry.heading_errors(
+            join.est_component(QUATERNION),
+            join.gt_component(QUATERNION),
+        )
         similarity = 1.0 - error / np.pi
         return np.where(is_true_positive, np.nan_to_num(similarity, nan=0.0), 0.0)
-
-    @staticmethod
-    def _yaw(join: MatchJoin, *, side: str) -> NDArrayF64:
-        view = join.estimation if side == "estimation" else join.ground_truth
-        rows = join.est_rows if side == "estimation" else join.gt_rows
-        if not len(view):
-            return np.full(len(join), np.nan)
-
-        yaw = view.component(QUATERNION).yaw()
-        safe = np.where(rows >= 0, rows, 0)
-        gathered = yaw[safe].astype(np.float64, copy=True)
-        gathered[rows < 0] = np.nan
-        return gathered
 
 
 @define(slots=True)
