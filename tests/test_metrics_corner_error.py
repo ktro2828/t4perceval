@@ -120,6 +120,11 @@ class TestTargets:
         with pytest.raises(ValueError, match=r"\[0, 100\]"):
             CornerErrorSystem.on("/matching", EST, GT, percentiles=percentiles)
 
+    @pytest.mark.parametrize("percentiles", [(95.0, 95.0), (95.0, 95.0000001)])
+    def test_rejects_percentiles_that_share_a_path(self, percentiles: tuple[float, ...]) -> None:
+        with pytest.raises(ValueError, match="distinct paths"):
+            CornerErrorSystem.on("/matching", EST, GT, percentiles=percentiles)
+
 
 class TestValues:
     def test_a_pure_translation_is_exact(self, labels: LabelRegistry) -> None:

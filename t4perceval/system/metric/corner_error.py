@@ -91,6 +91,10 @@ class CornerErrorSystem(MetricSystem):
         for percentile in self.percentiles:
             if not 0.0 <= percentile <= 100.0:
                 raise ValueError(f"percentiles must lie in [0, 100], got {percentile}")
+        # Each percentile writes its own entity, so check if all entities become unique
+        tokens = [_number_token(p) for p in self.percentiles]
+        if len(set(tokens)) != len(tokens):
+            raise ValueError(f"percentiles must map to distinct paths, got {self.percentiles}")
 
     @property
     def targets(self) -> tuple[EntityPath, ...]:
