@@ -137,7 +137,42 @@ estimation = importer.import_topic(
 )
 ```
 
-One topic at a time, into one `Recording`.
+`import_topic` imports one topic into one `Recording`, at `/estimation/objects`.
+
+### Several topics of one bag
+
+A bag usually carries detection, tracking and prediction side by side. Import them together with
+`import_topics`, filing each under its own entity root:
+
+```python
+from t4perceval import InstanceRegistry
+
+DETECTION = "/perception/object_recognition/detection/objects"
+TRACKING = "/perception/object_recognition/tracking/objects"
+
+estimation = importer.import_topics(
+    labels=labels,
+    instances=InstanceRegistry(),
+    selections={
+        "/estimation/detection": BagSelection(topic=DETECTION),
+        "/estimation/tracking": BagSelection(topic=TRACKING),
+    },
+)
+# /estimation/detection/objects, /estimation/tracking/objects, /tf/... -- once
+```
+
+Prefer this to one `import_topic` call per topic, which reads `/tf` and `/tf_static` again on every
+call and gives every recording its own copy of the frame tree:
+
+- The frame tree is read **once** and recorded once. With `tf_scope="selection"` its window spans
+  every selected message, across all topics.
+- One `InstanceRegistry` serves every topic, so the same UUID on two topics is one object.
+- The metadata names one source per topic. Its `frame_id` is set only when every topic is in the
+  same frame; each chunk still states its own.
+
+Keys must be distinct roots, and -- while transforms are imported -- must not lie under `/tf`, where
+the transform edges are filed. `topic_entity_path(topic)` derives a root from the topic name if you
+would rather not choose one.
 
 ### What the conversion does
 

@@ -1,4 +1,4 @@
-"""Importing one object topic of a bag into a :class:`~t4perceval.recording.Recording`.
+"""Importing object topics of a bag into a :class:`~t4perceval.recording.Recording`.
 
 The importer decides *when and where* data is recorded -- message traversal, timelines,
 entity paths -- and delegates *what* the data is to
@@ -9,9 +9,10 @@ chunks whose column sets differ, and ``Store.range()`` concatenates, so whether 
 emits a velocity column and what trajectory shape it uses have to be settled for the whole
 topic before the first message is written.
 
-One recording holds one topic. A bag usually carries detection, tracking and prediction
-outputs side by side; importing each is a separate call, and evaluating them together is
-what :func:`~t4perceval.evaluation.build_evaluation_store` is for.
+A bag usually carries detection, tracking and prediction outputs side by side, all against
+one frame tree. :meth:`RosbagImporter.import_topics` imports several of them into one
+recording, each under its own entity root, and reads ``/tf`` once for all of them;
+:meth:`RosbagImporter.import_topic` is the one-topic case.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from attrs import define, field
 
-from t4perceval.core.entity import as_entity_path
+from t4perceval.core.entity import EntityPath, as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import TimePoint
 from t4perceval.importer._columns import resolve_emit
@@ -43,6 +44,7 @@ from t4perceval.importer.rosbag.source import BagSource
 from t4perceval.importer.rosbag.transforms import log_bag_transforms, transform_samples
 from t4perceval.label import InstanceRegistry
 from t4perceval.recording import Recording, SourceInfo
+from t4perceval.transform.graph import DEFAULT_ROOT as TF_ROOT
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -52,8 +54,8 @@ if TYPE_CHECKING:
 
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.importer._labels import UnknownLabels
-    from t4perceval.importer.rosbag.convert import Confidence, Emit
-    from t4perceval.importer.rosbag.source import TopicInfo
+    from t4perceval.importer.rosbag.convert import Confidence, Emit, Kind
+    from t4perceval.importer.rosbag.source import BagMessage, TopicInfo
     from t4perceval.importer.rosbag.transforms import TfScope, TransformSample
     from t4perceval.label import LabelRegistry
 
@@ -148,6 +150,11 @@ class RosbagImporter:
     ) -> Recording:
         """Import one object topic.
 
+        The one-topic case of :meth:`import_topics`, filed under
+        :attr:`ImportOptions.entity_root`. To import several topics of one bag, prefer
+        :meth:`import_topics`: calling this once per topic reads the frame tree again each
+        time and gives each recording its own copy of it.
+
         Args:
             labels: Registry deciding class ids. Required, never derived -- see
                 :meth:`label_registry`.
@@ -158,31 +165,70 @@ class RosbagImporter:
         Returns:
             A recording holding the topic, bound to the registries that encoded it.
         """
-        options = self.options
-        chosen = selection if selection is not None else BagSelection()
-        registry = instances if instances is not None else InstanceRegistry()
-
-        info = _resolve_topic(self.source.object_topics(), chosen.topic)
-        kind = kind_of_schema(info.schema)
-
-        # -- pass 1: materialize, then settle the topic-wide shape ----------------------
-        messages = narrow(self.source.collect(info.topic), chosen.messages)
-        decoded = [message.data for _, message in messages]
-
-        frame_id = single_frame_id(
-            (str(message.header.frame_id) for message in decoded),
-            what=f"Topic {info.topic!r}",
+        return self.import_topics(
+            labels=labels,
+            instances=instances,
+            selections={
+                self.options.entity_root: selection if selection is not None else BagSelection(),
+            },
         )
-        trajectory = _trajectory_shape(options, decoded) if kind == "predictions" else None
-        velocity = resolve_emit(options.velocity, has_any_twist(decoded))
+
+    def import_topics(
+        self,
+        *,
+        labels: LabelRegistry,
+        selections: Mapping[EntityPathLike, BagSelection],
+        instances: InstanceRegistry | None = None,
+    ) -> Recording:
+        """Import several object topics into one recording, sharing one frame tree.
+
+        Each topic lands at ``<root>/objects`` for its key in ``selections``, so the topics
+        cannot collide on one path. ``/tf`` and ``/tf_static`` are read once and recorded
+        once; with ``tf_scope="selection"`` the kept window spans every selected message.
+
+        Examples:
+            >>> importer.import_topics(  # doctest: +SKIP
+            ...     labels=labels,
+            ...     selections={
+            ...         "/estimation/detection": BagSelection(topic=DETECTION_TOPIC),
+            ...         "/estimation/tracking": BagSelection(topic=TRACKING_TOPIC),
+            ...     },
+            ... )
+
+        Args:
+            labels: Registry deciding class ids. Required, never derived -- see
+                :meth:`label_registry`.
+            selections: Entity root -> which topic and messages to file under it.
+            instances: Registry interning object identities, shared by every topic. Pass
+                the same one to every importer whose output will be evaluated together.
+
+        Returns:
+            A recording holding every topic, bound to the registries that encoded it.
+            Its metadata names one source per topic, in ``selections`` order, and states a
+            ``frame_id`` only when every topic is in the same frame.
+
+        Raises:
+            ValueError: When ``selections`` is empty, two keys name the same root, a root
+                would file objects among the transform edges, or a topic is ambiguous or
+                not an object topic of the bag.
+        """
+        options = self.options
+        registry = instances if instances is not None else InstanceRegistry()
+        roots = _resolve_roots(selections, transforms=options.transforms)
+        candidates = self.source.object_topics()
+
+        # -- pass 1: materialize every topic, then settle each topic-wide shape ---------
+        # All topics come first so that the transform window can span all of them.
+        topics = [
+            self._materialize(_resolve_topic(candidates, chosen.topic), chosen)
+            for chosen in selections.values()
+        ]
 
         # -- pass 2: convert and log ----------------------------------------------------
         store = Store()
-        path = objects3d_path(as_entity_path(options.entity_root))
-        num_frames = 0
 
         if options.transforms:
-            stamps = [stamp_ns(message.header.stamp) for message in decoded]
+            stamps = [stamp for topic in topics for stamp in topic.stamps]
             window = (
                 (min(stamps), max(stamps)) if stamps and options.tf_scope == "selection" else None
             )
@@ -193,44 +239,83 @@ class RosbagImporter:
                 window=window,
             )
 
-        for index, message in messages:
-            timestamp_ns = stamp_ns(message.data.header.stamp)
-            columns = objects_to_columns(
-                message.data,
-                kind=kind,
-                labels=labels,
-                instances=registry,
-                instance_namespace=options.instance_namespace,
-                unknown_labels=options.unknown_labels,
-                confidence=options.confidence,
-                velocity=velocity,
-                trajectory=trajectory,
-            )
-            store.log(
-                path,
-                columns.as_archetype(kind),
-                at=TimePoint.at(frame=index, timestamp_ns=timestamp_ns),
-                frame_id=columns.frame_id,
-            )
-            num_frames += 1
-
-        source = SourceInfo(
-            "rosbag",
-            self.source.uri,
-            topic=info.topic,
-            entity_path=str(path),
-            extra={
-                "schema": info.schema,
-                "kind": kind,
-                "frames": str(num_frames),
-                "confidence": options.confidence,
-            },
+        sources = tuple(
+            self._log_topic(store, topic, objects3d_path(root), labels=labels, instances=registry)
+            for root, topic in zip(roots, topics)
         )
+
+        frame_ids = {topic.frame_id for topic in topics}
         return Recording.of(
             store,
             labels=labels,
             instances=registry,
-            metadata=import_metadata(source, frame_id=frame_id),
+            metadata=import_metadata(
+                *sources,
+                frame_id=frame_ids.pop() if len(frame_ids) == 1 else None,
+            ),
+        )
+
+    def _materialize(self, info: TopicInfo, chosen: BagSelection) -> _Topic:
+        """Decode one topic's selected messages and settle what must hold topic-wide."""
+        options = self.options
+        kind = kind_of_schema(info.schema)
+        messages = narrow(self.source.collect(info.topic), chosen.messages)
+        decoded = [message.data for _, message in messages]
+
+        return _Topic(
+            info=info,
+            kind=kind,
+            messages=messages,
+            frame_id=single_frame_id(
+                (str(message.header.frame_id) for message in decoded),
+                what=f"Topic {info.topic!r}",
+            ),
+            trajectory=_trajectory_shape(options, decoded) if kind == "predictions" else None,
+            velocity=resolve_emit(options.velocity, has_any_twist(decoded)),
+            stamps=tuple(stamp_ns(message.header.stamp) for message in decoded),
+        )
+
+    def _log_topic(
+        self,
+        store: Store,
+        topic: _Topic,
+        path: EntityPath,
+        *,
+        labels: LabelRegistry,
+        instances: InstanceRegistry,
+    ) -> SourceInfo:
+        """Convert and log one materialized topic, returning its provenance."""
+        options = self.options
+        for index, message in topic.messages:
+            columns = objects_to_columns(
+                message.data,
+                kind=topic.kind,
+                labels=labels,
+                instances=instances,
+                instance_namespace=options.instance_namespace,
+                unknown_labels=options.unknown_labels,
+                confidence=options.confidence,
+                velocity=topic.velocity,
+                trajectory=topic.trajectory,
+            )
+            store.log(
+                path,
+                columns.as_archetype(topic.kind),
+                at=TimePoint.at(frame=index, timestamp_ns=stamp_ns(message.data.header.stamp)),
+                frame_id=columns.frame_id,
+            )
+
+        return SourceInfo(
+            "rosbag",
+            self.source.uri,
+            topic=topic.info.topic,
+            entity_path=str(path),
+            extra={
+                "schema": topic.info.schema,
+                "kind": topic.kind,
+                "frames": str(len(topic.messages)),
+                "confidence": options.confidence,
+            },
         )
 
     def _transforms(self, topics: Sequence[str]) -> list[TransformSample]:
@@ -242,6 +327,49 @@ class RosbagImporter:
                     transform_samples(message.data for message in self.source.iter_messages(topic)),
                 )
         return samples
+
+
+@define(frozen=True, slots=True)
+class _Topic:
+    """One topic after pass 1: its messages, and the decisions that hold topic-wide."""
+
+    info: TopicInfo
+    kind: Kind
+    messages: tuple[tuple[int, BagMessage], ...]
+    frame_id: str | None
+    trajectory: tuple[int, int] | None
+    velocity: Emit
+    stamps: tuple[int, ...]
+
+
+def _resolve_roots(
+    selections: Mapping[EntityPathLike, BagSelection],
+    *,
+    transforms: bool,
+) -> tuple[EntityPath, ...]:
+    """Return the entity root of every selection, refusing roots that would collide."""
+    if not selections:
+        raise ValueError("import_topics() needs at least one selection")
+
+    roots = tuple(as_entity_path(root) for root in selections)
+    seen: dict[EntityPath, int] = {}
+    for root in roots:
+        seen[root] = seen.get(root, 0) + 1
+    repeated = sorted(str(root) for root, count in seen.items() if count > 1)
+    if repeated:
+        raise ValueError(
+            f"Two selections name the same entity root {repeated}; their objects would be "
+            f"logged to one path",
+        )
+
+    if transforms:
+        under_tf = sorted(str(root) for root in roots if root.starts_with(TF_ROOT))
+        if under_tf:
+            raise ValueError(
+                f"Entity root(s) {under_tf} lie under {TF_ROOT}, where transform edges are "
+                f"filed; their objects would be read as frames",
+            )
+    return roots
 
 
 def _resolve_topic(candidates: Sequence[TopicInfo], topic: str | None) -> TopicInfo:

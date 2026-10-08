@@ -380,6 +380,202 @@ class TestTransforms:
         assert [str(path) for path in recording.entity_paths()] == [OBJECTS]
 
 
+class TestSeveralTopics:
+    """``import_topics`` files each topic under its own root, against one frame tree."""
+
+    DETECTION_ROOT = "/estimation/detection"
+    TRACKING_ROOT = "/estimation/tracking"
+
+    def import_both(self, importer: RosbagImporter, **kwargs: object) -> Recording:
+        return importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                self.DETECTION_ROOT: BagSelection(topic=DETECTION_TOPIC),
+                self.TRACKING_ROOT: BagSelection(topic=TRACKING_TOPIC),
+            },
+            **kwargs,  # type: ignore[arg-type]
+        )
+
+    def test_each_topic_lands_under_its_own_root(self, importer: RosbagImporter) -> None:
+        recording = self.import_both(importer)
+
+        assert sorted(str(path) for path in recording.entity_paths()) == [
+            "/estimation/detection/objects",
+            "/estimation/tracking/objects",
+            "/tf/base_link",
+            "/tf/lidar_top",
+        ]
+
+    def test_each_topic_matches_its_own_import(
+        self,
+        importer: RosbagImporter,
+        detections: Recording,
+        trackings: Recording,
+    ) -> None:
+        recording = self.import_both(importer)
+
+        for root, alone in ((self.DETECTION_ROOT, detections), (self.TRACKING_ROOT, trackings)):
+            together = everything(recording, f"{root}/objects")
+            assert len(together) == len(everything(alone))
+            assert together.times(FRAME).tolist() == everything(alone).times(FRAME).tolist()
+            assert (
+                together.component(CLASS_ID).values.tolist()
+                == everything(alone).component(CLASS_ID).values.tolist()
+            )
+
+    def test_the_frame_tree_is_read_and_recorded_once(
+        self,
+        importer: RosbagImporter,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        reads: list[str] = []
+        original = type(importer.source).iter_messages
+
+        def counting(self: object, topic: str, **kwargs: object):  # noqa: ANN202
+            reads.append(topic)
+            return original(self, topic, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(type(importer.source), "iter_messages", counting)
+        recording = self.import_both(importer)
+
+        assert reads.count("/tf") == 1
+        assert reads.count("/tf_static") == 1
+        assert len(recording.static_chunks("/tf/lidar_top")) == 1
+
+    def test_the_window_spans_every_selection(self, importer: RosbagImporter) -> None:
+        # Detections from the last frame only (2 s), trackings from the first only (0 s).
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                self.DETECTION_ROOT: BagSelection(topic=DETECTION_TOPIC, messages=[2]),
+                self.TRACKING_ROOT: BagSelection(topic=TRACKING_TOPIC, messages=[0]),
+            },
+        )
+        kept = (recording.times("/tf/base_link", TIMESTAMP) - T0) / NS
+
+        assert kept.tolist() == [-0.05, 0.0, 0.5, 1.0, 2.0, 2.5]
+
+    def test_one_identity_registry_serves_every_topic(self, importer: RosbagImporter) -> None:
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                self.TRACKING_ROOT: BagSelection(topic=TRACKING_TOPIC),
+                "/estimation/prediction": BagSelection(topic=PREDICTION_TOPIC),
+            },
+        )
+        tracked = everything(recording, f"{self.TRACKING_ROOT}/objects")
+        predicted = everything(recording, "/estimation/prediction/objects")
+
+        # Both topics carry UUID_A first in frame 0; it is one object, so one id.
+        assert (
+            tracked.component(INSTANCE_ID).values[0] == predicted.component(INSTANCE_ID).values[0]
+        )
+
+    def test_every_topic_is_a_recorded_source(self, importer: RosbagImporter) -> None:
+        sources = self.import_both(importer).metadata.sources
+
+        assert [(source.topic, source.entity_path) for source in sources] == [
+            (DETECTION_TOPIC, "/estimation/detection/objects"),
+            (TRACKING_TOPIC, "/estimation/tracking/objects"),
+        ]
+
+    def test_a_frame_is_stated_only_when_every_topic_agrees(
+        self,
+        importer: RosbagImporter,
+    ) -> None:
+        mixed = self.import_both(importer)  # detections in base_link, trackings in map
+        agreeing = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                self.TRACKING_ROOT: BagSelection(topic=TRACKING_TOPIC),
+                "/estimation/prediction": BagSelection(topic=PREDICTION_TOPIC),
+            },
+        )
+
+        assert mixed.metadata.frame_id is None
+        assert agreeing.metadata.frame_id == "map"
+        # The chunks still say where their own rows live.
+        assert {chunk.frame_id for chunk in mixed.chunks(f"{self.DETECTION_ROOT}/objects")} == {
+            "base_link"
+        }
+
+    def test_the_same_topic_may_be_filed_twice(self, importer: RosbagImporter) -> None:
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                "/estimation/early": BagSelection(topic=TRACKING_TOPIC, messages=slice(0, 1)),
+                "/estimation/late": BagSelection(topic=TRACKING_TOPIC, messages=slice(1, 3)),
+            },
+        )
+
+        assert recording.times("/estimation/early/objects", FRAME).tolist() == [0]
+        assert recording.times("/estimation/late/objects", FRAME).tolist() == [1, 2]
+
+    def test_it_needs_a_selection(self, importer: RosbagImporter) -> None:
+        with pytest.raises(ValueError, match="at least one selection"):
+            importer.import_topics(labels=importer.label_registry(), selections={})
+
+    def test_two_keys_for_one_root_are_refused(self, importer: RosbagImporter) -> None:
+        from t4perceval.core.entity import EntityPath
+
+        with pytest.raises(ValueError, match="same entity root"):
+            importer.import_topics(
+                labels=importer.label_registry(),
+                selections={
+                    "/estimation/a": BagSelection(topic=DETECTION_TOPIC),
+                    EntityPath.parse("/estimation/a"): BagSelection(topic=TRACKING_TOPIC),
+                },
+            )
+
+    def test_a_root_among_the_transforms_is_refused(self, importer: RosbagImporter) -> None:
+        with pytest.raises(ValueError, match="where transform edges are filed"):
+            importer.import_topics(
+                labels=importer.label_registry(),
+                selections={"/tf/objects": BagSelection(topic=DETECTION_TOPIC)},
+            )
+
+    def test_without_transforms_any_root_is_allowed(self, rosbag_path: Path) -> None:
+        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(transforms=False))
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={"/tf/objects": BagSelection(topic=DETECTION_TOPIC)},
+        )
+
+        assert [str(path) for path in recording.entity_paths()] == ["/tf/objects/objects"]
+
+    def test_an_unknown_topic_is_reported(self, importer: RosbagImporter) -> None:
+        with pytest.raises(ValueError, match="not an object topic"):
+            importer.import_topics(
+                labels=importer.label_registry(),
+                selections={self.DETECTION_ROOT: BagSelection(topic="/nope")},
+            )
+
+    def test_the_combined_recording_evaluates(self, importer: RosbagImporter) -> None:
+        recording = self.import_both(importer)
+        setup = build_evaluation_store(
+            recording,
+            recording,
+            reference_path=f"{self.TRACKING_ROOT}/objects",
+            query_path=f"{self.TRACKING_ROOT}/objects",
+            reference_target="/ground_truth/objects",
+            query_target="/estimation/objects",
+        )
+        matcher = CenterDistanceMatchingSystem.between(
+            "/estimation/objects",
+            "/ground_truth/objects",
+            threshold=1.0,
+        )
+        Pipeline([matcher]).run(setup.context(), EVERYTHING)
+        result = setup.store.range(
+            matcher.target,
+            timeline=FRAME,
+            time_range=EVERYTHING,
+        ).materialize(MatchResults)
+
+        assert (result.num_fp, result.num_fn) == (0, 0)
+        assert result.num_tp > 0
+
+
 class TestTransformConflicts:
     """Bags whose frame tree cannot be filed as one edge per child."""
 

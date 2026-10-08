@@ -639,6 +639,10 @@ distinct message schemas, unlike the T4 3D archetypes.
 - [x] Topic-to-entity-path mapping. A topic names a message source, an entity path names a
       semantic location; they are not the same concept. One recording holds one topic at
       `/estimation/objects`; the topic is provenance (`SourceInfo.topic`).
+- [x] `RosbagImporter.import_topics` — several topics into one recording, each under its own
+      entity root, with `/tf` and `/tf_static` read and recorded once (the window spans every
+      selection). One `import_topic` call per topic re-read the frame tree and duplicated it
+      into every recording; `import_topic` is now the one-topic case.
 - [x] `t4perceval.align` — associate ground-truth and estimation frames by nearest
       timestamp within a tolerance, one-to-one, producing a shared `FRAME` index. Needed
       because matching takes the _union_ of the two time sets, so mismatched stamps yield

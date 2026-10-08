@@ -51,15 +51,23 @@ names that exist in both.
 ## 3. Import a topic
 
 ```python
+from t4perceval import InstanceRegistry
 from t4perceval.importer.rosbag import BagSelection
+
+instances = InstanceRegistry()  # shared with the ground truth in step 4
 
 estimation = importer.import_topic(
     labels=labels,
+    instances=instances,
     selection=BagSelection(topic="/perception/object_recognition/tracking/objects"),
 )
 ```
 
-One topic at a time. The schema decides the archetype:
+A tracking topic carries instance ids, and so does the T4 ground truth, which imports trackings by
+default. Ids are encoded at import time, so both sides must share **one** `InstanceRegistry` --
+otherwise `build_evaluation_store` refuses to combine them.
+
+The schema decides the archetype:
 
 | Message            | Archetype       |
 | :----------------- | :-------------- |
@@ -78,10 +86,32 @@ you pass `ImportOptions(transforms=False)`.
 - `confidence` is the **top classification probability**; use
   `ImportOptions(confidence="existence")` for `existence_probability`.
 
+### Several topics at once
+
+To evaluate detection and tracking from the same bag, import both into one recording rather than
+calling `import_topic` twice -- the frame tree is then read and recorded once:
+
+```python
+DETECTION = "/perception/object_recognition/detection/objects"
+TRACKING = "/perception/object_recognition/tracking/objects"
+
+estimation = importer.import_topics(
+    labels=labels,
+    instances=instances,
+    selections={
+        "/estimation/detection": BagSelection(topic=DETECTION),
+        "/estimation/tracking": BagSelection(topic=TRACKING),
+    },
+)
+```
+
+Each topic lands at `<root>/objects`; pass that path as `query_path` in step 5, once per topic you
+evaluate.
+
 ## 4. Import the ground truth
 
 ```python
-ground_truth = t4.import_scene(labels=labels)
+ground_truth = t4.import_scene(labels=labels, instances=instances)
 ```
 
 ## 5. Align the frames, then build the store
