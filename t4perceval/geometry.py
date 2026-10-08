@@ -28,8 +28,10 @@ __all__ = (
     "corner_displacements",
     "heading_errors",
     "nearest_points",
+    "pairwise_bev_center_distance",
     "pairwise_bev_intersection_area",
     "pairwise_bev_iou",
+    "pairwise_center_distance",
     "pairwise_height_intersection",
     "pairwise_plane_distance",
     "pairwise_roi_iou",
@@ -145,6 +147,20 @@ def _iou(intersection: NDArrayF64, est_measure: NDArrayF64, gt_measure: NDArrayF
         out=np.zeros_like(intersection),
         where=union > 0.0,
     )
+
+
+def pairwise_bev_center_distance(est_position: ArrayLike, gt_position: ArrayLike) -> NDArrayF64:
+    """Return the xy distance between the centres of every pair, with shape ``(N, M)``."""
+    est_xy = np.asarray(est_position, dtype=np.float64)[:, :2]
+    gt_xy = np.asarray(gt_position, dtype=np.float64)[:, :2]
+    return np.linalg.norm(est_xy[:, None, :] - gt_xy[None, :, :], axis=-1)
+
+
+def pairwise_center_distance(est_position: ArrayLike, gt_position: ArrayLike) -> NDArrayF64:
+    """Return the 3D distance between the centres of every pair, with shape ``(N, M)``."""
+    est = np.asarray(est_position, dtype=np.float64)
+    gt = np.asarray(gt_position, dtype=np.float64)
+    return np.linalg.norm(est[:, None, :] - gt[None, :, :], axis=-1)
 
 
 def pairwise_bev_iou(

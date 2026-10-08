@@ -88,6 +88,11 @@ class TestComposition:
 
         assert systems[0].class_agnostic is True
 
+    def test_max_matchable_distance_reaches_the_matchers(self) -> None:
+        systems = average_precision_sweep(EST, GT, thresholds=[1.0], max_matchable_distance=3.0)
+
+        assert systems[0].max_matchable_distance.default == pytest.approx(3.0)
+
     def test_a_per_class_threshold_is_accepted(self) -> None:
         from t4perceval.system import Thresholds
 

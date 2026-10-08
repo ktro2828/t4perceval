@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-import numpy as np
 from attrs import define
 
 from t4perceval import geometry
@@ -26,9 +25,10 @@ class CenterDistanceMatchingSystem(MatchingSystem):
     DEFAULT_THRESHOLD: ClassVar[float] = 1.0
 
     def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        est_position = est_view.component(POSITION).values
-        gt_position = gt_view.component(POSITION).values
-        return np.linalg.norm(est_position[:, None, :] - gt_position[None, :, :], axis=-1)
+        return geometry.pairwise_center_distance(
+            est_view.component(POSITION).values,
+            gt_view.component(POSITION).values,
+        )
 
 
 @define(slots=True)
@@ -45,9 +45,10 @@ class CenterDistanceBEVMatchingSystem(MatchingSystem):
     DEFAULT_THRESHOLD: ClassVar[float] = 1.0
 
     def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
-        est_xy = est_view.component(POSITION).values[:, :2]
-        gt_xy = gt_view.component(POSITION).values[:, :2]
-        return np.linalg.norm(est_xy[:, None, :] - gt_xy[None, :, :], axis=-1)
+        return geometry.pairwise_bev_center_distance(
+            est_view.component(POSITION).values,
+            gt_view.component(POSITION).values,
+        )
 
 
 @define(slots=True)
