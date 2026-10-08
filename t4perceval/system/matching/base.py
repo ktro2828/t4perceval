@@ -250,9 +250,19 @@ class MatchingSystem(EntitySystem):
             cost = -score if self.HIGHER_IS_BETTER else score
 
             # `linear_sum_assignment` cannot represent forbidden pairs, so infeasible
-            # entries get a cost above any feasible one and are rejected afterwards.
-            rejected = float(cost[feasible].max()) + 1.0 if feasible.any() else 0.0
-            padded = np.where(feasible, cost, rejected)
+            # entries get a finite penalty and are rejected afterwards. The penalty must
+            # outweigh any sum of feasible costs, not just the largest one: otherwise one
+            # cheap pair plus a penalty can undercut two feasible pairs, and a match is
+            # lost. With costs shifted into [0, span], every assignment uses at most
+            # min(N, M) pairs, so a penalty above min(N, M) * span means more feasible
+            # pairs always wins, and among equally many the cheaper total still does.
+            if feasible.any():
+                shifted = cost - float(cost[feasible].min())
+                span = float(shifted[feasible].max())
+                rejected = span * min(num_est, num_gt) + 1.0
+            else:
+                shifted, rejected = cost, 0.0
+            padded = np.where(feasible, shifted, rejected)
 
             for est_row, gt_row in zip(*linear_sum_assignment(padded)):
                 if not feasible[est_row, gt_row]:

@@ -627,6 +627,56 @@ class TestAssignment:
         assert result.num_tp == 2
         assert sorted(result.est_index.values.tolist()) == [0, 1]
 
+    @staticmethod
+    def rejected_shortcut_store(labels: LabelRegistry) -> Store:
+        """est0 lies 19 m from gt0 and 27.6 m from gt1; est1 lies 1 m from gt0, 19 m from gt1.
+
+        Both pairs on the diagonal are feasible at 19 m, but if est0-gt1 is rejected and
+        penalised only slightly above the largest feasible cost, est0-gt1 + est1-gt0
+        looks cheaper than the diagonal, and dropping the rejected pair leaves one match.
+        """
+        store = Store()
+        store.log(
+            GT,
+            boxes([[0.0, 0.0, 0.0], [20.0, 0.0, 0.0]], labels),
+            at=TimePoint.at(frame=0),
+        )
+        store.log(
+            EST,
+            boxes([[0.0, 19.0, 0.0], [1.0, 0.0, 0.0]], labels),
+            at=TimePoint.at(frame=0),
+        )
+        return store
+
+    def test_a_rejected_pair_does_not_cost_a_feasible_match(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        ctx = SystemContext(self.rejected_shortcut_store(labels), FRAME, labels=labels)
+
+        result = result_of(CenterDistanceMatchingSystem.between(EST, GT, threshold=25.0), ctx)
+
+        assert counts(result) == (2, 0, 0)
+
+    def test_a_gated_pair_does_not_cost_a_feasible_match(self, labels: LabelRegistry) -> None:
+        ctx = SystemContext(self.rejected_shortcut_store(labels), FRAME, labels=labels)
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(
+                EST,
+                GT,
+                threshold=30.0,
+                max_matchable_distance=25.0,
+            ),
+            ctx,
+        )
+
+        assert counts(result) == (2, 0, 0)
+        assert sorted(zip(result.est_index.values.tolist(), result.gt_index.values.tolist())) == [
+            (0, 0),
+            (1, 1),
+        ]
+
     def test_it_is_one_to_one(self, labels: LabelRegistry) -> None:
         """Two estimations on one ground truth: the better one wins, the other is an FP."""
         store = Store()
