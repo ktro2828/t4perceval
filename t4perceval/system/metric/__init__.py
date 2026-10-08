@@ -18,7 +18,7 @@ from t4perceval.system.metric.detection import (
     MeanAveragePrecisionSystem,
 )
 from t4perceval.system.metric.heading_flip_rate import HeadingFlipRateSystem
-from t4perceval.system.metric.prediction import KERNELS, PathDisplacementSystem
+from t4perceval.system.metric.prediction import PathDisplacementSystem
 from t4perceval.system.metric.segmentation import (
     SegmentationConfusionMatrixSystem,
     SegmentationIoUSystem,
@@ -27,7 +27,6 @@ from t4perceval.system.metric.segmentation import (
 from t4perceval.system.metric.tracking import ClearSystem
 
 __all__ = (
-    "KERNELS",
     "AveragePrecisionHeadingSystem",
     "AveragePrecisionSystem",
     "ClassificationSystem",

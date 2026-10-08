@@ -210,8 +210,7 @@ def prediction_call(scene: Scene) -> Callable[[], Any]:
                 GT,
                 top_k=k,
                 miss_tolerance=MISS_TOLERANCE,
-                kernel=None,
-                target=f"/metrics/displacement/k{k}",
+                target=f"/metrics/path_displacement/k{k}",
             ),
         )
     return _pipeline_call(scene, "prediction", systems)
@@ -307,7 +306,7 @@ def prediction_metrics(store: Any, class_names: Sequence[str]) -> dict[str, floa
     out: dict[str, float | None] = {}
     for k in TOP_KS:
         for metric in ("ade", "fde", "miss_rate"):
-            values = _values(store, f"/metrics/displacement/k{k}/{metric}")
+            values = _values(store, f"/metrics/path_displacement/k{k}/{metric}")
             per_class = [values.of_class(c) for c in range(len(class_names))]
             for name, value in zip(class_names, per_class):
                 out[f"prediction/{metric}/k{k}/{name}"] = _clean(value)

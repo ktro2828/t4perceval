@@ -33,6 +33,7 @@ Predictions3D(
     instance_id=[1],
     waypoints=np.asarray([[[[1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]]]]),  # (1, 1, 3, 3)
     mode_confidence=np.asarray([[1.0]]),  # (1, 1)
+    time_offset=np.asarray([[100, 200, 300]]) * 1_000_000,  # (1, 3) ns: 0.1, 0.2, 0.3 s ahead
 )
 ```
 
@@ -52,6 +53,7 @@ Predictions3D(
         ]
     ),  # (1, 2, 3, 3)
     mode_confidence=np.asarray([[0.7, 0.3]]),  # (1, 2)
+    time_offset=np.asarray([[100, 200, 300]]) * 1_000_000,  # (1, 3); both modes share it
 )
 ```
 
@@ -82,13 +84,30 @@ Predictions3D
 | `timestep_valid` | `(N, M, T)` | which timesteps of which mode carry real data |
 | `time_offset`    | `(N, T)`    | nanoseconds from now, strictly increasing     |
 
-!!! warning "The validity masks are not applied yet"
+`time_offset` is optional for the archetype but **required by `PathDisplacementSystem`** on both
+sides: the metric compares trajectories in time, and without a time axis there is nothing to compare
+them at. Both importers write it. Absent masks mean every mode and timestep is real.
 
-    `PathDisplacementSystem` does not read `mode_valid`, `timestep_valid` or `time_offset`. Padded
-    modes and timesteps therefore contribute to ADE, FDE and the miss rate, and two trajectories with
-    different time axes are compared by array index. See
-    [Metric divergences](../development/metric-divergences.md). Until that is fixed, produce
-    trajectories that are genuinely dense and share a time axis.
+### How the metric reads them
+
+```text
+ground truth   t:  0.1   0.2   0.3   0.4 (invalid)          scored at its valid times only
+estimation     t:  0 ─────────── 0.5 ─────────── 1.0        interpolated at 0.1, 0.2, 0.3
+                   ↑ current position anchors t = 0
+```
+
+- **Time, not index.** Each valid ground-truth step is scored against the prediction linearly
+  interpolated at the same `time_offset`; the estimation's current `position` is the point at
+  `t = 0`. A prediction sampled every 0.5 s and a ground truth sampled at the dataset's own rate are
+  therefore compared correctly.
+- **A prediction that ends early** is held at its last valid point beyond its horizon -- predicting
+  less far ahead is penalised, not excused.
+- **Estimation masks.** Only modes with `mode_valid` and at least one valid timestep compete for
+  `top_k` and for `best_of_k`; invalid timesteps are interpolated across. An estimation with no
+  valid mode is scored as standing still at its position.
+- **Ground-truth masks.** Invalid steps are not scored, FDE is taken at the last valid one, and an
+  object with no valid future step is left out -- its class can report `NaN` while `support` still
+  counts it.
 
 ## Filtering
 
@@ -121,24 +140,29 @@ displacement = PathDisplacementSystem.on(
     miss_tolerance=2.0,
 )
 [str(t) for t in displacement.targets]
-# ['/metrics/displacement/ade', '/metrics/displacement/fde', '/metrics/displacement/miss_rate']
+# ['/metrics/path_displacement/ade',
+#  '/metrics/path_displacement/fde',
+#  '/metrics/path_displacement/miss_rate']
 ```
 
-| Parameter        | Default | Meaning                                                                                                                         |
-| :--------------- | ------: | :------------------------------------------------------------------------------------------------------------------------------ |
-| `top_k`          |       3 | keep this many modes, highest `mode_confidence` first                                                                           |
-| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                                                                                |
-| `kernel`         |  `None` | which mode to reduce to: `None` keeps all kept modes, `"highest"` takes the most confident, `"min"` the best, `"max"` the worst |
+| Parameter        | Default | Meaning                                                               |
+| :--------------- | ------: | :-------------------------------------------------------------------- |
+| `top_k`          |       3 | keep this many modes, highest `mode_confidence` first                 |
+| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                      |
+| `best_of_k`      | `False` | report minADE_k / minFDE_k instead of the average over the kept modes |
 
 Displacement is measured in **xy only**. What each metric reports, over the kept modes:
 
-| Metric      | Definition                                                            |
-| :---------- | :-------------------------------------------------------------------- |
-| `ade`       | mean displacement over every (object, mode, timestep)                 |
-| `fde`       | mean displacement at the **final** timestep                           |
-| `miss_rate` | fraction of all (object, mode, timestep) distances ≥ `miss_tolerance` |
+| Metric      | Definition                                                                         |
+| :---------- | :--------------------------------------------------------------------------------- |
+| `ade`       | per object, the mean over kept modes × valid steps; then the mean over objects     |
+| `fde`       | per object, the mean over kept modes at the **last valid** step; then over objects |
+| `miss_rate` | fraction of all scored (object, mode, step) distances ≥ `miss_tolerance`           |
 
-`kernel="min"` with `top_k=k` is the usual "minADE_k" / "minFDE_k".
+With `best_of_k=True`, `ade` and `fde` are instead the **smallest** per-object ADE and,
+independently, the smallest per-object FDE over the kept modes -- the usual minADE_k / minFDE_k, as
+nuScenes and Waymo define them; `miss_rate` is then counted on the minADE mode. To score only the
+most confident mode, use `top_k=1`.
 
 ## Complete example
 
@@ -174,6 +198,7 @@ def prediction(x, waypoints, confidences):
         instance_id=[1],
         waypoints=np.asarray(waypoints, dtype=np.float64)[None, ...],
         mode_confidence=np.asarray([confidences], dtype=np.float64),
+        time_offset=[[100_000_000, 200_000_000, 300_000_000]],  # every 0.1 s
     )
 
 
@@ -208,7 +233,7 @@ displacement = PathDisplacementSystem.on(
     "/ground_truth/objects",
     top_k=2,
     miss_tolerance=2.0,
-    kernel="min",
+    best_of_k=True,
 )
 
 Pipeline([matcher, displacement]).run(
@@ -228,15 +253,14 @@ fde       [0.]
 miss_rate [0.]
 ```
 
-With `kernel="min"` the better of the two modes is kept, so ADE and FDE are zero. Drop `kernel` to
-score both modes and watch the 3 m one dominate.
+With `best_of_k=True` the better of the two modes is kept, so ADE and FDE are zero. Drop
+`best_of_k` to average over both modes and watch the 3 m one pull the numbers up.
 
 ## Known divergences
 
-Beyond the unapplied validity masks, the miss rate is the fraction of _all_ mode/timestep distances
-over the tolerance, where a common forecasting definition reports the fraction of _objects_ whose
-selected trajectory misses at the final step. See
-[Metric divergences](../development/metric-divergences.md).
+The miss rate is the fraction of _all_ scored mode/timestep distances over the tolerance, where a
+common forecasting definition reports the fraction of _objects_ whose selected trajectory misses at
+the final step. See [Metric divergences](../development/metric-divergences.md).
 
 ## Where to go next
 

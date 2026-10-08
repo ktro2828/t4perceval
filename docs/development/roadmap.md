@@ -437,7 +437,7 @@ t4perceval behavior
 7. **Comprehensive regression tests**, pinned to the canonical definitions rather than to the
    current output.
 
-- [ ] Prediction validity masks and time offsets
+- [x] Prediction validity masks and time offsets
 - [ ] APH
 - [ ] AP confidence-order association
 - [ ] CLEAR ID-switch semantics

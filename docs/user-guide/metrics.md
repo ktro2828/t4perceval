@@ -16,19 +16,19 @@ ap.target  # /metrics/ap
 
 ## The metric family
 
-| System                              | Writes                                                             | Needs from the objects                       |
-| :---------------------------------- | :----------------------------------------------------------------- | :------------------------------------------- |
-| `AveragePrecisionSystem`            | `/metrics/ap`                                                      | `class_id`, `confidence`                     |
-| `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`       |
-| `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                   |
-| `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                    |
-| `PathDisplacementSystem`            | `/metrics/displacement/ade`, `/fde`, `/miss_rate`                  | `class_id`, `waypoints`, `mode_confidence`   |
-| `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size` |
-| `HeadingFlipRateSystem`             | `/metrics/heading_flip_rate`                                       | `class_id`, `quaternion`                     |
-| `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                   |
-| `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                   |
-| `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)               |
-| `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)               |
+| System                              | Writes                                                             | Needs from the objects                                    |
+| :---------------------------------- | :----------------------------------------------------------------- | :-------------------------------------------------------- |
+| `AveragePrecisionSystem`            | `/metrics/ap`                                                      | `class_id`, `confidence`                                  |
+| `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`                    |
+| `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                                |
+| `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                                 |
+| `PathDisplacementSystem`            | `/metrics/path_displacement/ade`, `/fde`, `/miss_rate`             | `class_id`, `waypoints`, `mode_confidence`, `time_offset` |
+| `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size`              |
+| `HeadingFlipRateSystem`             | `/metrics/heading_flip_rate`                                       | `class_id`, `quaternion`                                  |
+| `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                                |
+| `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                                |
+| `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)                            |
+| `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)                            |
 
 A metric that produces several results from one shared computation -- MOTA, MOTP and ID switches all
 come out of the same identity tracking -- writes **one entity per result** and lists them all in
@@ -138,11 +138,11 @@ from t4perceval.system import PathDisplacementSystem
 PathDisplacementSystem.on(matcher.target, EST, GT, top_k=3, miss_tolerance=2.0)
 ```
 
-| Parameter        | Default | Meaning                                                     |
-| :--------------- | ------: | :---------------------------------------------------------- |
-| `top_k`          |       3 | how many highest-confidence modes are considered            |
-| `miss_tolerance` |     2.0 | final-displacement distance above which a prediction misses |
-| `kernel`         |  `None` | which displacement kernel to use                            |
+| Parameter        | Default | Meaning                                                          |
+| :--------------- | ------: | :--------------------------------------------------------------- |
+| `top_k`          |       3 | how many highest-confidence modes are considered                 |
+| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                 |
+| `best_of_k`      | `False` | report minADE_k / minFDE_k instead of the average over the modes |
 
 ## Classification and the confusion matrix
 
