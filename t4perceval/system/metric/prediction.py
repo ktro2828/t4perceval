@@ -203,14 +203,26 @@ class PathDisplacementSystem(MetricSystem):
         gt_steps = gt_waypoints.shape[2]
 
         # -- the ground truth: the one future that happened, at its valid steps ---------
-        gt_valid = _gather_mask(
-            join,
-            join.ground_truth,
-            TIMESTEP_VALID,
-            rows,
-            (num_rows, gt_waypoints.shape[1], gt_steps),
-            estimation=False,
-        )[:, 0]
+        # The two masks are independently optional, so a step is valid only when its mode
+        # is too -- exactly as on the estimation side.
+        gt_valid = (
+            _gather_mask(
+                join,
+                join.ground_truth,
+                TIMESTEP_VALID,
+                rows,
+                (num_rows, gt_waypoints.shape[1], gt_steps),
+                estimation=False,
+            )[:, 0]
+            & _gather_mask(
+                join,
+                join.ground_truth,
+                MODE_VALID,
+                rows,
+                (num_rows, gt_waypoints.shape[1]),
+                estimation=False,
+            )[:, :1]
+        )
         has_future = gt_valid.any(axis=1)
         if not has_future.any():
             empty = np.empty(0, dtype=np.float64)

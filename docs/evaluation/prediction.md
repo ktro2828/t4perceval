@@ -105,7 +105,8 @@ estimation     t:  0 ─────────── 0.5 ───────
 - **Estimation masks.** Only modes with `mode_valid` and at least one valid timestep compete for
   `top_k` and for `best_of_k`; invalid timesteps are interpolated across. An estimation with no
   valid mode is scored as standing still at its position.
-- **Ground-truth masks.** Invalid steps are not scored, FDE is taken at the last valid one, and an
+- **Ground-truth masks.** A step is valid only if both its `timestep_valid` and its mode's
+  `mode_valid` say so. Invalid steps are not scored, FDE is taken at the last valid one, and an
   object with no valid future step is left out -- its class can report `NaN` while `support` still
   counts it.
 

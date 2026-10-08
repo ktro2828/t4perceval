@@ -365,6 +365,31 @@ class TestValidity:
         assert np.isnan(metrics["ade"].of_class(0))
         assert metrics["ade"].support.values[0] == 1, "the ground truth still counted"
 
+    @pytest.mark.parametrize(
+        "masks",
+        [
+            {"mode_valid": [False]},
+            {"mode_valid": [False], "timestep_valid": [[True, True, True]]},
+        ],
+        ids=["mode-mask-alone", "mode-mask-overrides-steps"],
+    )
+    def test_an_invalid_ground_truth_mode_is_left_out(
+        self,
+        labels: LabelRegistry,
+        masks: dict[str, object],
+    ) -> None:
+        metrics = displacement(
+            labels,
+            est_waypoints=TWO_MODES,
+            est_confidences=TWO_MODE_CONFIDENCES,
+            gt_options=masks,
+        )
+
+        assert np.isnan(metrics["ade"].of_class(0))
+        assert np.isnan(metrics["fde"].of_class(0))
+        assert np.isnan(metrics["miss_rate"].of_class(0))
+        assert metrics["ade"].support.values[0] == 1, "the ground truth still counted"
+
     def test_an_estimation_with_no_future_stands_still(self, labels: LabelRegistry) -> None:
         metrics = displacement(
             labels,
