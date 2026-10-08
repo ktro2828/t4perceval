@@ -26,7 +26,6 @@ from t4perceval.importer._columns import resolve_emit
 from t4perceval.importer._importer import (
     import_metadata,
     narrow,
-    pin_trajectory_shape,
     single_frame_id,
 )
 from t4perceval.importer.t4.convert import (
@@ -86,12 +85,6 @@ class ImportOptions:
     coords: Coords = "base_link"
     future_seconds: float = 0.0
     """How far ahead to fetch trajectories. Only consulted for ``kind_3d="predictions"``."""
-
-    num_modes: int | None = None
-    """Pin the trajectory mode count, or ``None`` to fit the scene."""
-
-    num_timesteps: int | None = None
-    """Pin the trajectory timestep count, or ``None`` to fit the scene."""
 
     velocity: Emit = "auto"
     num_points: Emit = "auto"
@@ -229,13 +222,7 @@ class T4Importer:
         )
 
         trajectory = (
-            pin_trajectory_shape(
-                trajectory_shape_of(boxes_3d.values()),
-                num_modes=options.num_modes,
-                num_timesteps=options.num_timesteps,
-            )
-            if options.kind_3d == "predictions"
-            else None
+            trajectory_shape_of(boxes_3d.values()) if options.kind_3d == "predictions" else None
         )
         emit = _resolve_emit(options, boxes_3d.values())
         frame_id = single_frame_id(

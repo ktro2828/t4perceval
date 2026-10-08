@@ -227,24 +227,6 @@ class TestPredictions:
         assert batch.time_offset.values[0].tolist() == [NS // 2, NS, 3 * NS // 2]
         assert np.isfinite(batch.waypoints.values).all()
 
-    def test_a_pin_smaller_than_the_data_is_refused(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(num_timesteps=2))
-
-        with pytest.raises(ValueError, match="pinned"):
-            importer.import_topic(
-                labels=importer.label_registry(),
-                selection=BagSelection(topic=PREDICTION_TOPIC),
-            )
-
-    def test_a_larger_pin_pads(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(num_timesteps=5))
-        recording = importer.import_topic(
-            labels=importer.label_registry(),
-            selection=BagSelection(topic=PREDICTION_TOPIC),
-        )
-
-        assert everything(recording).materialize(Predictions3D).num_timesteps == 5
-
 
 class TestProvenance:
     def test_the_source_is_recorded(self, trackings: Recording, rosbag_path: Path) -> None:

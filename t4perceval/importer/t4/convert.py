@@ -506,7 +506,7 @@ def _trajectory_columns(
     if truncated:
         warnings.warn(
             f"{truncated} box(es) had a future longer than the "
-            f"({num_modes}, {num_timesteps}) shape this scene was pinned to; "
+            f"({num_modes}, {num_timesteps}) trajectory shape it was given; "
             f"the excess was dropped",
             stacklevel=3,
         )
