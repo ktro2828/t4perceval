@@ -39,16 +39,17 @@ def package_version() -> str:
         return ""
 
 
-def import_metadata(source: SourceInfo, *, frame_id: str | None) -> RecordingMetadata:
+def import_metadata(*sources: SourceInfo, frame_id: str | None) -> RecordingMetadata:
     """Return the metadata an importer stamps on a recording.
 
-    The label fingerprint is left empty on purpose: ``Recording.of`` stamps it from the
-    registry the recording is bound to, so it cannot disagree with the data.
+    One :class:`SourceInfo` per imported stream, in import order. The label fingerprint is
+    left empty on purpose: ``Recording.of`` stamps it from the registry the recording is
+    bound to, so it cannot disagree with the data.
     """
     return RecordingMetadata(
         t4perceval_version=package_version(),
         created_at_ns=time.time_ns(),
-        sources=(source,),
+        sources=sources,
         frame_id=frame_id,
     )
 

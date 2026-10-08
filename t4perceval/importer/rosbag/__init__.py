@@ -16,6 +16,17 @@ needed. The registry is an input, never derived here -- see
         selection=BagSelection(topic="/perception/object_recognition/tracking/objects"),
     )
 
+Several topics of one bag go into one recording, each under its own entity root, with the
+frame tree read and recorded once::
+
+    recording = importer.import_topics(
+        labels=labels,
+        selections={
+            "/estimation/detection": BagSelection(topic=".../detection/objects"),
+            "/estimation/tracking": BagSelection(topic=".../tracking/objects"),
+        },
+    )
+
 ``/tf`` samples are recorded on the ``TIMESTAMP`` timeline only -- they have no frame index
 -- so a lookup is ``TransformResolver.of(recording, timeline=TIMESTAMP)``.
 """

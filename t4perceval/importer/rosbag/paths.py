@@ -24,8 +24,10 @@ DEFAULT_ROOT: Final = EntityPath.parse("/estimation")
 def objects3d_path(root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
     """Return the path a topic's 3D objects are logged to, ``/estimation/objects``.
 
-    One path regardless of topic: a recording holds one topic, and the coordinate frame the
-    objects are expressed in is already recorded truthfully in ``Chunk.frame_id``.
+    One path regardless of topic: the root decides where a topic is filed -- one root per
+    topic with :meth:`~t4perceval.importer.rosbag.RosbagImporter.import_topics` -- and the
+    coordinate frame the objects are expressed in is already recorded truthfully in
+    ``Chunk.frame_id``.
     """
     return as_entity_path(root) / "objects"
 
@@ -33,9 +35,14 @@ def objects3d_path(root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
 def topic_entity_path(topic: str, *, root: EntityPathLike = DEFAULT_ROOT) -> EntityPath:
     """Return ``<root>/<topic>`` for callers who *do* want one entity per topic.
 
-    Not what the importer does by default -- see the module docstring -- but the natural
-    filing when several topics of one bag are imported into one store, where they must not
-    collide on ``<root>/objects``.
+    Not what the importer does by default -- see the module docstring -- but one way to
+    pick the roots of several topics imported into one recording, where they must not
+    collide on ``<root>/objects``::
+
+        importer.import_topics(
+            labels=labels,
+            selections={topic_entity_path(t): BagSelection(topic=t) for t in topics},
+        )
     """
     stripped = topic.strip("/")
     if not stripped:
