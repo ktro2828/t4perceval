@@ -182,8 +182,8 @@ class TestMota:
 
         assert metrics["mota"].of_class(0) == pytest.approx(0.0), "(1 - 1 - 0) / 1"
 
-    def test_it_never_goes_negative(self, labels: LabelRegistry) -> None:
-        """More wrong claims than there are objects would drive the raw score below zero."""
+    def test_it_can_go_negative(self, labels: LabelRegistry) -> None:
+        """More wrong claims than there are objects drive it below zero, as in CLEAR."""
         store = Store()
         tracks(store, 0, GT, [(0.0, 100, "car")], labels)
         tracks(
@@ -196,7 +196,7 @@ class TestMota:
 
         metrics = clear_of(store, labels)
 
-        assert metrics["mota"].of_class(0) == pytest.approx(0.0)
+        assert metrics["mota"].of_class(0) == pytest.approx(-2.0), "(1 - 3 - 0) / 1"
 
     def test_no_ground_truth_leaves_it_undefined(self, labels: LabelRegistry) -> None:
         store = Store()
@@ -267,7 +267,8 @@ class TestClassesAndEdges:
         metrics = clear_of(store, labels)
 
         assert metrics["mota"].of_class(labels.class_id("car")) == pytest.approx(1.0)
-        assert metrics["mota"].of_class(labels.class_id("truck")) == pytest.approx(0.0)
+        # The truck is missed and its estimate lands elsewhere: (0 - 1 - 0) / 1.
+        assert metrics["mota"].of_class(labels.class_id("truck")) == pytest.approx(-1.0)
 
     def test_reports_a_row_for_every_registered_class(self, labels: LabelRegistry) -> None:
         store = Store()

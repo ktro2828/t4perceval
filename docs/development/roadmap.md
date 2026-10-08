@@ -428,9 +428,9 @@ t4perceval behavior
    rather than confidence order; nuScenes matches greedily in descending confidence.
 4. **CLEAR ID-switch semantics.** An identity change across a missing frame is counted as an ID
    switch (`_count_switches()` only ever receives true-positive rows).
-5. **MOTA semantics.** MOTA is clamped to 0 by `max(0.0, ...)`, while CLEAR permits negative
-   values. Under class-agnostic matching, a pair whose classes disagree becomes neither a true
-   positive nor a false positive.
+5. **MOTA semantics.** ~~MOTA is clamped to 0 by `max(0.0, ...)`, while CLEAR permits negative
+   values~~ (done: MOTA is no longer clamped). Under class-agnostic matching, a pair whose classes
+   disagree becomes neither a true positive nor a false positive.
 6. **Classification and miss-rate cleanup.** `accuracy` is defined as `TP / (TP + FP + FN)`
    (Jaccard/IoU), which does not match its name; MissRate is the fraction of all mode × timestep
    distances over the tolerance, which differs from the per-object definition.
@@ -441,7 +441,8 @@ t4perceval behavior
 - [ ] APH
 - [ ] AP confidence-order association
 - [ ] CLEAR ID-switch semantics
-- [ ] MOTA semantics
+- [x] MOTA clamping
+- [ ] MOTA class-agnostic counting
 - [ ] Classification and miss-rate definitions
 - [ ] Regression tests over all of the above
 

@@ -280,7 +280,9 @@ def tracking_metrics(store: Any, class_names: Sequence[str]) -> dict[str, float 
             out[prefix.format(metric) + name] = _clean(values.of_class(c))
 
     # perception_eval's scene-wide numbers, derived with its formulas: MOTA weighted by
-    # ground-truth count, MOTP weighted by true-positive count, switches summed.
+    # ground-truth count, MOTP weighted by true-positive count, switches summed. The
+    # max(0.0, ...) is perception_eval's clamp, kept here to reproduce its number; t4perceval's
+    # own per-class MOTA is not clamped (metric divergence #5).
     mota = per_class["mota"]
     support = mota.support.values.astype(np.float64)
     finite = np.isfinite(mota.value.values)

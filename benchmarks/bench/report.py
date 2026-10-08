@@ -23,7 +23,11 @@ DOCUMENTED: tuple[tuple[str, str, str], ...] = (
     ("detection/maph", "hungarian-vs-greedy, aph-heading-sign", "#3, #7"),
     ("tracking/motp", "motp-previous-score", "#6"),
     ("tracking/id_switch", "idsw-across-missed-frame, idsw-estimation-side", "#4, #8"),
-    ("tracking/mota", "idsw-across-missed-frame, idsw-estimation-side", "#4, #8"),
+    (
+        "tracking/mota",
+        "idsw-across-missed-frame, mota-clamped, idsw-estimation-side",
+        "#4, #5, #8",
+    ),
     ("prediction/", "hungarian-vs-greedy", "#3"),
 )
 
