@@ -106,7 +106,6 @@ importer = T4Importer.open(
 | `kind_2d`                              | `"trackings"`   | `"detections"` or `"trackings"`, for camera boxes                     |
 | `coords`                               | `"base_link"`   | the frame boxes are expressed in                                      |
 | `future_seconds`                       | `0.0`           | how much future trajectory to attach (for `"predictions"`)            |
-| `num_modes`, `num_timesteps`           | `None`          | pin the trajectory shape instead of inferring it                      |
 | `velocity`, `num_points`, `visibility` | `"auto"`        | emit the optional column when the dataset has it (settled scene-wide) |
 | `unknown_labels`                       | `"error"`       | what to do with a category the registry does not know                 |
 | `entity_root`                          | `/ground_truth` | where objects are filed                                               |
@@ -195,7 +194,6 @@ would rather not choose one.
 | :------------------------------ | :---------------------------- | :------------------------------------------ |
 | `confidence`                    | `"classification"`            | or `"existence"` / `"product"`              |
 | `velocity`                      | `"auto"`                      | emit the column when the message carries it |
-| `num_modes`, `num_timesteps`    | `None`                        | pin the trajectory shape                    |
 | `unknown_labels`                | `"error"`                     | what to do with an unmapped class           |
 | `entity_root`                   | `/estimation`                 | where objects are filed                     |
 | `instance_namespace`            | `"est"`                       | prefix for interned instance ids            |

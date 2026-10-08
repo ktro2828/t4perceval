@@ -21,7 +21,6 @@ from t4perceval.importer._importer import (
     import_metadata,
     narrow,
     package_version,
-    pin_trajectory_shape,
     single_frame_id,
 )
 from t4perceval.recording import SourceInfo
@@ -167,15 +166,6 @@ class TestSingleFrameId:
             ValueError, match=r"Topic '/x' mixes coordinate frames: \['base_link', 'map'\]"
         ):
             single_frame_id(["map", "base_link"], what="Topic '/x'")
-
-
-class TestPinTrajectoryShape:
-    def test_unpinned_takes_the_fitted_shape(self) -> None:
-        assert pin_trajectory_shape((3, 8), num_modes=None, num_timesteps=None) == (3, 8)
-
-    def test_a_pin_overrides_its_axis_only(self) -> None:
-        assert pin_trajectory_shape((3, 8), num_modes=6, num_timesteps=None) == (6, 8)
-        assert pin_trajectory_shape((3, 8), num_modes=None, num_timesteps=1) == (3, 1)
 
 
 class TestImportMetadata:

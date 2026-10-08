@@ -28,7 +28,6 @@ from t4perceval.importer._columns import resolve_emit
 from t4perceval.importer._importer import (
     import_metadata,
     narrow,
-    pin_trajectory_shape,
     single_frame_id,
 )
 from t4perceval.importer.rosbag.convert import (
@@ -81,12 +80,6 @@ class ImportOptions:
     """Which message field becomes ``BatchConfidence``."""
 
     velocity: Emit = "auto"
-    num_modes: int | None = None
-    """Pin the trajectory mode count, or ``None`` to fit the topic."""
-
-    num_timesteps: int | None = None
-    """Pin the trajectory timestep count, or ``None`` to fit the topic."""
-
     unknown_labels: UnknownLabels = "error"
     entity_root: EntityPathLike = DEFAULT_ROOT
     instance_namespace: str = "est"
@@ -270,7 +263,7 @@ class RosbagImporter:
                 (str(message.header.frame_id) for message in decoded),
                 what=f"Topic {info.topic!r}",
             ),
-            trajectory=_trajectory_shape(options, decoded) if kind == "predictions" else None,
+            trajectory=trajectory_shape_of(decoded) if kind == "predictions" else None,
             velocity=resolve_emit(options.velocity, has_any_twist(decoded)),
             stamps=tuple(stamp_ns(message.header.stamp) for message in decoded),
         )
@@ -386,23 +379,3 @@ def _resolve_topic(candidates: Sequence[TopicInfo], topic: str | None) -> TopicI
         if info.topic == topic:
             return info
     raise ValueError(f"Topic {topic!r} is not an object topic of this bag. Found: {listing}")
-
-
-def _trajectory_shape(options: ImportOptions, messages: Sequence[object]) -> tuple[int, int]:
-    """Return the topic-wide trajectory shape, honouring any pinned dimension.
-
-    Unlike a T4 future, a predicted path's length is not a dataset constant, so a pin
-    smaller than the data is refused rather than silently truncated.
-    """
-    fitted = trajectory_shape_of(messages)
-    modes, timesteps = pin_trajectory_shape(
-        fitted,
-        num_modes=options.num_modes,
-        num_timesteps=options.num_timesteps,
-    )
-    if modes < fitted[0] or timesteps < fitted[1]:
-        raise ValueError(
-            f"Topic needs a ({fitted[0]}, {fitted[1]}) trajectory shape but "
-            f"({modes}, {timesteps}) was pinned",
-        )
-    return (modes, timesteps)

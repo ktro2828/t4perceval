@@ -22,7 +22,6 @@ __all__ = (
     "import_metadata",
     "narrow",
     "package_version",
-    "pin_trajectory_shape",
     "single_frame_id",
 )
 
@@ -86,16 +85,3 @@ def single_frame_id(frame_ids: Iterable[str], *, what: str) -> str | None:
     if len(seen) > 1:
         raise ValueError(f"{what} mixes coordinate frames: {sorted(seen)}")
     return seen.pop() if seen else None
-
-
-def pin_trajectory_shape(
-    fitted: tuple[int, int],
-    *,
-    num_modes: int | None,
-    num_timesteps: int | None,
-) -> tuple[int, int]:
-    """Return the trajectory shape to use, honouring any pinned dimension."""
-    return (
-        num_modes if num_modes is not None else fitted[0],
-        num_timesteps if num_timesteps is not None else fitted[1],
-    )

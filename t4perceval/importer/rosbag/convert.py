@@ -296,8 +296,8 @@ def objects_to_columns(
         velocity: Whether to emit the velocity column.
         trajectory: ``(num_modes, num_timesteps)`` to build trajectory columns with, or
             ``None`` to build none. Every object's paths must fit; excess is an error,
-            because a pinned shape smaller than the data means the caller's topic-wide
-            pass disagreed with this message.
+            because a shape smaller than the data means the caller's topic-wide pass
+            disagreed with this message.
 
     Returns:
         The columns, filtered by the label policy.
@@ -501,8 +501,8 @@ def _trajectory_columns(
         if len(paths) > num_modes or longest > num_timesteps:
             raise ValueError(
                 f"Object {index} has {len(paths)} path(s) of up to {longest} step(s), which "
-                f"does not fit the ({num_modes}, {num_timesteps}) shape this topic was "
-                f"pinned to",
+                f"does not fit the ({num_modes}, {num_timesteps}) trajectory shape it was "
+                f"given",
             )
 
         for mode, path in enumerate(paths):
