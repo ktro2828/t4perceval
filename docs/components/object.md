@@ -100,10 +100,9 @@ waypoints.num_timesteps  # 12
 
 Descriptors: `WAYPOINTS`, `MODE_CONFIDENCE`, `MODE_VALID`, `TIMESTEP_VALID`, `TIME_OFFSET`.
 
-!!! warning "The validity masks are not applied by the metric yet"
-
-    `PathDisplacementSystem` does not read `mode_valid`, `timestep_valid` or `time_offset`. See
-    [Prediction](../evaluation/prediction.md#optional-components).
+`PathDisplacementSystem` requires `TIME_OFFSET` on both sides and honours `MODE_VALID` /
+`TIMESTEP_VALID` when present. See
+[Prediction](../evaluation/prediction.md#how-the-metric-reads-them).
 
 ## Where to go next
 

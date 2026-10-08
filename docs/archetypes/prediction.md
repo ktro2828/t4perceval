@@ -70,14 +70,13 @@ prediction.has(*Trajectories3D.required_descriptors())  # True
 
 Everything [`Trackings3D`](tracking.md#what-it-unlocks) unlocks, plus:
 
-| Component present              | Enables                  |
-| :----------------------------- | :----------------------- |
-| `waypoints`, `mode_confidence` | `PathDisplacementSystem` |
+| Component present                             | Enables                  |
+| :-------------------------------------------- | :----------------------- |
+| `waypoints`, `mode_confidence`, `time_offset` | `PathDisplacementSystem` |
 
-!!! warning "The validity masks are not read yet"
-
-    `PathDisplacementSystem` ignores `mode_valid`, `timestep_valid` and `time_offset`. See
-    [Metric divergences](../development/metric-divergences.md).
+`PathDisplacementSystem` compares trajectories in time, so it needs `time_offset` on both sides, and
+it honours `mode_valid` / `timestep_valid` when they are present. See
+[Prediction evaluation](../evaluation/prediction.md#how-the-metric-reads-them).
 
 ## Where to go next
 

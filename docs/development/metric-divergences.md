@@ -16,17 +16,21 @@ No implementation changes were made as part of this review.
 
 ## Important findings
 
-### 1. Prediction metrics ignore validity masks and time offsets
+### 1. Prediction metrics ignore validity masks and time offsets (resolved)
 
-[`t4perceval/system/metric/prediction.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/prediction.py) does not require or use `MODE_VALID`, `TIMESTEP_VALID`, or `TIME_OFFSET`.
+**Resolved.** `PathDisplacementSystem` now requires `TIME_OFFSET` on both sides and honours
+`MODE_VALID` / `TIMESTEP_VALID`: each valid ground-truth step is scored against the prediction
+interpolated at the same time offset (the current position anchors offset 0, and a prediction that
+ends early is held at its last valid point); invalid modes never enter the top-k or the best-of-k choice;
+invalid ground-truth steps are not scored and FDE is taken at the last valid one; ADE and FDE are
+averaged per object first. See
+[Prediction evaluation](../evaluation/prediction.md#how-the-metric-reads-them). On dense trajectories that share one time axis the numbers are unchanged. The number is kept so that
+the references to later items stay stable.
 
-Consequently:
-
-- Padded invalid modes and timesteps can contribute to ADE, FDE, and miss rate.
-- Trajectories with different temporal intervals are compared by array index alone.
-- An invalid mode can be selected among the top-k modes.
-
-This conflicts with the trajectory archetype documentation, which states that padded elements are masked.
+As originally found, the metric did not require or use `MODE_VALID`, `TIMESTEP_VALID`, or
+`TIME_OFFSET`, so padded modes and timesteps contributed to ADE, FDE and miss rate, an invalid mode
+could be selected among the top-k, and trajectories with different temporal intervals were compared
+by array index alone.
 
 ### 2. APH differs from the Waymo definition
 
@@ -43,7 +47,7 @@ This behavior is compatible with the corresponding implementation in `autoware_p
 
 ### 3. AP matching is not performed in confidence order
 
-The current pipeline first fixes all associations using a globally optimal Hungarian assignment in [`t4perceval/system/matching.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/matching.py), then ranks the resulting match verdicts by confidence in [`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py).
+The current pipeline first fixes all associations using a globally optimal Hungarian assignment in [`t4perceval/system/matching/base.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/matching/base.py), then ranks the resulting match verdicts by confidence in [`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py).
 
 nuScenes processes predictions in confidence order and matches each prediction to the closest ground truth that is still available. See the [official nuScenes implementation](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/eval/detection/algo.py).
 
@@ -148,4 +152,4 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 uv run pytest -q
 ```
 
-The current tests adequately verify the behavior implemented by the project, but they do not cover official benchmark compatibility, validity masks, time alignment, or an identity change across a missing frame.
+The current tests adequately verify the behavior implemented by the project, but they do not cover official benchmark compatibility or an identity change across a missing frame. Prediction validity masks and time alignment are now covered by `tests/test_metrics_prediction.py`.
