@@ -36,6 +36,7 @@ def average_precision_sweep(
     thresholds: Sequence[ThresholdsLike] = (1.0,),
     heading: bool = False,
     class_agnostic: bool = False,
+    max_matchable_distance: ThresholdsLike | None = None,
 ) -> list[System]:
     """Return the systems for average precision over several matching thresholds.
 
@@ -55,6 +56,7 @@ def average_precision_sweep(
         thresholds: One threshold per matching run.
         heading: Also emit APH and mAPH.
         class_agnostic: Passed through to each matcher.
+        max_matchable_distance: Passed through to each matcher.
 
     Returns:
         The systems in run order: a matcher and a metric per threshold, then the means.
@@ -75,6 +77,7 @@ def average_precision_sweep(
                 ground_truth,
                 threshold=threshold,
                 class_agnostic=class_agnostic,
+                max_matchable_distance=max_matchable_distance,
                 target=matching_target,
             ),
         )

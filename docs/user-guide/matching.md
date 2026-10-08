@@ -69,6 +69,15 @@ row.
 Pairs are chosen by a globally optimal **linear-sum (Hungarian) assignment** over the score matrix,
 subject to the threshold and -- unless `class_agnostic=True` -- to the two rows sharing a class.
 
+`max_matchable_distance` adds a gate on the 3D distance between centres, whatever the mode scores:
+two large boxes can overlap well past an IoU threshold while their centres are metres apart. It
+takes a number or `Thresholds(default, by_class=...)` keyed by ground-truth class, and is refused by
+`IoURoiMatchingSystem`, which has no centres.
+
+```python
+IoUBEVMatchingSystem.between(EST, GT, threshold=0.5, max_matchable_distance=2.0)
+```
+
 A non-finite score is never assigned, and `matching_score` is the mode's natural value -- metres or
 a ratio, NaN on an unmatched row -- not the internal cost.
 

@@ -395,6 +395,81 @@ class TestThresholdValidation:
             assert threshold.default > 0.0
 
 
+class TestMaxMatchableDistance:
+    """A centre-distance gate every positional mode applies on top of its own threshold."""
+
+    #: Boxes large enough that a 3 m offset along their length still overlaps by IoU ~0.74.
+    LARGE: list[list[float]] = [[10.0, 20.0, 2.0]]
+
+    def offset_store(
+        self,
+        labels: LabelRegistry,
+        offset: list[float],
+        names: list[str] | None = None,
+    ) -> Store:
+        names = names or ["car"]
+        gt = [[100.0 * i, 0.0, 0.0] for i in range(len(names))]
+        est = [[x + offset[0], y + offset[1], z + offset[2]] for x, y, z in gt]
+        sizes = self.LARGE * len(names)
+        store = Store()
+        store.log(GT, boxes(gt, labels, names, sizes=sizes), at=TimePoint.at(frame=0))
+        store.log(EST, boxes(est, labels, names, sizes=sizes), at=TimePoint.at(frame=0))
+        return store
+
+    @pytest.mark.parametrize("mode", ALL_MODES, ids=lambda m: m.__name__)
+    def test_it_is_off_by_default(self, mode: type[MatchingSystem]) -> None:
+        assert mode.between(EST, GT).max_matchable_distance is None
+
+    def test_it_rejects_a_pair_the_threshold_alone_would_accept(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        ctx = SystemContext(self.offset_store(labels, [3.0, 0.0, 0.0]), FRAME, labels=labels)
+
+        ungated = result_of(IoUBEVMatchingSystem.between(EST, GT), ctx)
+        gated = result_of(
+            IoUBEVMatchingSystem.between(EST, GT, max_matchable_distance=2.0),
+            ctx,
+        )
+
+        assert counts(ungated) == (1, 0, 0)
+        assert counts(gated) == (0, 1, 1)
+
+    def test_it_measures_in_3d(self, labels: LabelRegistry) -> None:
+        # The footprints coincide, so BEV IoU is 1 -- only the height gap can reject them.
+        ctx = SystemContext(self.offset_store(labels, [0.0, 0.0, 5.0]), FRAME, labels=labels)
+
+        result = result_of(
+            IoUBEVMatchingSystem.between(EST, GT, max_matchable_distance=1.0),
+            ctx,
+        )
+
+        assert counts(result) == (0, 1, 1)
+
+    def test_the_ground_truth_class_selects_the_limit(self, labels: LabelRegistry) -> None:
+        store = self.offset_store(labels, [3.0, 0.0, 0.0], ["car", "pedestrian"])
+        system = IoUBEVMatchingSystem.between(
+            EST,
+            GT,
+            max_matchable_distance=Thresholds(2.0, by_class={"car": 5.0}),
+        )
+
+        result = result_of(system, SystemContext(store, FRAME, labels=labels))
+
+        tp = result.match_status.values == int(MatchStatus.TP)
+        assert result.gt_index.values[tp].tolist() == [0]
+        assert counts(result) == (1, 1, 1)
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0])
+    def test_it_must_be_positive(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="max_matchable_distance must be positive"):
+            IoUBEVMatchingSystem.between(EST, GT, max_matchable_distance=bad)
+
+    def test_a_mode_without_a_position_rejects_it(self) -> None:
+        with pytest.raises(ValueError, match="no centre for max_matchable_distance"):
+            IoURoiMatchingSystem.between(EST, GT, max_matchable_distance=1.0)
+
+
 class TestRecordedThreshold:
     """The threshold is the one thing a metric could not recover by following indices."""
 

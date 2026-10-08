@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
-from attrs import Factory, define, field
+from attrs import Factory, converters, define, field
 from scipy.optimize import linear_sum_assignment
 
+from t4perceval import geometry
 from t4perceval.archetype.matching import MatchResults
 from t4perceval.component import MatchStatus
 from t4perceval.core.chunk import concat_chunks
@@ -84,6 +85,20 @@ class MatchingSystem(EntitySystem):
     )
     class_agnostic: bool = field(default=False, kw_only=True)
 
+    max_matchable_distance: Thresholds | None = field(
+        default=None,
+        converter=converters.optional(Thresholds.coerce),
+        kw_only=True,
+    )
+    """Largest 3D distance between centres, in metres, at which a pair may be assigned.
+
+    A gate applied on top of :attr:`threshold`, whatever the mode scores: two large boxes
+    can overlap well enough to pass an IoU threshold while their centres are metres apart.
+    A number, or :class:`Thresholds` keyed by ground-truth class like :attr:`threshold`.
+    ``None`` disables the gate. Modes without :data:`~t4perceval.descriptors.POSITION`
+    reject it.
+    """
+
     check_frames: bool = field(default=True, kw_only=True)
     """Whether to refuse inputs that state different coordinate frames.
 
@@ -111,6 +126,22 @@ class MatchingSystem(EntitySystem):
                 f"{type(self).__name__} thresholds are distances and must be positive, "
                 f"got {list(thresholds)}",
             )
+
+        if self.max_matchable_distance is not None:
+            if POSITION not in self.REQUIRES:
+                raise ValueError(
+                    f"{type(self).__name__} does not require {POSITION.component!r}, "
+                    "so it has no centre for max_matchable_distance to gate on",
+                )
+            limits = (
+                self.max_matchable_distance.default,
+                *(t for _, t in self.max_matchable_distance.by_class),
+            )
+            if not all(value > 0.0 for value in limits):
+                raise ValueError(
+                    f"{type(self).__name__} max_matchable_distance must be positive, "
+                    f"got {list(limits)}",
+                )
 
     @classmethod
     def between(
@@ -275,6 +306,15 @@ class MatchingSystem(EntitySystem):
 
         feasible = np.isfinite(score)
         feasible &= score >= threshold if self.HIGHER_IS_BETTER else score <= threshold
+
+        if self.max_matchable_distance is not None:
+            distance = geometry.pairwise_center_distance(
+                est_view.component(POSITION).values,
+                gt_view.component(POSITION).values,
+            )
+            limit = self.max_matchable_distance.resolve(gt_class, ctx.labels)[None, :]
+            # A non-finite distance fails the comparison, so it is never assigned either.
+            feasible &= distance <= limit
 
         if not self.class_agnostic:
             est_class = est_view.component(CLASS_ID).values
