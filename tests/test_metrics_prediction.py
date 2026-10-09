@@ -14,6 +14,7 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
+from t4perceval.component import ALL_CLASSES
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     PathDisplacementSystem,
@@ -748,4 +749,49 @@ class TestEdges:
     def test_reports_a_row_for_every_registered_class(self, labels: LabelRegistry) -> None:
         metrics = displacement(labels, est_waypoints=STRAIGHT_AHEAD, est_confidences=[1.0])
 
-        assert metrics["ade"].class_id.values.tolist() == [0, 1, 2]
+        assert metrics["ade"].class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
+
+
+class TestAllClasses:
+    def test_pools_every_object_rather_than_averaging_classes(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Two cars predicted 1 m off and a truck 4 m off: (1 + 1 + 4) / 3, not (1 + 4) / 2."""
+        xs = [0.0, 20.0, 40.0]
+        offsets = [1.0, 1.0, 4.0]
+        names = ["car", "car", "truck"]
+
+        def objects(position_dx: float, lateral: list[float]) -> Predictions3D:
+            return Predictions3D(
+                position=[[x + position_dx, 0.0, 0.0] for x in xs],
+                quaternion=[[0.0, 0.0, 0.0, 1.0]] * 3,
+                size=[[2.0, 4.0, 2.0]] * 3,
+                class_id=labels.encode(names),
+                confidence=[0.9] * 3,
+                instance_id=[0, 1, 2],
+                waypoints=np.asarray(
+                    [
+                        [[[x + 1.0, y, 0.0], [x + 2.0, y, 0.0], [x + 3.0, y, 0.0]]]
+                        for x, y in zip(xs, lateral)
+                    ]
+                ),
+                mode_confidence=np.ones((3, 1)),
+                time_offset=np.asarray([steps_ns(3)] * 3, dtype=np.int64),
+            )
+
+        store = Store()
+        store.log(GT, objects(0.0, [0.0] * 3), at=TimePoint.at(frame=0), frame_id="base_link")
+        store.log(EST, objects(0.05, offsets), at=TimePoint.at(frame=0), frame_id="base_link")
+        match = CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0)
+        metric = PathDisplacementSystem.on(match.target, EST, GT, top_k=1)
+        Pipeline([match, metric]).run(
+            SystemContext(store, FRAME, labels=labels), TimeRange.everything()
+        )
+
+        ade = store.range(
+            metric.targets[0], timeline=FRAME, time_range=TimeRange.everything()
+        ).materialize(MetricValues)
+        assert ade.of_class(labels.class_id("truck")) == pytest.approx(4.0)
+        assert ade.aggregate == pytest.approx(2.0)
+        assert ade.support.values[-1] == 3

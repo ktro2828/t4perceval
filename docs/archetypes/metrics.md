@@ -24,7 +24,7 @@ values = store.range("/metrics/map", timeline=FRAME, time_range=TimeRange.everyt
     MetricValues
 )
 
-values.aggregate  # the ALL_CLASSES row with a NaN threshold
+values.aggregate  # the ALL_CLASSES row with a NaN threshold; every scalar metric writes one
 values.of_class(labels.class_id("car"))  # one class, when it has exactly one row
 values.value.values  # the whole column
 values.support.values

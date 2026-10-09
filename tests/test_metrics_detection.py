@@ -153,7 +153,7 @@ class TestAveragePrecision:
         result = run(store, systems, labels, target)
 
         assert np.isnan(result.value.values).all()
-        assert result.support.values.tolist() == [0] * len(labels)
+        assert result.support.values.tolist() == [0] * (len(labels) + 1)
 
     def test_missing_everything_scores_zero_not_undefined(self, labels: LabelRegistry) -> None:
         store = make_metric_scene(labels, [(0, [(0.0, "car")], [])])
@@ -170,8 +170,8 @@ class TestAveragePrecision:
 
         result = run(store, systems, labels, target)
 
-        assert result.class_id.values.tolist() == [0, 1, 2]
-        assert np.isnan(result.value.values[1:]).all(), "absent classes are undefined, not zero"
+        assert result.class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
+        assert np.isnan(result.value.values[1:3]).all(), "absent classes are undefined, not zero"
 
     def test_records_the_threshold_the_matching_used(self, labels: LabelRegistry) -> None:
         store = make_metric_scene(labels, [(0, [(0.0, "car")], [(0.1, "car", 0.9)])])
@@ -429,3 +429,33 @@ class TestMeanAveragePrecision:
     def test_needs_at_least_one_source(self) -> None:
         with pytest.raises(ValueError, match="at least one source"):
             MeanAveragePrecisionSystem((), "/metrics/map")
+
+
+class TestAllClasses:
+    def test_averages_the_class_aps(self, labels: LabelRegistry) -> None:
+        """AP is the exception that does not pool: three cars all found (1.0) and a truck
+        never found (0.0) average to 0.5. Pooled, the three hits would rank first and score
+        far higher."""
+        store = make_metric_scene(
+            labels,
+            [
+                (
+                    0,
+                    [(0.0, "car"), (10.0, "car"), (20.0, "car"), (50.0, "truck")],
+                    [
+                        (0.1, "car", 0.9),
+                        (10.1, "car", 0.8),
+                        (20.1, "car", 0.7),
+                        (500.0, "truck", 0.6),
+                    ],
+                )
+            ],
+        )
+        systems, target = detection_pipeline()
+
+        result = run(store, systems, labels, target)
+
+        assert result.of_class(labels.class_id("car")) == pytest.approx(1.0)
+        assert result.of_class(labels.class_id("truck")) == pytest.approx(0.0)
+        assert result.aggregate == pytest.approx(0.5)
+        assert result.support.values[-1] == 4

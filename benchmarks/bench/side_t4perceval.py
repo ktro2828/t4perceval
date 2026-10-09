@@ -274,9 +274,12 @@ def tracking_metrics(store: Any, class_names: Sequence[str]) -> dict[str, float 
     # ground-truth count, MOTP weighted by true-positive count, switches summed. The
     # max(0.0, ...) is perception_eval's clamp, kept here to reproduce its number; t4perceval's
     # own per-class MOTA is not clamped (metric divergence #5).
+    # Only the per-class rows: t4perceval's own all-class row pools the objects without
+    # perception_eval's clamp, so it is not the number being reproduced here.
     mota = per_class["mota"]
-    support = mota.support.values.astype(np.float64)
-    finite = np.isfinite(mota.value.values)
+    classes = mota.class_id.values >= 0
+    support = np.where(classes, mota.support.values, 0).astype(np.float64)
+    finite = np.isfinite(mota.value.values) & classes
     out[prefix.format("mota") + ALL] = _clean(
         max(0.0, float(np.sum(mota.value.values[finite] * support[finite]) / support.sum()))
         if support.sum()
@@ -289,8 +292,7 @@ def tracking_metrics(store: Any, class_names: Sequence[str]) -> dict[str, float 
     out[prefix.format("motp") + ALL] = _clean(
         float(np.mean(score[true_positive])) if true_positive.any() else np.nan,
     )
-    switches = per_class["id_switch"].value.values
-    out[prefix.format("id_switch") + ALL] = _clean(float(np.nansum(switches)))
+    out[prefix.format("id_switch") + ALL] = _clean(per_class["id_switch"].aggregate)
     del CLASS_ID
     return out
 

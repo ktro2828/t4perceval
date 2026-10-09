@@ -17,6 +17,7 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
+from t4perceval.component import ALL_CLASSES
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     CornerErrorSystem,
@@ -262,14 +263,14 @@ class TestClassesAndEdges:
         metrics = corner_error_of(store, labels)
 
         for row in metrics.values():
-            assert row.class_id.values.tolist() == [0, 1, 2]
+            assert row.class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
 
     def test_an_empty_store_yields_undefined_rows(self, labels: LabelRegistry) -> None:
         metrics = corner_error_of(Store(), labels)
 
         for name, row in metrics.items():
             assert np.isnan(row.value.values).all(), name
-            assert row.support.values.tolist() == [0] * len(labels)
+            assert row.support.values.tolist() == [0] * (len(labels) + 1)
 
     def test_a_frame_with_no_objects_is_harmless(self, labels: LabelRegistry) -> None:
         store = Store()
@@ -281,3 +282,40 @@ class TestClassesAndEdges:
         metrics = corner_error_of(store, labels)
 
         assert metrics["mean"].of_class(0) == pytest.approx(1.0)
+
+
+class TestAllClasses:
+    def test_pools_every_true_positive_rather_than_averaging_classes(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Two cars 0.2 m off and a truck 1.0 m off: a mean of 1.4 / 3, not 0.6."""
+        store = Store()
+        boxes(
+            store,
+            0,
+            GT,
+            [
+                (0.0, 0.0, 0.0, CAR, "car"),
+                (10.0, 0.0, 0.0, CAR, "car"),
+                (50.0, 0.0, 0.0, CAR, "truck"),
+            ],
+            labels,
+        )
+        boxes(
+            store,
+            0,
+            EST,
+            [
+                (0.2, 0.0, 0.0, CAR, "car"),
+                (10.2, 0.0, 0.0, CAR, "car"),
+                (51.0, 0.0, 0.0, CAR, "truck"),
+            ],
+            labels,
+        )
+
+        metrics = corner_error_of(store, labels)
+
+        assert metrics["mean"].aggregate == pytest.approx(1.4 / 3)
+        assert metrics["max"].aggregate == pytest.approx(1.0)
+        assert metrics["mean"].support.values[-1] == 3

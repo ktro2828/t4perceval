@@ -89,6 +89,22 @@ dict(zip(values.threshold.values[rows], values.value.values[rows]))
 A class with no ground truth in range gets a row with `NaN` and `support == 0`, rather than being
 dropped -- so the shape of the result does not depend on the scene.
 
+Every scalar metric ends with **one all-class row**: `class_id == ALL_CLASSES`, a `NaN` threshold,
+and `support` counting every ground-truth object, so `values.aggregate` reads the overall number of
+any metric. It is computed over **every object pooled together**, not as a mean of the class rows:
+
+| Metric                             | All-class row                                                |
+| :--------------------------------- | :----------------------------------------------------------- |
+| MOTA / MOTP / ID switches          | `(ΣTP - ΣFP - ΣIDSW) / ΣGT`, mean score over all hits, total |
+| ADE / FDE / miss rate              | over every scored object (and step, for the miss rate)       |
+| corner error, heading flip rate    | over every true positive                                     |
+| accuracy / precision / recall / F1 | from the counts summed over classes                          |
+| AP / APH                           | **the mean of the class APs** -- the mAP at that threshold   |
+
+AP is the exception because ranking every class's confidences in one list would let one class's
+detections push another's down. Pooling weights each class by its object count, so the all-class
+row of the other metrics can differ from the mean of their class rows.
+
 ## Detection: AP, APH and mAP
 
 ```python

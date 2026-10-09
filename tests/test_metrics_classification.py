@@ -179,3 +179,25 @@ class TestUndefined:
                 time_range=TimeRange.everything(),
             ).materialize(MetricValues)
             assert np.isnan(row.value.values).all()
+
+
+class TestAllClasses:
+    def test_pools_the_counts_rather_than_averaging_classes(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Three cars found, a truck missed and claimed elsewhere: 3 hits of 4 claims, 4 objects.
+
+        A class average would give precision (1 + 0) / 2 = 0.5.
+        """
+        metrics = classification(
+            labels,
+            [(0.0, "car"), (10.0, "car"), (20.0, "car"), (50.0, "truck")],
+            [(0.1, "car", 0.9), (10.1, "car", 0.9), (20.1, "car", 0.9), (500.0, "truck", 0.9)],
+        )
+
+        assert metrics["precision"].aggregate == pytest.approx(0.75)
+        assert metrics["recall"].aggregate == pytest.approx(0.75)
+        assert metrics["accuracy"].aggregate == pytest.approx(3 / (4 + 4 - 3))
+        assert metrics["f1"].aggregate == pytest.approx(0.75)
+        assert metrics["f1"].support.values[-1] == 4

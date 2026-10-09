@@ -34,11 +34,12 @@ if TYPE_CHECKING:
     from t4perceval.core.entity import EntityPath, EntityPathLike
     from t4perceval.core.timeline import Timeline
     from t4perceval.core.view import EntityView
-    from t4perceval.typing import NDArrayF64, NDArrayI32
+    from t4perceval.typing import NDArrayBool, NDArrayF64, NDArrayI32
 
 __all__ = (
     "MetricRow",
     "MetricSystem",
+    "in_class",
     "latest_time",
     "nan_mean",
     "registered_classes",
@@ -85,6 +86,17 @@ def reporting_time(latest: int | None, time_range: TimeRange) -> int:
     if latest is not None:
         return latest
     return int(max(time_range.start, 0))
+
+
+def in_class(column: np.ndarray, class_id: int) -> NDArrayBool:
+    """Return which rows of a class-id ``column`` belong to ``class_id``.
+
+    :data:`~t4perceval.component.ALL_CLASSES` selects every row, so the all-class row of a
+    metric is computed by the same code as a class's, over every object pooled together.
+    """
+    if class_id == ALL_CLASSES:
+        return np.ones(np.shape(column), dtype=np.bool_)
+    return column == class_id
 
 
 def registry_classes(ctx: SystemContext) -> NDArrayI32 | None:
@@ -221,3 +233,12 @@ class MetricSystem(EntitySystem):
     def classes(self, ctx: SystemContext, join: MatchJoin) -> NDArrayI32:
         """Return the classes to report on; see :func:`registered_classes`."""
         return registered_classes(ctx, join.estimation, join.ground_truth)
+
+    def reported_classes(self, ctx: SystemContext, join: MatchJoin) -> list[int]:
+        """Return :meth:`classes`, then :data:`~t4perceval.component.ALL_CLASSES`.
+
+        Every scalar metric ends with an all-class row, threshold ``NaN``, which
+        :attr:`MetricValues.aggregate <t4perceval.archetype.MetricValues.aggregate>` reads.
+        Select its rows with :func:`in_class`.
+        """
+        return [*(int(c) for c in self.classes(ctx, join)), ALL_CLASSES]

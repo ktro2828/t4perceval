@@ -9,6 +9,7 @@ import pytest
 from conftest import make_trackings
 
 from t4perceval import FRAME, MetricValues, LabelRegistry, Store, TimePoint, TimeRange
+from t4perceval.component import ALL_CLASSES
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     ClearSystem,
@@ -277,14 +278,14 @@ class TestClassesAndEdges:
 
         metrics = clear_of(store, labels)
 
-        assert metrics["mota"].class_id.values.tolist() == [0, 1, 2]
+        assert metrics["mota"].class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
 
     def test_an_empty_store_yields_undefined_rows(self, labels: LabelRegistry) -> None:
         metrics = clear_of(Store(), labels)
 
         for name, row in metrics.items():
             assert np.isnan(row.value.values).all(), name
-            assert row.support.values.tolist() == [0] * len(labels)
+            assert row.support.values.tolist() == [0] * (len(labels) + 1)
 
     def test_a_frame_with_no_objects_is_harmless(self, labels: LabelRegistry) -> None:
         store = Store()
@@ -296,3 +297,45 @@ class TestClassesAndEdges:
         metrics = clear_of(store, labels)
 
         assert metrics["mota"].of_class(0) == pytest.approx(1.0)
+
+
+class TestAllClasses:
+    def test_pools_every_object_rather_than_averaging_classes(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Three tracked cars, one switch among them, and a truck that is never found.
+
+        Per class: car (6 - 0 - 1) / 6 = 5/6, truck (0 - 2 - 0) / 2 = -1, whose mean would
+        be -1/12. Pooled: (6 - 2 - 1) / 8.
+        """
+        store = Store()
+        for frame, first_car in ((0, 1), (1, 9)):  # the first car changes hands
+            tracks(
+                store,
+                frame,
+                GT,
+                [(0.0, 100, "car"), (10.0, 101, "car"), (20.0, 102, "car"), (50.0, 200, "truck")],
+                labels,
+            )
+            tracks(
+                store,
+                frame,
+                EST,
+                [
+                    (0.1, first_car, "car"),
+                    (10.1, 2, "car"),
+                    (20.1, 3, "car"),
+                    (500.0, 4, "truck"),
+                ],
+                labels,
+            )
+
+        metrics = clear_of(store, labels)
+
+        assert metrics["mota"].of_class(labels.class_id("car")) == pytest.approx(5 / 6)
+        assert metrics["mota"].aggregate == pytest.approx(3 / 8)
+        assert metrics["motp"].aggregate == pytest.approx(0.1), "over the six hits"
+        assert metrics["id_switch"].aggregate == pytest.approx(1.0), "the total"
+        for name, row in metrics.items():
+            assert row.support.values[-1] == 8, name

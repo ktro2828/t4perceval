@@ -10,7 +10,7 @@ from attrs import define
 from t4perceval.component import MatchStatus
 from t4perceval.core.entity import as_entity_path
 from t4perceval.descriptors import CLASS_ID, EST_INDEX, GT_INDEX, MATCH_STATUS
-from t4perceval.system.metric.base import MetricRow, MetricSystem
+from t4perceval.system.metric.base import MetricRow, MetricSystem, in_class
 
 if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
@@ -31,7 +31,8 @@ class ClassificationSystem(MetricSystem):
     """Accuracy, precision, recall and F1 per class.
 
     All four come from the same three counts, so one system produces them together and
-    writes each to its own entity under :attr:`target`.
+    writes each to its own entity under :attr:`target`. The last row, class ``-1``, pools
+    the counts of every class before taking the ratios.
 
     Where the original package returned ``inf`` for an undefined ratio, this returns
     ``NaN`` and lets ``support`` say why -- ``inf`` reads as a score, ``NaN`` reads as
@@ -57,7 +58,7 @@ class ClassificationSystem(MetricSystem):
             f1_target: [],
         }
 
-        classes = self.classes(ctx, join)
+        classes = self.reported_classes(ctx, join)
         est_classes_all = (
             join.estimation.component(CLASS_ID).values
             if len(join.estimation)
@@ -79,10 +80,10 @@ class ClassificationSystem(MetricSystem):
 
         for class_id in classes:
             num_true_positive = (
-                int(np.count_nonzero(correct & (gt_class == class_id))) if correct.size else 0
+                int(np.count_nonzero(correct & in_class(gt_class, class_id))) if correct.size else 0
             )
-            num_estimated = int(np.count_nonzero(est_classes_all == class_id))
-            num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
+            num_estimated = int(np.count_nonzero(in_class(est_classes_all, class_id)))
+            num_ground_truth = int(np.count_nonzero(in_class(gt_classes_all, class_id)))
 
             precision = _ratio(num_true_positive, num_estimated)
             recall = _ratio(num_true_positive, num_ground_truth)

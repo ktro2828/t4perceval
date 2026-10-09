@@ -253,10 +253,12 @@ for target in displacement.targets:
 ```
 
 ```text
-min_ade2 [0.]
-min_fde2 [0.]
-miss_rate2 [0.]
+min_ade2 [0. 0.]
+min_fde2 [0. 0.]
+miss_rate2 [0. 0.]
 ```
+
+The car's row, then the all-class row over every scored object -- `values.aggregate` reads it.
 
 With `best_of_k=True` the better of the two modes is kept, so ADE and FDE are zero. Drop
 `best_of_k` to average over both modes and watch the 3 m one pull the numbers up.
