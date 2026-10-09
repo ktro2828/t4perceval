@@ -15,15 +15,17 @@ six build with `.between(estimation, ground_truth, **params)` and share `Matchin
 
 Shared parameters:
 
-| Parameter                | Default  | Meaning                                                                                    |
-| :----------------------- | :------- | :----------------------------------------------------------------------------------------- |
-| `threshold`              | per mode | a number, or `Thresholds(default, by_class=...)` keyed by ground-truth class               |
-| `class_agnostic`         | `False`  | pair rows whose classes differ; the verdict then records the disagreement                  |
-| `max_matchable_distance` | `None`   | largest 3D centre distance (m) a pair may have, on top of `threshold`; not for `IoURoi...` |
-| `check_frames`           | `True`   | refuse two sources that declare different coordinate frames                                |
+| Parameter                | Default       | Meaning                                                                                        |
+| :----------------------- | :------------ | :--------------------------------------------------------------------------------------------- |
+| `threshold`              | per mode      | a number, or `Thresholds(default, by_class=...)` keyed by ground-truth class                   |
+| `class_agnostic`         | `False`       | pair rows whose classes differ; the verdict then records the disagreement                      |
+| `max_matchable_distance` | `None`        | largest 3D centre distance (m) a pair may have, on top of `threshold`; not for `IoURoi...`     |
+| `assignment`             | `"hungarian"` | `"hungarian"` (globally optimal) or `"greedy"` (descending estimation confidence, as nuScenes) |
+| `check_frames`           | `True`        | refuse two sources that declare different coordinate frames                                    |
 
-Pairs are chosen by a globally optimal assignment over the score matrix; a score past the
-threshold, or a non-finite one, is never assigned. Each mode has its own default target, so several
+Pairs are chosen by the `assignment` algorithm over the score matrix -- a globally optimal one by
+default, confidence-ordered greedy for `average_precision_sweep` -- and a score past the threshold,
+or a non-finite one, is never assigned. Each mode has its own default target, so several
 can run over the same frame and be compared afterwards.
 
 ## Where to go next

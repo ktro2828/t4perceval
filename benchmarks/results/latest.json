@@ -2185,11 +2185,11 @@
           "metric": "ap",
           "group": "1",
           "class": "ALL",
-          "t4perceval": 0.6272909342917812,
+          "t4perceval": 0.6326124756144509,
           "perception_eval": 0.6326124756144509,
-          "abs_diff": 0.0053215413226697095,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": true
         },
         {
@@ -2237,11 +2237,11 @@
           "metric": "ap",
           "group": "1",
           "class": "motorbike",
-          "t4perceval": 0.5725077662980229,
+          "t4perceval": 0.5935561618499208,
           "perception_eval": 0.5935561618499208,
-          "abs_diff": 0.02104839555189786,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2263,11 +2263,11 @@
           "metric": "ap",
           "group": "1",
           "class": "truck",
-          "t4perceval": 0.6863642530309197,
+          "t4perceval": 0.69724510541504,
           "perception_eval": 0.69724510541504,
-          "abs_diff": 0.010880852384120288,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2276,11 +2276,11 @@
           "metric": "ap",
           "group": "2",
           "class": "ALL",
-          "t4perceval": 0.6826110459405151,
+          "t4perceval": 0.6857637631221896,
           "perception_eval": 0.6857637631221896,
-          "abs_diff": 0.003152717181674425,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": true
         },
         {
@@ -2315,11 +2315,11 @@
           "metric": "ap",
           "group": "2",
           "class": "car",
-          "t4perceval": 0.6024221952241191,
+          "t4perceval": 0.6086016405477018,
           "perception_eval": 0.6086016405477018,
-          "abs_diff": 0.006179445323582722,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2328,11 +2328,11 @@
           "metric": "ap",
           "group": "2",
           "class": "motorbike",
-          "t4perceval": 0.6962909475585984,
+          "t4perceval": 0.698879406677272,
           "perception_eval": 0.698879406677272,
-          "abs_diff": 0.0025884591186735584,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2354,11 +2354,11 @@
           "metric": "ap",
           "group": "2",
           "class": "truck",
-          "t4perceval": 0.7238172150209188,
+          "t4perceval": 0.7339656136687093,
           "perception_eval": 0.7339656136687093,
-          "abs_diff": 0.01014839864779049,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2367,11 +2367,11 @@
           "metric": "ap",
           "group": "4",
           "class": "ALL",
-          "t4perceval": 0.7205123238417376,
+          "t4perceval": 0.7209810144365142,
           "perception_eval": 0.7209810144365142,
-          "abs_diff": 0.0004686905947766107,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": true
         },
         {
@@ -2380,11 +2380,11 @@
           "metric": "ap",
           "group": "4",
           "class": "bicycle",
-          "t4perceval": 0.7573822060349034,
+          "t4perceval": 0.7360867049053518,
           "perception_eval": 0.7360867049053518,
-          "abs_diff": 0.021295501129551586,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2393,11 +2393,11 @@
           "metric": "ap",
           "group": "4",
           "class": "bus",
-          "t4perceval": 0.7021247197297358,
+          "t4perceval": 0.7171731964883875,
           "perception_eval": 0.7171731964883875,
-          "abs_diff": 0.01504847675865173,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2406,11 +2406,11 @@
           "metric": "ap",
           "group": "4",
           "class": "car",
-          "t4perceval": 0.688919870374902,
+          "t4perceval": 0.6599241649993042,
           "perception_eval": 0.6599241649993042,
-          "abs_diff": 0.028995705375597813,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2419,11 +2419,11 @@
           "metric": "ap",
           "group": "4",
           "class": "motorbike",
-          "t4perceval": 0.7391513669499453,
+          "t4perceval": 0.7424358272897225,
           "perception_eval": 0.7424358272897225,
-          "abs_diff": 0.00328446033977714,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2432,11 +2432,11 @@
           "metric": "ap",
           "group": "4",
           "class": "pedestrian",
-          "t4perceval": 0.7116785649400195,
+          "t4perceval": 0.7027012748927707,
           "perception_eval": 0.7027012748927707,
-          "abs_diff": 0.008977290047248787,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2445,11 +2445,11 @@
           "metric": "ap",
           "group": "4",
           "class": "truck",
-          "t4perceval": 0.7238172150209188,
+          "t4perceval": 0.7675649180435486,
           "perception_eval": 0.7675649180435486,
-          "abs_diff": 0.04374770302262987,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2458,11 +2458,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "bicycle",
-          "t4perceval": 0.5393108188648772,
+          "t4perceval": 0.5339869435824892,
           "perception_eval": 0.5339869435824892,
-          "abs_diff": 0.00532387528238798,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2471,11 +2471,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "bus",
-          "t4perceval": 0.6022420022514191,
+          "t4perceval": 0.6060041214410821,
           "perception_eval": 0.6060041214410821,
-          "abs_diff": 0.0037621191896629602,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2484,11 +2484,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "car",
-          "t4perceval": 0.51571811484075,
+          "t4perceval": 0.5100140498277462,
           "perception_eval": 0.5100140498277462,
-          "abs_diff": 0.005704065013003801,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2497,11 +2497,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "motorbike",
-          "t4perceval": 0.5311167575722485,
+          "t4perceval": 0.5378470863248357,
           "perception_eval": 0.5378470863248357,
-          "abs_diff": 0.006730328752587167,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2510,11 +2510,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "pedestrian",
-          "t4perceval": 0.5797122893573767,
+          "t4perceval": 0.5774679668455646,
           "perception_eval": 0.5774679668455646,
-          "abs_diff": 0.002244322511812169,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2523,11 +2523,11 @@
           "metric": "ap",
           "group": "mean",
           "class": "truck",
-          "t4perceval": 0.570602845371364,
+          "t4perceval": 0.5867970838849992,
           "perception_eval": 0.5867970838849991,
-          "abs_diff": 0.016194238513635106,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 1.1102230246251565e-16,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2540,7 +2540,7 @@
           "perception_eval": 0.16848111443105196,
           "abs_diff": 0.0021029677260372137,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": true
         },
         {
@@ -2553,7 +2553,7 @@
           "perception_eval": 0.10591410822856646,
           "abs_diff": 0.0014961967661176884,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2592,7 +2592,7 @@
           "perception_eval": 0.1023248298943602,
           "abs_diff": 0.0043447979587004915,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2605,7 +2605,7 @@
           "perception_eval": 0.21504912111735608,
           "abs_diff": 0.0066334862042235765,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2618,7 +2618,7 @@
           "perception_eval": 0.11651286006354349,
           "abs_diff": 0.00014332542663399173,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2627,11 +2627,11 @@
           "metric": "aph",
           "group": "1",
           "class": "ALL",
-          "t4perceval": 0.5599799098562271,
+          "t4perceval": 0.5652113985274588,
           "perception_eval": 0.5686584477030884,
-          "abs_diff": 0.008678537846861234,
+          "abs_diff": 0.0034470491756295463,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": true
         },
         {
@@ -2644,7 +2644,7 @@
           "perception_eval": 0.5254684785104988,
           "abs_diff": 0.009267177597340526,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2653,11 +2653,11 @@
           "metric": "aph",
           "group": "1",
           "class": "bus",
-          "t4perceval": 0.638127295483692,
+          "t4perceval": 0.6381207321337476,
           "perception_eval": 0.6381207321343002,
-          "abs_diff": 6.5633493917527375e-6,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 5.525579993559404e-13,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2666,11 +2666,11 @@
           "metric": "aph",
           "group": "1",
           "class": "car",
-          "t4perceval": 0.4893623746387144,
+          "t4perceval": 0.4906407067813598,
           "perception_eval": 0.49067052359374286,
-          "abs_diff": 0.0013081489550284542,
+          "abs_diff": 2.981681238306555e-5,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2679,11 +2679,11 @@
           "metric": "aph",
           "group": "1",
           "class": "motorbike",
-          "t4perceval": 0.5183118813514723,
+          "t4perceval": 0.5372961434347966,
           "perception_eval": 0.5382847235383833,
-          "abs_diff": 0.019972842186910977,
+          "abs_diff": 0.0009885801035867114,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2696,7 +2696,7 @@
           "perception_eval": 0.6065711127613246,
           "abs_diff": 0.00996898571223681,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2705,11 +2705,11 @@
           "metric": "aph",
           "group": "1",
           "class": "truck",
-          "t4perceval": 0.6012744797012385,
+          "t4perceval": 0.6124073808526029,
           "perception_eval": 0.6128351156802804,
-          "abs_diff": 0.011560635979041889,
+          "abs_diff": 0.00042773482767743953,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2718,11 +2718,11 @@
           "metric": "aph",
           "group": "2",
           "class": "ALL",
-          "t4perceval": 0.6096217952611122,
+          "t4perceval": 0.6127355458314566,
           "perception_eval": 0.6163851183380855,
-          "abs_diff": 0.00676332307697336,
+          "abs_diff": 0.0036495725066288953,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": true
         },
         {
@@ -2735,7 +2735,7 @@
           "perception_eval": 0.6084040052761001,
           "abs_diff": 0.0008502408645950643,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2744,11 +2744,11 @@
           "metric": "aph",
           "group": "2",
           "class": "bus",
-          "t4perceval": 0.638127295483692,
+          "t4perceval": 0.6381207321337476,
           "perception_eval": 0.6381207321343002,
-          "abs_diff": 6.5633493917527375e-6,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 5.525579993559404e-13,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2757,11 +2757,11 @@
           "metric": "aph",
           "group": "2",
           "class": "car",
-          "t4perceval": 0.5375059102922514,
+          "t4perceval": 0.5440081249602448,
           "perception_eval": 0.5440331560587344,
-          "abs_diff": 0.006527245766483003,
+          "abs_diff": 2.5031098489614045e-5,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2770,11 +2770,11 @@
           "metric": "aph",
           "group": "2",
           "class": "motorbike",
-          "t4perceval": 0.6235319747226609,
+          "t4perceval": 0.6254875304945311,
           "perception_eval": 0.6267404767113817,
-          "abs_diff": 0.003208501988720802,
+          "abs_diff": 0.00125294621685057,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2787,7 +2787,7 @@
           "perception_eval": 0.6233926075738404,
           "abs_diff": 0.010158021919704496,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2796,11 +2796,11 @@
           "metric": "aph",
           "group": "2",
           "class": "truck",
-          "t4perceval": 0.6377772410024278,
+          "t4perceval": 0.6480085373345755,
           "perception_eval": 0.657619732274156,
-          "abs_diff": 0.019842491271728213,
+          "abs_diff": 0.009611194939580514,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2809,11 +2809,11 @@
           "metric": "aph",
           "group": "4",
           "class": "ALL",
-          "t4perceval": 0.6323628837890043,
+          "t4perceval": 0.6342400629283926,
           "perception_eval": 0.6411214900991311,
-          "abs_diff": 0.008758606310126815,
+          "abs_diff": 0.006881427170738474,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": true
         },
         {
@@ -2822,11 +2822,11 @@
           "metric": "aph",
           "group": "4",
           "class": "bicycle",
-          "t4perceval": 0.6497363095653044,
+          "t4perceval": 0.6398915117409584,
           "perception_eval": 0.6506822573664696,
-          "abs_diff": 0.0009459478011651923,
+          "abs_diff": 0.010790745625511189,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2835,11 +2835,11 @@
           "metric": "aph",
           "group": "4",
           "class": "bus",
-          "t4perceval": 0.638127295483692,
+          "t4perceval": 0.6518859317267909,
           "perception_eval": 0.6518859317272362,
-          "abs_diff": 0.013758636243544231,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 4.453104551771503e-13,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2848,11 +2848,11 @@
           "metric": "aph",
           "group": "4",
           "class": "car",
-          "t4perceval": 0.6013352411115335,
+          "t4perceval": 0.5844235718863225,
           "perception_eval": 0.5846131849097923,
-          "abs_diff": 0.016722056201741164,
+          "abs_diff": 0.00018961302346975906,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2861,11 +2861,11 @@
           "metric": "aph",
           "group": "4",
           "class": "motorbike",
-          "t4perceval": 0.6416534645121131,
+          "t4perceval": 0.6448550589262338,
           "perception_eval": 0.6547959143685156,
-          "abs_diff": 0.01314244985640245,
+          "abs_diff": 0.009940855442281737,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2874,11 +2874,11 @@
           "metric": "aph",
           "group": "4",
           "class": "pedestrian",
-          "t4perceval": 0.625547751058955,
+          "t4perceval": 0.6169127429255751,
           "perception_eval": 0.6270418434347972,
-          "abs_diff": 0.0014940923758421931,
+          "abs_diff": 0.010129100509222111,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2887,11 +2887,11 @@
           "metric": "aph",
           "group": "4",
           "class": "truck",
-          "t4perceval": 0.6377772410024278,
+          "t4perceval": 0.6674715603644752,
           "perception_eval": 0.6777098087879754,
-          "abs_diff": 0.039932567785547546,
+          "abs_diff": 0.010238248423500185,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2900,11 +2900,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "bicycle",
-          "t4perceval": 0.4694773215881041,
+          "t4perceval": 0.4670161221320176,
           "perception_eval": 0.4726172123454087,
-          "abs_diff": 0.0031398907573045864,
+          "abs_diff": 0.005601090213391113,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2913,11 +2913,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "bus",
-          "t4perceval": 0.5465996852310372,
+          "t4perceval": 0.5500360626168397,
           "perception_eval": 0.5500360626174119,
-          "abs_diff": 0.0034363773863747005,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 5.722089468918057e-13,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2926,11 +2926,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "car",
-          "t4perceval": 0.4568181097128411,
+          "t4perceval": 0.454535329109198,
           "perception_eval": 0.45459644434273605,
-          "abs_diff": 0.0022216653701050415,
+          "abs_diff": 6.111523353802273e-5,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2939,11 +2939,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "motorbike",
-          "t4perceval": 0.47036933813047654,
+          "t4perceval": 0.4764046911978053,
           "perception_eval": 0.4805364861281602,
-          "abs_diff": 0.010167147997683645,
+          "abs_diff": 0.004131794930354871,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2952,11 +2952,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "pedestrian",
-          "t4perceval": 0.5109500246688278,
+          "t4perceval": 0.5087912726354828,
           "perception_eval": 0.5180136712218295,
-          "abs_diff": 0.0070636465530017345,
+          "abs_diff": 0.009222398586346658,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2965,11 +2965,11 @@
           "metric": "aph",
           "group": "mean",
           "class": "truck",
-          "t4perceval": 0.4982996240857509,
+          "t4perceval": 0.5110642532971408,
           "perception_eval": 0.5161693792014889,
-          "abs_diff": 0.017869755115737962,
+          "abs_diff": 0.0051051259043480846,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -2978,11 +2978,11 @@
           "metric": "map",
           "group": "-",
           "class": "ALL",
-          "t4perceval": 0.5564504713763392,
+          "t4perceval": 0.5586862086511194,
           "perception_eval": 0.5586862086511194,
-          "abs_diff": 0.002235737274780214,
-          "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "abs_diff": 0.0,
+          "status": "match",
+          "reason": "",
           "derived": false
         },
         {
@@ -2991,11 +2991,11 @@
           "metric": "maph",
           "group": "-",
           "class": "ALL",
-          "t4perceval": 0.4920856839028396,
+          "t4perceval": 0.49464128849808064,
           "perception_eval": 0.4986615426428392,
-          "abs_diff": 0.006575858739999607,
+          "abs_diff": 0.004020254144758539,
           "status": "documented",
-          "reason": "hungarian-vs-greedy (docs/development/metric-divergences.md #3)",
+          "reason": "aph-heading-sign (docs/development/metric-divergences.md #7)",
           "derived": false
         },
         {
@@ -3819,8 +3819,8 @@
         }
       ],
       "summary": {
-        "match": 43,
-        "documented": 90,
+        "match": 68,
+        "documented": 65,
         "mismatch": 0
       }
     }

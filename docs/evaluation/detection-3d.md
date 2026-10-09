@@ -108,8 +108,10 @@ CenterDistanceMatchingSystem.between(
 )
 ```
 
-Pairs are chosen by a globally optimal linear-sum assignment, class-by-class unless
-`class_agnostic=True`.
+`average_precision_sweep` matches greedily in descending confidence, as nuScenes does, class-by-class
+unless `class_agnostic=True`; pass `assignment="hungarian"` for a globally optimal linear-sum
+assignment instead. A matcher built by hand defaults to Hungarian, so give it `assignment="greedy"`
+for nuScenes AP.
 
 ## Metrics
 
@@ -198,9 +200,9 @@ print("car:", round(m_ap.of_class(labels.class_id("car")), 4))  # car: 0.9938
 
 ## Known divergences
 
-AP matching is a Hungarian assignment rather than confidence-ordered greedy matching, and APH's
-denominator follows `autoware_perception_evaluation` rather than Waymo. Both are catalogued in
-[Metric divergences](../development/metric-divergences.md).
+APH's denominator follows `autoware_perception_evaluation` rather than Waymo. This is catalogued in
+[Metric divergences](../development/metric-divergences.md), along with the confidence-ordered
+matching AP now uses by default.
 
 ## Where to go next
 

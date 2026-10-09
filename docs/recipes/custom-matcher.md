@@ -90,9 +90,9 @@ average_precision_sweep(EST, GT, matcher=SizeAwareDistanceMatchingSystem, thresh
   candidates.
 - **Declare everything you read in `REQUIRES`.** The base calls `require()` on both views, so a
   missing column becomes a clear error instead of a `None`.
-- **Do not implement the assignment.** The base solves a globally optimal one-to-one assignment per
-  frame, so a good pair is not lost to a greedy earlier choice, and it handles infeasible pairs,
-  class separation and the threshold.
+- **Do not implement the assignment.** The base pairs one-to-one per frame -- a globally optimal
+  assignment, or confidence-ordered greedy with `assignment="greedy"` -- and handles infeasible
+  pairs, class separation and the threshold.
 - **Handle the empty case implicitly.** A zero-row view means a zero-size matrix; NumPy broadcasting
   gives you that for free.
 

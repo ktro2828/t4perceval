@@ -42,8 +42,14 @@ def detection_pipeline(
     *,
     threshold: float = 1.0,
     heading: bool = False,
+    assignment: str = "hungarian",
 ) -> tuple[list[System], str]:
-    matcher = CenterDistanceMatchingSystem.between(EST, GT, threshold=threshold)
+    matcher = CenterDistanceMatchingSystem.between(
+        EST,
+        GT,
+        threshold=threshold,
+        assignment=assignment,
+    )
     metric_class = AveragePrecisionHeadingSystem if heading else AveragePrecisionSystem
     metric = metric_class.on(matcher.target, EST, GT)
     return [matcher, metric], str(metric.target)
@@ -90,6 +96,42 @@ class TestAveragePrecision:
 
         assert bad.of_class(0) == pytest.approx(0.197531, abs=1e-6)
         assert bad.of_class(0) < good.of_class(0)
+
+    def test_greedy_assignment_credits_the_confident_estimate(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Metric divergence #3: one ground truth, a confident far hit and a doubtful near one.
+
+        nuScenes matches in confidence order, so the confident estimate is the true positive
+        and ranks first. Hungarian hands the pair to the nearer, doubtful
+        estimate, so the top-ranked claim is a false positive.
+        """
+        scene = [(0, [(0.0, "car")], [(0.8, "car", 0.9), (0.1, "car", 0.3)])]
+        greedy_systems, target = detection_pipeline(assignment="greedy")
+        hungarian_systems, _ = detection_pipeline()
+
+        greedy = run(make_metric_scene(labels, scene), greedy_systems, labels, target)
+        hungarian = run(make_metric_scene(labels, scene), hungarian_systems, labels, target)
+
+        car = labels.class_id("car")
+        assert greedy.of_class(car) == pytest.approx(0.993827, abs=1e-6)
+        assert hungarian.of_class(car) == pytest.approx(0.444444, abs=1e-6)
+
+    def test_tied_confidences_rank_the_greedy_match_first(self, labels: LabelRegistry) -> None:
+        """Matching and ranking break a confidence tie alike, so the credited twin ranks first.
+
+        Both estimations reach the ground truth at confidence 0.9. Greedy matching credits
+        the one logged last, as nuScenes does, and AP must rank that one ahead of its twin --
+        not whichever verdict row happens to come first -- or the true positive trails a
+        false positive.
+        """
+        scene = [(0, [(0.0, "car")], [(0.1, "car", 0.9), (0.8, "car", 0.9)])]
+        systems, target = detection_pipeline(assignment="greedy")
+
+        result = run(make_metric_scene(labels, scene), systems, labels, target)
+
+        assert result.of_class(labels.class_id("car")) == pytest.approx(0.993827, abs=1e-6)
 
     def test_a_class_mismatch_is_not_a_true_positive(self, labels: LabelRegistry) -> None:
         """A pair the matcher accepted class-agnostically still must agree on the class."""

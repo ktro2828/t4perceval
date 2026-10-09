@@ -64,6 +64,7 @@ def boxes(
     *,
     yaws: list[float] | None = None,
     sizes: list[list[float]] | None = None,
+    confidences: list[float] | None = None,
 ) -> Detections3D:
     count = len(positions)
     return Detections3D(
@@ -71,7 +72,7 @@ def boxes(
         quaternion=[yaw(angle) for angle in (yaws or [0.0] * count)],
         size=sizes or [[2.0, 4.0, 2.0]] * count,
         class_id=labels.encode(names or ["car"] * count),
-        confidence=[0.9] * count,
+        confidence=confidences or [0.9] * count,
     )
 
 
@@ -606,7 +607,7 @@ class TestPerClassThresholds:
 
 class TestAssignment:
     def test_the_assignment_is_globally_optimal(self, labels: LabelRegistry) -> None:
-        """A greedy matcher would pair est0 with gt0 and then fail to place est1."""
+        """A best-pair-first greedy would pair est1 with gt1 and leave est0 too far from gt0."""
         store = Store()
         store.log(
             GT,
@@ -1009,3 +1010,159 @@ class TestPipelineIntegration:
         assert restored == chunk
         assert restored_labels == labels
         assert counts(MatchResults.from_chunk(restored)) == (1, 0, 0)
+
+
+def pairs_of(result: MatchResults) -> list[tuple[int, int]]:
+    matched = result.match_status.values == int(MatchStatus.TP)
+    return sorted(
+        zip(
+            result.est_index.values[matched].tolist(),
+            result.gt_index.values[matched].tolist(),
+        ),
+    )
+
+
+class TestGreedyAssignment:
+    """``assignment="greedy"``: nuScenes-style matching in descending confidence."""
+
+    @staticmethod
+    def frame(
+        labels: LabelRegistry,
+        gt: list[list[float]],
+        est: list[list[float]],
+        confidences: list[float],
+        *,
+        gt_names: list[str] | None = None,
+        est_names: list[str] | None = None,
+    ) -> SystemContext:
+        store = Store()
+        store.log(GT, boxes(gt, labels, gt_names), at=TimePoint.at(frame=0))
+        store.log(
+            EST,
+            boxes(est, labels, est_names, confidences=confidences),
+            at=TimePoint.at(frame=0),
+        )
+        return SystemContext(store, FRAME, labels=labels)
+
+    def test_a_confident_estimate_keeps_its_match_over_a_closer_one(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """The example of metric divergence #3: Hungarian takes the closer, greedy the surer."""
+        ctx = self.frame(labels, [[0.0, 0.0, 0.0]], [[0.8, 0.0, 0.0], [0.1, 0.0, 0.0]], [0.9, 0.3])
+
+        greedy = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+        hungarian = result_of(CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0), ctx)
+
+        assert pairs_of(greedy) == [(0, 0)]
+        assert counts(greedy) == (1, 1, 0)
+        assert pairs_of(hungarian) == [(1, 0)]
+
+    def test_an_earlier_choice_can_cost_a_later_match(self, labels: LabelRegistry) -> None:
+        """est0 takes gt0, the only ground truth est1 could reach; Hungarian places both."""
+        ctx = self.frame(
+            labels,
+            [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+            [[0.4, 0.0, 0.0], [-0.4, 0.0, 0.0]],
+            [0.9, 0.5],
+        )
+
+        greedy = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+        hungarian = result_of(CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0), ctx)
+
+        assert pairs_of(greedy) == [(0, 0)]
+        assert counts(greedy) == (1, 1, 1)
+        assert pairs_of(hungarian) == [(0, 1), (1, 0)]
+
+    def test_higher_is_better_takes_the_largest_score(self, labels: LabelRegistry) -> None:
+        """Both ground truths overlap the estimate; the larger IoU wins, not the smaller."""
+        ctx = self.frame(labels, [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], [[0.2, 0.0, 0.0]], [0.9])
+
+        result = result_of(
+            IoUBEVMatchingSystem.between(EST, GT, threshold=0.3, assignment="greedy"),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(0, 0)]
+
+    def test_classes_still_gate_the_choice(self, labels: LabelRegistry) -> None:
+        ctx = self.frame(
+            labels,
+            [[0.0, 0.0, 0.0]],
+            [[0.1, 0.0, 0.0], [0.5, 0.0, 0.0]],
+            [0.9, 0.3],
+            est_names=["pedestrian", "car"],
+        )
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(1, 0)]
+
+    def test_max_matchable_distance_still_gates_the_choice(self, labels: LabelRegistry) -> None:
+        ctx = self.frame(labels, [[0.0, 0.0, 0.0]], [[0.8, 0.0, 0.0], [0.1, 0.0, 0.0]], [0.9, 0.3])
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(
+                EST,
+                GT,
+                threshold=1.0,
+                max_matchable_distance=0.5,
+                assignment="greedy",
+            ),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(1, 0)]
+
+    def test_it_is_one_to_one(self, labels: LabelRegistry) -> None:
+        ctx = self.frame(
+            labels,
+            [[0.0, 0.0, 0.0], [5.0, 0.0, 0.0]],
+            [[0.1, 0.0, 0.0], [0.2, 0.0, 0.0], [0.3, 0.0, 0.0], [5.1, 0.0, 0.0]],
+            [0.4, 0.9, 0.6, 0.5],
+        )
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(1, 0), (3, 1)]
+        assert counts(result) == (2, 2, 0)
+
+    def test_a_confidence_tie_goes_to_the_later_estimation(self, labels: LabelRegistry) -> None:
+        """As in nuScenes, which reverses an ascending ``(confidence, index)`` sort.
+
+        The later estimation is the farther one, so a nearest-first rule would differ.
+        """
+        ctx = self.frame(labels, [[0.0, 0.0, 0.0]], [[0.1, 0.0, 0.0], [0.8, 0.0, 0.0]], [0.9, 0.9])
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(1, 0)]
+
+    def test_greedy_requires_the_estimation_confidence(self) -> None:
+        from t4perceval.descriptors import CONFIDENCE
+
+        greedy = CenterDistanceMatchingSystem.between(EST, GT, assignment="greedy")
+        hungarian = CenterDistanceMatchingSystem.between(EST, GT)
+
+        assert CONFIDENCE in greedy.requires_for(0)
+        assert CONFIDENCE not in greedy.requires_for(1)
+        assert CONFIDENCE not in hungarian.requires_for(0)
+
+    def test_rejects_an_unknown_assignment(self) -> None:
+        with pytest.raises(ValueError, match="assignment must be one of"):
+            CenterDistanceMatchingSystem.between(EST, GT, assignment="auction")
