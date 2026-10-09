@@ -162,7 +162,7 @@ pinned logical CPU); matching is a single frame.
 | Retained RSS, 20,000 est / 20,000 GT         |          83.7 MiB |      5.2 MiB | 16.0x smaller |
 
 Numerical agreement is checked on two scenes. On the **unambiguous** scene all 133 compared values
-agree to within `1e-9`. On the **dense** scene the two differ on 87 values, every one of which is
+agree to within `1e-9`. On the **dense** scene the two differ on 90 values, every one of which is
 classified against a [documented divergence](docs/development/metric-divergences.md); `--check`
 fails on any difference that is not.
 

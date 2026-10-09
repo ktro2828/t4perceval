@@ -180,18 +180,20 @@ Three frames, one ground-truth object per frame, three true positives, no false 
 switch:
 
 ```text
-MOTA = max(0, (TP - FP - switches) / ground-truth count) = (3 - 0 - 1) / 3 = 0.667
+MOTA = (TP - FP - switches) / ground-truth count          = (3 - 0 - 1) / 3 = 0.667
 MOTP = mean matching score over the true positives          = 0.2 m
 ```
 
 The `nan` is the `pedestrian` class, which has no ground truth in range.
 
+MOTA is not clamped: as in standard CLEAR, it goes below zero once misses, false positives and
+switches outnumber the ground-truth objects. `perception_eval` clamps it at zero instead.
+
 ## Known divergences
 
 ID switches are counted only over rows that were true positives, so a frame where the object was
-missed disappears before switch counting and a lost-then-recovered identity can read as a switch;
-MOTA is clamped at zero, where standard CLEAR permits negative values; and only the ground-truth
-side of a switch is counted. All of these are catalogued in
+missed disappears before switch counting and a lost-then-recovered identity can read as a switch,
+and only the ground-truth side of a switch is counted. All of these are catalogued in
 [Metric divergences](../development/metric-divergences.md).
 
 `HotaSystem` is [on the roadmap](../development/roadmap.md), not implemented.

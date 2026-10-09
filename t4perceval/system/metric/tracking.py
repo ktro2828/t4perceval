@@ -41,6 +41,9 @@ class ClearSystem(MetricSystem):
     previous frame and by a different one now. Counting it needs the instance ids of both
     sides, which is why this metric requires more than a detection metric does.
 
+    **MOTA is not clamped**: as in standard CLEAR it goes negative once the errors outnumber
+    the ground-truth objects, so two bad trackers can still be told apart.
+
     Note that **MOTP inherits the direction of its matching mode**: it is the mean matching
     score over true positives, so it is better when small for a distance mode and better
     when large for an IoU mode. The entity path of the matching it read says which.
@@ -116,10 +119,7 @@ class ClearSystem(MetricSystem):
             threshold = float(class_thresholds[0]) if class_thresholds.size else float("nan")
 
             mota_value = (
-                max(
-                    0.0,
-                    (num_true_positive - num_false_positive - num_switch) / num_ground_truth,
-                )
+                (num_true_positive - num_false_positive - num_switch) / num_ground_truth
                 if num_ground_truth
                 else float("nan")
             )

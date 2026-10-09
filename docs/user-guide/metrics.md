@@ -255,9 +255,8 @@ per_frame = [
 
 ## Known divergences
 
-Several metric implementations differ from the official benchmark definitions -- APH's denominator,
-how ID switches are counted, whether MOTA may go negative, and prediction metrics ignoring validity
-masks. They are catalogued, with the reasoning, in
+Several metric implementations differ from the official benchmark definitions -- APH's denominator
+and how ID switches are counted. They are catalogued, with the reasoning, in
 [Metric divergences](../development/metric-divergences.md), and the
 [benchmark](../development/benchmarks.md) checks every difference against that list.
 

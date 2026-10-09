@@ -75,13 +75,11 @@ Calling `_count_switches()` with times `[0, 2]`, ground-truth IDs `[100, 100]`, 
 
 This conflicts with the method documentation, which says that only the immediately preceding frame is compared.
 
-### 5. MOTA is clamped to zero
+### 5. MOTA is clamped to zero (clamp resolved)
 
-[`t4perceval/system/metric/tracking.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/tracking.py) applies `max(0.0, ...)` to MOTA. Standard CLEAR MOTA permits negative values.
+**The clamp is resolved.** [`t4perceval/system/metric/tracking.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/tracking.py) now reports standard CLEAR MOTA, `(TP - FP - IDSW) / GT`, which goes negative once the errors outnumber the ground-truth objects. It used to apply `max(0.0, ...)`, which made every such tracker read 0. `perception_eval` still clamps, so where a class's MOTA is negative the two libraries differ; the benchmark classifies that difference under this item (`mota-clamped`). The number is kept so that references to later items stay stable.
 
-This is compatible with the original Autoware implementation, but results can differ from other CLEAR metric implementations.
-
-Additionally, when class-agnostic matching is enabled, a matched pair with different ground-truth and estimation classes is not counted as a true positive, but the estimation is not counted as a false positive for its predicted class either.
+**Still open:** when class-agnostic matching is enabled, a matched pair with different ground-truth and estimation classes is not counted as a true positive, but the estimation is not counted as a false positive for its predicted class either.
 
 ## Divergences from `autoware_perception_evaluation` found by the benchmark
 
