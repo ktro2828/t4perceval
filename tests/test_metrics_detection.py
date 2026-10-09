@@ -118,6 +118,20 @@ class TestAveragePrecision:
         assert greedy.of_class(car) == pytest.approx(0.993827, abs=1e-6)
         assert hungarian.of_class(car) == pytest.approx(0.444444, abs=1e-6)
 
+    def test_tied_confidences_rank_the_greedy_match_first(self, labels: LabelRegistry) -> None:
+        """Matching and ranking break a confidence tie alike, so the credited twin ranks first.
+
+        Both estimations reach the ground truth at confidence 0.9. Greedy matching credits
+        the one logged first, and AP must rank that one ahead of its twin -- not whichever
+        verdict row happens to come first -- or the true positive trails a false positive.
+        """
+        scene = [(0, [(0.0, "car")], [(0.8, "car", 0.9), (0.1, "car", 0.9)])]
+        systems, target = detection_pipeline(assignment="greedy")
+
+        result = run(make_metric_scene(labels, scene), systems, labels, target)
+
+        assert result.of_class(labels.class_id("car")) == pytest.approx(0.993827, abs=1e-6)
+
     def test_a_class_mismatch_is_not_a_true_positive(self, labels: LabelRegistry) -> None:
         """A pair the matcher accepted class-agnostically still must agree on the class."""
         store = make_metric_scene(labels, [(0, [(0.0, "car")], [(0.1, "truck", 0.95)])])

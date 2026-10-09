@@ -1139,6 +1139,16 @@ class TestGreedyAssignment:
         assert pairs_of(result) == [(1, 0), (3, 1)]
         assert counts(result) == (2, 2, 0)
 
+    def test_a_confidence_tie_goes_to_the_earlier_estimation(self, labels: LabelRegistry) -> None:
+        ctx = self.frame(labels, [[0.0, 0.0, 0.0]], [[0.8, 0.0, 0.0], [0.1, 0.0, 0.0]], [0.9, 0.9])
+
+        result = result_of(
+            CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy"),
+            ctx,
+        )
+
+        assert pairs_of(result) == [(0, 0)]
+
     def test_greedy_requires_the_estimation_confidence(self) -> None:
         from t4perceval.descriptors import CONFIDENCE
 

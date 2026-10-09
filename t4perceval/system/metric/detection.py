@@ -24,6 +24,7 @@ from t4perceval.descriptors import (
     THRESHOLD,
 )
 from t4perceval.system.base import EntitySystem, SystemContext, require
+from t4perceval.system.matching.base import confidence_order
 from t4perceval.system.metric.base import (
     MetricRow,
     MetricSystem,
@@ -42,7 +43,7 @@ if TYPE_CHECKING:
     from t4perceval.core.entity import EntityPath, EntityPathLike
     from t4perceval.core.view import EntityView
     from t4perceval.system.matching.join import MatchJoin
-    from t4perceval.typing import NDArrayBool, NDArrayF64
+    from t4perceval.typing import NDArrayBool, NDArrayF64, NDArrayI64
 
 __all__ = (
     "AveragePrecisionHeadingSystem",
@@ -54,6 +55,7 @@ __all__ = (
 def _average_precision(
     tp_weight: NDArrayF64,
     confidence: NDArrayF64,
+    est_rows: NDArrayI64,
     num_ground_truth: int,
     *,
     min_recall: float,
@@ -68,7 +70,9 @@ def _average_precision(
     banking score on the part of the curve nobody operates in.
 
     ``tp_weight`` is how much each estimation counts as a true positive: 1.0 for AP, and
-    the heading agreement for APH. A false positive has weight 0.
+    the heading agreement for APH. A false positive has weight 0. ``est_rows`` are the
+    estimations' own rows, which break confidence ties the way greedy matching does --
+    not the order the verdicts happen to be laid out in.
     """
     if num_ground_truth == 0 and tp_weight.size == 0:
         # Nothing to find and nothing claimed: the metric is undefined, not perfect.
@@ -76,7 +80,7 @@ def _average_precision(
     if tp_weight.size == 0:
         return 0.0
 
-    order = np.argsort(confidence, kind="stable")[::-1]
+    order = confidence_order(confidence, est_rows)
     true_positive = np.cumsum(tp_weight[order])
     false_positive = np.cumsum(np.where(tp_weight[order] > 0.0, 0.0, 1.0))
 
@@ -167,6 +171,7 @@ class AveragePrecisionSystem(MetricSystem):
             value = _average_precision(
                 weight[pool],
                 confidence[pool],
+                join.est_rows[pool],
                 num_ground_truth,
                 min_recall=self.min_recall,
                 min_precision=self.min_precision,

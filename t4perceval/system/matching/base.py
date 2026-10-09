@@ -43,13 +43,26 @@ if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.core.view import EntityView
-    from t4perceval.typing import NDArrayBool, NDArrayF64
+    from t4perceval.typing import ArrayLike, NDArrayBool, NDArrayF64, NDArrayI64
 
 
 #: How pairs are chosen among the feasible ones; see :attr:`MatchingSystem.assignment`.
 Assignment: TypeAlias = Literal["hungarian", "greedy"]
 
 _ASSIGNMENTS: tuple[str, ...] = ("hungarian", "greedy")
+
+
+def confidence_order(confidence: ArrayLike, rows: ArrayLike) -> NDArrayI64:
+    """Return the positions of ``confidence`` from most to least confident.
+
+    Ties go to the smaller ``rows`` value -- the estimation's row, so the one logged first.
+    Greedy matching visits estimations in this order and average precision ranks them in
+    it, and the two must agree: were ties broken differently, a tied estimation could be
+    credited with the match while its twin is ranked ahead of it as a false positive.
+    """
+    confidence = np.asarray(confidence, dtype=np.float64)
+    return np.lexsort((np.asarray(rows, dtype=np.int64), -confidence)).astype(np.int64)
+
 
 #: Components describing a 3D box, needed by every mode that looks at the box's extent.
 BOX_3D: tuple[ComponentDescriptor, ...] = (POSITION, QUATERNION, SIZE, CLASS_ID)
@@ -355,9 +368,7 @@ class MatchingSystem(EntitySystem):
     ) -> list[tuple[int, int]]:
         """Return the pairs of nuScenes-style greedy matching in confidence order."""
         confidence = est_view.component(CONFIDENCE).values
-        # The same ordering average precision ranks by (and nuScenes matches in), so ties
-        # resolve alike in both places.
-        order = np.argsort(confidence, kind="stable")[::-1]
+        order = confidence_order(confidence, np.arange(len(confidence)))
 
         # Infeasible pairs, and later taken ground truths, get the worst possible value so
         # that argmin / argmax never prefers them; ties go to the lowest ground-truth row.
