@@ -79,6 +79,12 @@ def displacement(
     gt_options: dict[str, object] | None = None,
     **params: object,
 ) -> dict[str, MetricValues]:
+    """Score one object, keyed by metric name (``"ade"``) when one ``top_k`` is given and by
+    entity name (``"ade3"``) when several are.
+
+    ``top_k`` defaults to 3 here -- every helper mode -- rather than the system's (1, 3, 6).
+    """
+    params.setdefault("top_k", 3)
     store = Store()
     store.log(
         GT,
@@ -99,8 +105,9 @@ def displacement(
         SystemContext(store, FRAME, labels=labels), TimeRange.everything()
     )
 
+    suffix = str(metric.top_k[0]) if len(metric.top_k) == 1 else ""
     return {
-        target.name: store.range(
+        target.name.removesuffix(suffix): store.range(
             target,
             timeline=FRAME,
             time_range=TimeRange.everything(),
@@ -118,13 +125,45 @@ TWO_MODE_CONFIDENCES = [0.3, 0.7]
 
 
 class TestTargets:
-    def test_writes_one_entity_per_metric(self) -> None:
+    def test_by_default_scores_the_top_1_3_and_6_modes(self) -> None:
         metric = PathDisplacementSystem.on("/m", EST, GT)
 
+        assert metric.top_k == (1, 3, 6)
         assert [str(target) for target in metric.targets] == [
-            "/metrics/path_displacement/ade",
-            "/metrics/path_displacement/fde",
-            "/metrics/path_displacement/miss_rate",
+            "/metrics/path_displacement/ade1",
+            "/metrics/path_displacement/ade3",
+            "/metrics/path_displacement/ade6",
+            "/metrics/path_displacement/fde1",
+            "/metrics/path_displacement/fde3",
+            "/metrics/path_displacement/fde6",
+            "/metrics/path_displacement/miss_rate1",
+            "/metrics/path_displacement/miss_rate3",
+            "/metrics/path_displacement/miss_rate6",
+        ]
+
+    def test_writes_one_entity_per_metric_and_k(self) -> None:
+        metric = PathDisplacementSystem.on("/m", EST, GT, top_k=(1, 3))
+
+        assert [target.name for target in metric.targets] == [
+            "ade1",
+            "ade3",
+            "fde1",
+            "fde3",
+            "miss_rate1",
+            "miss_rate3",
+        ]
+
+    def test_best_of_k_names_its_minima_apart(self) -> None:
+        """minADE_k / minFDE_k are other numbers than the mean; the miss rate keeps its name."""
+        metric = PathDisplacementSystem.on("/m", EST, GT, top_k=(1, 3), best_of_k=True)
+
+        assert [target.name for target in metric.targets] == [
+            "min_ade1",
+            "min_ade3",
+            "min_fde1",
+            "min_fde3",
+            "miss_rate1",
+            "miss_rate3",
         ]
 
 
@@ -149,8 +188,8 @@ class TestBestOfK:
             best_of_k=True,
         )
 
-        assert metrics["ade"].of_class(0) == pytest.approx(1.0)
-        assert metrics["fde"].of_class(0) == pytest.approx(1.0)
+        assert metrics["min_ade"].of_class(0) == pytest.approx(1.0)
+        assert metrics["min_fde"].of_class(0) == pytest.approx(1.0)
 
     def test_min_fde_picks_its_own_mode(self, labels: LabelRegistry) -> None:
         """minADE_k and minFDE_k are separate minima, as nuScenes and Waymo define them."""
@@ -164,8 +203,8 @@ class TestBestOfK:
             best_of_k=True,
         )
 
-        assert metrics["ade"].of_class(0) == pytest.approx(2.0 / 3.0)
-        assert metrics["fde"].of_class(0) == pytest.approx(0.5)
+        assert metrics["min_ade"].of_class(0) == pytest.approx(2.0 / 3.0)
+        assert metrics["min_fde"].of_class(0) == pytest.approx(0.5)
         # The miss rate is counted on the minADE mode: only its 2 m final step misses.
         assert metrics["miss_rate"].of_class(0) == pytest.approx(1.0 / 3.0)
 
@@ -209,6 +248,136 @@ class TestTopK:
     def test_rejects_a_non_positive_top_k(self) -> None:
         with pytest.raises(ValueError, match="at least 1"):
             PathDisplacementSystem.on("/m", EST, GT, top_k=0)
+        with pytest.raises(ValueError, match="at least 1"):
+            PathDisplacementSystem.on("/m", EST, GT, top_k=(3, 0))
+
+    def test_a_single_value_becomes_a_tuple(self) -> None:
+        assert PathDisplacementSystem.on("/m", EST, GT, top_k=2).top_k == (2,)
+
+    def test_rejects_an_empty_top_k(self) -> None:
+        with pytest.raises(ValueError, match="at least one value"):
+            PathDisplacementSystem.on("/m", EST, GT, top_k=())
+
+    def test_rejects_a_repeated_top_k(self) -> None:
+        """Both would write the same entities."""
+        with pytest.raises(ValueError, match="distinct"):
+            PathDisplacementSystem.on("/m", EST, GT, top_k=(3, 3))
+
+    def test_several_values_are_scored_in_one_pass(self, labels: LabelRegistry) -> None:
+        metrics = displacement(
+            labels,
+            est_waypoints=TWO_MODES,
+            est_confidences=TWO_MODE_CONFIDENCES,
+            top_k=(1, 2),
+        )
+
+        assert metrics["ade1"].of_class(0) == pytest.approx(3.0), "the confident mode alone"
+        assert metrics["ade2"].of_class(0) == pytest.approx(2.0), "(1 + 3) / 2"
+
+    @pytest.mark.parametrize(
+        ("best_of_k", "expected_ade"),
+        [
+            # Per object: all modes real / the 3 m mode padded / no real mode (1.95).
+            (
+                False,
+                [
+                    (3 + 4 / 3 + 1.95) / 3,
+                    (13 / 6 + 11 / 12 + 1.95) / 3,
+                    (29 / 18 + 11 / 12 + 1.95) / 3,
+                ],
+            ),
+            (True, [(3 + 4 / 3 + 1.95) / 3, (4 / 3 + 0.5 + 1.95) / 3, (0.5 + 0.5 + 1.95) / 3]),
+        ],
+    )
+    def test_several_values_agree_with_one_system_per_value(
+        self,
+        labels: LabelRegistry,
+        best_of_k: bool,
+        expected_ade: list[float],
+    ) -> None:
+        """Sharing the pass at the largest k must not change what a smaller k scores.
+
+        Three objects stress the slicing: one with more real modes than the smaller k
+        keeps, one whose padded mode leaves fewer candidates than k, and one with no real
+        mode at all, which is scored as standing still. By confidence the modes rank 3 m
+        off (ADE 3, FDE 3), then a swerve (ADE 4/3, FDE 0), then 0.5 m off.
+        """
+        store = Store()
+        modes = [
+            [[1.0, 0.5, 0.0], [2.0, 0.5, 0.0], [3.0, 0.5, 0.0]],
+            [[1.0, 3.0, 0.0], [2.0, 3.0, 0.0], [3.0, 3.0, 0.0]],
+            [[1.0, 1.5, 0.0], [2.0, 2.5, 0.0], [3.0, 0.0, 0.0]],
+        ]
+        mode_valid = [[True, True, True], [True, False, True], [False, False, False]]
+        num = len(mode_valid)
+        common = {
+            "quaternion": [[0.0, 0.0, 0.0, 1.0]] * num,
+            "size": [[2.0, 4.0, 2.0]] * num,
+            "class_id": labels.encode(["car"] * num),
+            "confidence": [0.9] * num,
+            "instance_id": list(range(num)),
+            "time_offset": np.asarray([steps_ns(3)] * num, dtype=np.int64),
+        }
+        xs = [0.0, 20.0, 40.0]
+        store.log(
+            GT,
+            Predictions3D(
+                position=[[x, 0.0, 0.0] for x in xs],
+                waypoints=np.asarray(
+                    [[[[x + 1.0, 0.0, 0.0], [x + 2.0, 0.0, 0.0], [x + 3.0, 0.0, 0.0]]] for x in xs]
+                ),
+                mode_confidence=np.ones((num, 1)),
+                **common,
+            ),
+            at=TimePoint.at(frame=0),
+            frame_id="base_link",
+        )
+        store.log(
+            EST,
+            Predictions3D(
+                position=[[x + 0.05, 0.0, 0.0] for x in xs],
+                waypoints=np.asarray(
+                    [[[[x + p[0], p[1], p[2]] for p in m] for m in modes] for x in xs]
+                ),
+                mode_confidence=np.asarray([[0.2, 0.5, 0.3]] * num),
+                mode_valid=np.asarray(mode_valid, dtype=np.bool_),
+                **common,
+            ),
+            at=TimePoint.at(frame=0),
+            frame_id="base_link",
+        )
+
+        match = CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0)
+        shared = PathDisplacementSystem.on(
+            match.target, EST, GT, top_k=(1, 2, 3), best_of_k=best_of_k
+        )
+        alone = [
+            PathDisplacementSystem.on(
+                match.target, EST, GT, top_k=k, best_of_k=best_of_k, target=f"/alone/{k}"
+            )
+            for k in (1, 2, 3)
+        ]
+        Pipeline([match, shared, *alone]).run(
+            SystemContext(store, FRAME, labels=labels), TimeRange.everything()
+        )
+
+        def read(target: object) -> float:
+            return (
+                store.range(
+                    target,  # type: ignore[arg-type]
+                    timeline=FRAME,
+                    time_range=TimeRange.everything(),
+                )
+                .materialize(MetricValues)
+                .of_class(0)
+            )
+
+        separate = [target for system in alone for target in system.targets]
+        expected = {target.name: read(target) for target in separate}
+        actual = {target.name: read(target) for target in shared.targets}
+        assert actual == pytest.approx(expected)
+        ade = "min_ade" if best_of_k else "ade"
+        assert [actual[f"{ade}{k}"] for k in (1, 2, 3)] == pytest.approx(expected_ade)
 
 
 class TestHorizonAlignment:
@@ -310,7 +479,7 @@ class TestValidity:
             best_of_k=True,
         )
 
-        assert metrics["ade"].of_class(0) == pytest.approx(1.0)
+        assert metrics["min_ade"].of_class(0) == pytest.approx(1.0)
 
     def test_a_mode_with_no_valid_step_is_not_a_candidate(self, labels: LabelRegistry) -> None:
         metrics = displacement(
@@ -323,7 +492,7 @@ class TestValidity:
             best_of_k=True,
         )
 
-        assert metrics["ade"].of_class(0) == pytest.approx(1.0)
+        assert metrics["min_ade"].of_class(0) == pytest.approx(1.0)
 
     def test_invalid_estimation_steps_are_interpolated_across(self, labels: LabelRegistry) -> None:
         holey = [[[1.0, 0.0, 0.0], [2.0, 50.0, 0.0], [3.0, 0.0, 0.0]]]

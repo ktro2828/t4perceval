@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
@@ -46,6 +47,28 @@ class _Scores:
     fde: NDArrayF64
     misses: NDArrayI64
     elements: NDArrayI64
+
+
+@define(frozen=True, slots=True)
+class _PerMode:
+    """Errors of every mode up to the largest ``top_k``, before any ``k`` is applied.
+
+    Modes are in descending confidence order, so the first ``k`` columns are what a single
+    ``top_k=k`` would have kept. Only scored rows (a valid ground-truth future) are present.
+    """
+
+    ade: NDArrayF64  # (R, K)
+    fde: NDArrayF64  # (R, K)
+    distances: NDArrayF64  # (R, K, Tg)
+    gt_valid: NDArrayBool  # (R, Tg)
+    candidates: NDArrayI64  # (R,) modes with real data
+    silent: NDArrayBool  # (R,) no mode with real data: scored as standing still
+
+
+def _as_top_ks(value: int | Iterable[int]) -> tuple[int, ...]:
+    if isinstance(value, Iterable):
+        return tuple(int(k) for k in value)
+    return (int(value),)
 
 
 def _gather_mask(
@@ -110,8 +133,10 @@ class PathDisplacementSystem(MetricSystem):
     last point past its horizon -- so ``time_offset`` is required on both sides. Padded
     modes and steps, as marked by ``mode_valid`` / ``timestep_valid``, are never scored.
 
-    ADE and FDE are averaged per object, then over objects. See the prediction evaluation
-    guide for the full rules.
+    ADE and FDE are averaged per object, then over objects. Each value of :attr:`top_k`
+    writes its own ``ade{k}``, ``fde{k}`` and ``miss_rate{k}`` under :attr:`target` --
+    ``min_ade{k}`` and ``min_fde{k}`` under :attr:`best_of_k` -- all from one interpolation
+    pass. See the prediction evaluation guide for the full rules.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (EST_INDEX, GT_INDEX, MATCH_STATUS)
@@ -129,8 +154,8 @@ class PathDisplacementSystem(MetricSystem):
     )
     METRIC_NAME: ClassVar[str] = "path_displacement"
 
-    top_k: int = field(default=3, kw_only=True)
-    """How many modes to score, most confident first."""
+    top_k: tuple[int, ...] = field(default=(1, 3, 6), kw_only=True, converter=_as_top_ks)
+    """How many modes to score, most confident first; several values share one pass."""
 
     miss_tolerance: float = field(default=2.0, kw_only=True)
     """A displacement at or above this, in metres, counts as a miss."""
@@ -138,31 +163,46 @@ class PathDisplacementSystem(MetricSystem):
     best_of_k: bool = field(default=False, kw_only=True)
     """Report minADE_k / minFDE_k instead of the mean over the ``top_k`` modes.
 
-    The two minima are taken independently; the miss rate is counted on the minADE mode.
+    The two minima are taken independently and written as ``min_ade{k}`` / ``min_fde{k}``;
+    the miss rate is counted on the minADE mode.
     """
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
-        if self.top_k < 1:
+        if not self.top_k:
+            raise ValueError("top_k must hold at least one value")
+        if min(self.top_k) < 1:
             raise ValueError(f"top_k must be at least 1, got {self.top_k}")
+        # Each k writes its own entities, so they must be distinct.
+        if len(set(self.top_k)) != len(self.top_k):
+            raise ValueError(f"top_k must hold distinct values, got {self.top_k}")
         if self.miss_tolerance <= 0.0:
             raise ValueError(f"miss_tolerance must be positive, got {self.miss_tolerance}")
 
     @property
     def targets(self) -> tuple[EntityPath, ...]:
         root = as_entity_path(self.target)
-        return (root / "ade", root / "fde", root / "miss_rate")
+        # minADE_k / minFDE_k are other quantities than the mean over modes, so they are
+        # named apart; the miss rate keeps its name either way.
+        prefix = "min_" if self.best_of_k else ""
+        metrics = (f"{prefix}ade", f"{prefix}fde", "miss_rate")
+        return tuple(root / f"{metric}{k}" for metric in metrics for k in self.top_k)
 
     def compute(self, join: MatchJoin, ctx: SystemContext) -> dict[EntityPath, list[MetricRow]]:
-        ade_target, fde_target, miss_target = self.targets
-        ade: list[MetricRow] = []
-        fde: list[MetricRow] = []
-        miss: list[MetricRow] = []
+        num_k = len(self.top_k)
+        targets = self.targets
+        ade_targets, fde_targets, miss_targets = (
+            targets[:num_k],
+            targets[num_k : 2 * num_k],
+            targets[2 * num_k :],
+        )
+        results: dict[EntityPath, list[MetricRow]] = {target: [] for target in targets}
 
         classes = self.classes(ctx, join)
         if not len(join.matches) or not len(join.estimation) or not len(join.ground_truth):
-            empty = [(int(c), float("nan"), float("nan"), 0) for c in classes]
-            return {ade_target: empty, fde_target: list(empty), miss_target: list(empty)}
+            for rows in results.values():
+                rows.extend((int(c), float("nan"), float("nan"), 0) for c in classes)
+            return results
 
         status = join.match_component(MATCH_STATUS)
         gt_class = join.gt_component(CLASS_ID)
@@ -173,30 +213,41 @@ class PathDisplacementSystem(MetricSystem):
         for class_id in classes:
             rows = np.flatnonzero(scored & (gt_class == class_id))
             num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
-            scores = self._scores(join, rows) if rows.size else None
+            per_mode = self._per_mode(join, rows) if rows.size else None
 
-            if scores is None or scores.ade.size == 0:
-                undefined = (int(class_id), float("nan"), float("nan"), num_ground_truth)
-                ade.append(undefined)
-                fde.append(undefined)
-                miss.append(undefined)
-                continue
+            for k, ade_target, fde_target, miss_target in zip(
+                self.top_k, ade_targets, fde_targets, miss_targets
+            ):
+                if per_mode is None:
+                    undefined = (int(class_id), float("nan"), float("nan"), num_ground_truth)
+                    results[ade_target].append(undefined)
+                    results[fde_target].append(undefined)
+                    results[miss_target].append(undefined)
+                    continue
 
-            ade.append((int(class_id), float("nan"), float(scores.ade.mean()), num_ground_truth))
-            fde.append((int(class_id), float("nan"), float(scores.fde.mean()), num_ground_truth))
-            miss.append(
-                (
-                    int(class_id),
-                    float("nan"),
-                    float(scores.misses.sum() / scores.elements.sum()),
-                    num_ground_truth,
-                ),
-            )
+                scores = self._reduce(per_mode, k)
+                results[ade_target].append(
+                    (int(class_id), float("nan"), float(scores.ade.mean()), num_ground_truth)
+                )
+                results[fde_target].append(
+                    (int(class_id), float("nan"), float(scores.fde.mean()), num_ground_truth)
+                )
+                results[miss_target].append(
+                    (
+                        int(class_id),
+                        float("nan"),
+                        float(scores.misses.sum() / scores.elements.sum()),
+                        num_ground_truth,
+                    ),
+                )
 
-        return {ade_target: ade, fde_target: fde, miss_target: miss}
+        return results
 
-    def _scores(self, join: MatchJoin, rows: NDArrayI64) -> _Scores:
-        """Return the per-object errors of ``rows``."""
+    def _per_mode(self, join: MatchJoin, rows: NDArrayI64) -> _PerMode | None:
+        """Return the errors of the ``max(top_k)`` most confident modes of ``rows``.
+
+        ``None`` when no row has a valid ground-truth future to compare against.
+        """
         est_waypoints = join.est_component(WAYPOINTS)[rows]  # (R, M, Te, 3)
         num_rows, num_modes, est_steps = est_waypoints.shape[:3]
         gt_waypoints = join.gt_component(WAYPOINTS)[rows]  # (R, 1, Tg, 3)
@@ -225,8 +276,7 @@ class PathDisplacementSystem(MetricSystem):
         )
         has_future = gt_valid.any(axis=1)
         if not has_future.any():
-            empty = np.empty(0, dtype=np.float64)
-            return _Scores(empty, empty, np.empty(0, np.int64), np.empty(0, np.int64))
+            return None
 
         keep_rows = np.flatnonzero(has_future)
         rows = rows[keep_rows]
@@ -258,15 +308,14 @@ class PathDisplacementSystem(MetricSystem):
 
         # Descending and stable as before; the -inf of a non-candidate sorts it last.
         order = np.argsort(confidence, axis=1, kind="stable")[:, ::-1]
-        keep = min(self.top_k, num_modes)
+        keep = min(max(self.top_k), num_modes)
         order = order[:, :keep]
         waypoints = np.take_along_axis(est_waypoints, order[:, :, None, None], axis=1)
         step_valid = np.take_along_axis(step_valid, order[:, :, None], axis=1)
-        kept = np.arange(keep)[None, :] < np.minimum(candidate.sum(axis=1), keep)[:, None]
+        candidates = candidate.sum(axis=1)
 
         # An estimation that offers no future at all is scored as standing still.
-        silent = ~kept.any(axis=1)
-        kept[silent, 0] = True
+        silent = candidates == 0
         step_valid[silent, 0] = False
 
         # -- interpolate each kept mode at the ground truth's times ---------------------
@@ -303,6 +352,17 @@ class PathDisplacementSystem(MetricSystem):
             axis=2,
         )[:, :, 0]  # (R, K)
 
+        return _PerMode(per_mode_ade, per_mode_fde, distances, gt_valid, candidates, silent)
+
+    def _reduce(self, per_mode: _PerMode, k: int) -> _Scores:
+        """Return the per-object errors when the ``k`` most confident modes are scored."""
+        keep = min(k, per_mode.ade.shape[1])
+        per_mode_ade = per_mode.ade[:, :keep]
+        per_mode_fde = per_mode.fde[:, :keep]
+        distances = per_mode.distances[:, :keep]
+        kept = np.arange(keep)[None, :] < np.minimum(per_mode.candidates, keep)[:, None]
+        kept[per_mode.silent, 0] = True
+
         if self.best_of_k:
             # minADE_k and minFDE_k each take their own best mode; the miss rate keeps its
             # per-step definition and is counted on the minADE mode.
@@ -314,7 +374,7 @@ class PathDisplacementSystem(MetricSystem):
             ade = np.where(kept, per_mode_ade, 0.0).sum(axis=1) / kept.sum(axis=1)
             fde = np.where(kept, per_mode_fde, 0.0).sum(axis=1) / kept.sum(axis=1)
 
-        scored = kept[:, :, None] & gt_valid[:, None, :]
+        scored = kept[:, :, None] & per_mode.gt_valid[:, None, :]
         elements = scored.sum(axis=(1, 2))
         misses = (scored & (distances >= self.miss_tolerance)).sum(axis=(1, 2))
         return _Scores(ade, fde, misses.astype(np.int64), elements.astype(np.int64))

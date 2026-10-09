@@ -137,20 +137,23 @@ displacement = PathDisplacementSystem.on(
     matcher.target,
     "/estimation/objects",
     "/ground_truth/objects",
-    top_k=3,
+    top_k=(1, 3),
     miss_tolerance=2.0,
 )
-[str(t) for t in displacement.targets]
-# ['/metrics/path_displacement/ade',
-#  '/metrics/path_displacement/fde',
-#  '/metrics/path_displacement/miss_rate']
+[t.name for t in displacement.targets]
+# ['ade1', 'ade3', 'fde1', 'fde3', 'miss_rate1', 'miss_rate3']
 ```
 
-| Parameter        | Default | Meaning                                                               |
-| :--------------- | ------: | :-------------------------------------------------------------------- |
-| `top_k`          |       3 | keep this many modes, highest `mode_confidence` first                 |
-| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                      |
-| `best_of_k`      | `False` | report minADE_k / minFDE_k instead of the average over the kept modes |
+Each value of `top_k` writes its own `ade{k}`, `fde{k}` and `miss_rate{k}` under
+`/metrics/path_displacement`. The trajectories are interpolated once, at the largest k, and every
+smaller k scores the first k of those modes -- so several values in one system cost about as much as
+one.
+
+| Parameter        |     Default | Meaning                                                               |
+| :--------------- | ----------: | :-------------------------------------------------------------------- |
+| `top_k`          | `(1, 3, 6)` | keep this many modes, highest `mode_confidence` first; one or several |
+| `miss_tolerance` |         2.0 | a displacement at or above this counts as a miss                      |
+| `best_of_k`      |     `False` | report minADE_k / minFDE_k instead of the average over the kept modes |
 
 Displacement is measured in **xy only**. What each metric reports, over the kept modes:
 
@@ -162,7 +165,8 @@ Displacement is measured in **xy only**. What each metric reports, over the kept
 
 With `best_of_k=True`, `ade` and `fde` are instead the **smallest** per-object ADE and,
 independently, the smallest per-object FDE over the kept modes -- the usual minADE_k / minFDE_k, as
-nuScenes and Waymo define them; `miss_rate` is then counted on the minADE mode. To score only the
+nuScenes and Waymo define them -- and are written as `min_ade{k}` / `min_fde{k}`, so they are never
+mistaken for the mean. `miss_rate{k}` keeps its name and is then counted on the minADE mode. To score only the
 most confident mode, use `top_k=1`.
 
 ## Complete example
@@ -249,9 +253,9 @@ for target in displacement.targets:
 ```
 
 ```text
-ade       [0.]
-fde       [0.]
-miss_rate [0.]
+min_ade2 [0.]
+min_fde2 [0.]
+miss_rate2 [0.]
 ```
 
 With `best_of_k=True` the better of the two modes is kept, so ADE and FDE are zero. Drop
