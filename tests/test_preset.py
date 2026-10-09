@@ -93,6 +93,16 @@ class TestComposition:
 
         assert systems[0].max_matchable_distance.default == pytest.approx(3.0)
 
+    def test_the_matchers_default_to_greedy_assignment(self) -> None:
+        systems = average_precision_sweep(EST, GT, thresholds=[1.0, 2.0])
+
+        assert [systems[0].assignment, systems[2].assignment] == ["greedy", "greedy"]
+
+    def test_assignment_reaches_the_matchers(self) -> None:
+        systems = average_precision_sweep(EST, GT, thresholds=[1.0], assignment="hungarian")
+
+        assert systems[0].assignment == "hungarian"
+
     def test_a_per_class_threshold_is_accepted(self) -> None:
         from t4perceval.system import Thresholds
 

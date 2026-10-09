@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
 import numpy as np
 from attrs import Factory, converters, define, field
@@ -15,6 +15,7 @@ from t4perceval.core.chunk import concat_chunks
 from t4perceval.core.timeline import TimePoint, TimeRange
 from t4perceval.descriptors import (
     CLASS_ID,
+    CONFIDENCE,
     EST_INDEX,
     GT_INDEX,
     MATCH_STATUS,
@@ -45,6 +46,11 @@ if TYPE_CHECKING:
     from t4perceval.typing import NDArrayBool, NDArrayF64
 
 
+#: How pairs are chosen among the feasible ones; see :attr:`MatchingSystem.assignment`.
+Assignment: TypeAlias = Literal["hungarian", "greedy"]
+
+_ASSIGNMENTS: tuple[str, ...] = ("hungarian", "greedy")
+
 #: Components describing a 3D box, needed by every mode that looks at the box's extent.
 BOX_3D: tuple[ComponentDescriptor, ...] = (POSITION, QUATERNION, SIZE, CLASS_ID)
 
@@ -57,8 +63,9 @@ class MatchingSystem(EntitySystem):
     default target path, whether :attr:`HIGHER_IS_BETTER`, a
     :attr:`DEFAULT_THRESHOLD`, and :meth:`score_matrix`.
 
-    A globally optimal one-to-one assignment is solved per frame, so a good pair is not
-    lost to a greedy earlier choice.
+    Pairs are one-to-one per frame and chosen by :attr:`assignment`: a globally optimal
+    linear-sum (Hungarian) assignment by default, or nuScenes-style greedy matching in
+    descending estimation confidence.
     """
 
     PROVIDES: ClassVar[tuple[ComponentDescriptor, ...]] = (
@@ -99,6 +106,17 @@ class MatchingSystem(EntitySystem):
     reject it.
     """
 
+    assignment: Assignment = field(default="hungarian", kw_only=True)
+    """How pairs are chosen among the feasible ones.
+
+    ``"hungarian"`` solves a globally optimal linear-sum assignment, so a good pair is not
+    lost to an earlier choice. ``"greedy"`` walks the estimations in descending
+    :data:`~t4perceval.descriptors.CONFIDENCE` and gives each the best-scoring ground truth
+    still free, as nuScenes does for average precision: a confident estimate keeps its
+    match even when a less confident one lies closer. Greedy requires ``CONFIDENCE`` on the
+    estimation.
+    """
+
     check_frames: bool = field(default=True, kw_only=True)
     """Whether to refuse inputs that state different coordinate frames.
 
@@ -113,6 +131,11 @@ class MatchingSystem(EntitySystem):
             raise ValueError(
                 f"{type(self).__name__} needs exactly two sources "
                 f"(estimation, ground truth), got {len(self.sources)}",
+            )
+        if self.assignment not in _ASSIGNMENTS:
+            raise ValueError(
+                f"{type(self).__name__} assignment must be one of {list(_ASSIGNMENTS)}, "
+                f"got {self.assignment!r}",
             )
         thresholds = (self.threshold.default, *(t for _, t in self.threshold.by_class))
         if self.HIGHER_IS_BETTER:
@@ -163,6 +186,12 @@ class MatchingSystem(EntitySystem):
             **params,
         )
 
+    def requires_for(self, index: int) -> tuple[ComponentDescriptor, ...]:
+        """Return :attr:`REQUIRES`, plus the estimation's confidence for greedy matching."""
+        if index == 0 and self.assignment == "greedy":
+            return (*self.REQUIRES, CONFIDENCE)
+        return self.REQUIRES
+
     def score_matrix(self, est_view: EntityView, gt_view: EntityView) -> NDArrayF64:
         """Return the score of every pair, with shape ``(len(est_view), len(gt_view))``."""
         raise NotImplementedError
@@ -185,9 +214,9 @@ class MatchingSystem(EntitySystem):
             est_view = ctx.store.range(estimation, timeline=ctx.timeline, time_range=single)
             gt_view = ctx.store.range(ground_truth, timeline=ctx.timeline, time_range=single)
             if len(est_view):
-                require(est_view, *self.REQUIRES)
+                require(est_view, *self.requires_for(0))
             if len(gt_view):
-                require(gt_view, *self.REQUIRES)
+                require(gt_view, *self.requires_for(1))
 
             frame_id = (
                 require_same_frame(est_view, gt_view)
@@ -247,33 +276,19 @@ class MatchingSystem(EntitySystem):
                 )
 
             feasible = self._feasible(score, est_view, gt_view, ctx)
-            cost = -score if self.HIGHER_IS_BETTER else score
-
-            # `linear_sum_assignment` cannot represent forbidden pairs, so infeasible
-            # entries get a finite penalty and are rejected afterwards. The penalty must
-            # outweigh any sum of feasible costs, not just the largest one: otherwise one
-            # cheap pair plus a penalty can undercut two feasible pairs, and a match is
-            # lost. With costs shifted into [0, span], every assignment uses at most
-            # min(N, M) pairs, so a penalty above min(N, M) * span means more feasible
-            # pairs always wins, and among equally many the cheaper total still does.
-            if feasible.any():
-                shifted = cost - float(cost[feasible].min())
-                span = float(shifted[feasible].max())
-                rejected = span * min(num_est, num_gt) + 1.0
-            else:
-                shifted, rejected = cost, 0.0
-            padded = np.where(feasible, shifted, rejected)
-
-            for est_row, gt_row in zip(*linear_sum_assignment(padded)):
-                if not feasible[est_row, gt_row]:
-                    continue
-                est_rows.append(int(est_row))
-                gt_rows.append(int(gt_row))
+            pairs = (
+                self._assign_greedy(score, feasible, est_view)
+                if self.assignment == "greedy"
+                else self._assign_hungarian(score, feasible)
+            )
+            for est_row, gt_row in pairs:
+                est_rows.append(est_row)
+                gt_rows.append(gt_row)
                 scores.append(float(score[est_row, gt_row]))
                 statuses.append(int(MatchStatus.TP))
                 thresholds.append(float(gt_thresholds[gt_row]))
-                matched_est.add(int(est_row))
-                matched_gt.add(int(gt_row))
+                matched_est.add(est_row)
+                matched_gt.add(gt_row)
 
         for est_row in range(num_est):
             if est_row not in matched_est:
@@ -301,6 +316,65 @@ class MatchingSystem(EntitySystem):
             match_status=np.asarray(statuses, dtype=np.int8),
             threshold=np.asarray(thresholds, dtype=np.float64),
         )
+
+    def _assign_hungarian(
+        self,
+        score: NDArrayF64,
+        feasible: NDArrayBool,
+    ) -> list[tuple[int, int]]:
+        """Return the feasible pairs of a globally optimal linear-sum assignment."""
+        num_est, num_gt = score.shape
+        cost = -score if self.HIGHER_IS_BETTER else score
+
+        # `linear_sum_assignment` cannot represent forbidden pairs, so infeasible
+        # entries get a finite penalty and are rejected afterwards. The penalty must
+        # outweigh any sum of feasible costs, not just the largest one: otherwise one
+        # cheap pair plus a penalty can undercut two feasible pairs, and a match is
+        # lost. With costs shifted into [0, span], every assignment uses at most
+        # min(N, M) pairs, so a penalty above min(N, M) * span means more feasible
+        # pairs always wins, and among equally many the cheaper total still does.
+        if feasible.any():
+            shifted = cost - float(cost[feasible].min())
+            span = float(shifted[feasible].max())
+            rejected = span * min(num_est, num_gt) + 1.0
+        else:
+            shifted, rejected = cost, 0.0
+        padded = np.where(feasible, shifted, rejected)
+
+        return [
+            (int(est_row), int(gt_row))
+            for est_row, gt_row in zip(*linear_sum_assignment(padded))
+            if feasible[est_row, gt_row]
+        ]
+
+    def _assign_greedy(
+        self,
+        score: NDArrayF64,
+        feasible: NDArrayBool,
+        est_view: EntityView,
+    ) -> list[tuple[int, int]]:
+        """Return the pairs of nuScenes-style greedy matching in confidence order."""
+        confidence = est_view.component(CONFIDENCE).values
+        # The same ordering average precision ranks by (and nuScenes matches in), so ties
+        # resolve alike in both places.
+        order = np.argsort(confidence, kind="stable")[::-1]
+
+        # Infeasible pairs, and later taken ground truths, get the worst possible value so
+        # that argmin / argmax never prefers them; ties go to the lowest ground-truth row.
+        worst = -np.inf if self.HIGHER_IS_BETTER else np.inf
+        available = np.where(feasible, score, worst)
+        pick = np.argmax if self.HIGHER_IS_BETTER else np.argmin
+
+        pairs: list[tuple[int, int]] = []
+        for est_row in order:
+            row = available[est_row]
+            gt_row = int(pick(row))
+            if row[gt_row] == worst:
+                continue
+            pairs.append((int(est_row), gt_row))
+            available[:, gt_row] = worst
+        # Laid out by estimation row, as the Hungarian pairs are.
+        return sorted(pairs)
 
     def _feasible(
         self,

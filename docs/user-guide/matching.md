@@ -66,8 +66,22 @@ row.
 
 ## Assignment
 
-Pairs are chosen by a globally optimal **linear-sum (Hungarian) assignment** over the score matrix,
-subject to the threshold and -- unless `class_agnostic=True` -- to the two rows sharing a class.
+Pairs are chosen among the feasible ones -- within the threshold and, unless `class_agnostic=True`,
+sharing a class -- by one of two algorithms, selected with `assignment`:
+
+- `"hungarian"` (the matchers' default) solves a globally optimal **linear-sum (Hungarian)
+  assignment** over the score matrix, so a good pair is never lost to an earlier choice. This is
+  what CLEAR and the displacement metrics conventionally use.
+- `"greedy"` walks the estimations in **descending confidence** and gives each the best-scoring
+  ground truth still free, as nuScenes does for average precision. A confident estimate keeps its
+  match even when a less confident one lies closer. It requires `confidence` on the estimation.
+
+`average_precision_sweep` defaults to `"greedy"`, so AP follows the nuScenes definition; pass
+`assignment="hungarian"` to it, or `assignment="greedy"` to any matcher, to choose otherwise.
+
+```python
+CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, assignment="greedy")
+```
 
 `max_matchable_distance` adds a gate on the 3D distance between centres, whatever the mode scores:
 two large boxes can overlap well past an IoU threshold while their centres are metres apart. It
@@ -81,9 +95,9 @@ IoUBEVMatchingSystem.between(EST, GT, threshold=0.5, max_matchable_distance=2.0)
 A non-finite score is never assigned, and `matching_score` is the mode's natural value -- metres or
 a ratio, NaN on an unmatched row -- not the internal cost.
 
-That differs from `autoware_perception_evaluation`, which walks estimations in confidence order and
-greedily takes the best still-available ground truth. On scenes where each estimate has exactly one
-feasible ground truth the two agree exactly; on dense scenes they do not. See
+`autoware_perception_evaluation` always matches greedily in confidence order, and additionally pairs
+leftover objects across labels in a second pass. On scenes where each estimate has exactly one
+feasible ground truth every assignment agrees; on dense scenes the Hungarian one does not. See
 [Metric divergences](../development/metric-divergences.md).
 
 ## Thresholds

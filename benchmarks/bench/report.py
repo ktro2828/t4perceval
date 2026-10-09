@@ -14,13 +14,13 @@ TOLERANCES: tuple[tuple[str, float], ...] = (
     ("", 1e-9),
 )
 
-#: Divergences the two implementations are known to have, by key prefix. Only consulted in
-#: the dense regime; in the unambiguous regime the scene is built so none of them applies.
+#: Divergences the two implementations are known to have, by key prefix; the first matching
+#: prefix wins. Only consulted in the dense regime; in the unambiguous regime the scene is
+#: built so none of them applies. AP and mAP are absent on purpose: `average_precision_sweep`
+#: matches in confidence order as perception_eval does, so any difference there is a mismatch.
 DOCUMENTED: tuple[tuple[str, str, str], ...] = (
-    ("detection/ap", "hungarian-vs-greedy", "#3"),
-    ("detection/map", "hungarian-vs-greedy", "#3"),
-    ("detection/aph", "hungarian-vs-greedy, aph-heading-sign", "#3, #7"),
-    ("detection/maph", "hungarian-vs-greedy, aph-heading-sign", "#3, #7"),
+    ("detection/aph", "aph-heading-sign", "#7"),
+    ("detection/maph", "aph-heading-sign", "#7"),
     ("tracking/motp", "motp-previous-score", "#6"),
     ("tracking/id_switch", "idsw-across-missed-frame, idsw-estimation-side", "#4, #8"),
     (
@@ -253,8 +253,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Documented divergences refer to the numbered items in `{METRICS_DOC}`. Only the dense "
         "scene may exercise them; a difference in the unambiguous scene is a mismatch.",
         "- perception_eval matches greedily in confidence order and pairs objects across labels "
-        "in a second pass; t4perceval solves a linear-sum assignment per frame. The unambiguous "
-        "scene is constructed so both pick the same pairs.",
+        "in a second pass. t4perceval's detection preset matches greedily in confidence order "
+        "too; its tracking and prediction matchers solve a linear-sum assignment per frame. The "
+        "unambiguous scene is constructed so every assignment picks the same pairs.",
     ]
     return "\n".join(lines) + "\n"
 

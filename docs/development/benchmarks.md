@@ -36,15 +36,17 @@ Speed is only interesting if the numbers agree, so the benchmark checks that too
 
 **Unambiguous scene.** Ground truths sit on a jittered grid whose spacing exceeds twice the largest
 matching threshold, and every estimate lies within that offset of its own ground truth. The feasible
-graph has degree at most one, so `perception_eval`'s greedy assignment and `t4perceval`'s linear-sum
-assignment pick the same pairs.
+graph has degree at most one, so every assignment -- `perception_eval`'s greedy one, and
+`t4perceval`'s confidence-ordered greedy (detection) and linear-sum (tracking, prediction) ones --
+picks the same pairs.
 
 > All 133 compared values -- per-class and overall AP / APH / mAP / mAPH, MOTA / MOTP / ID switches,
 > ADE / FDE / miss rate -- agree to within `1e-9` (`1e-8` for APH, which `perception_eval` rounds).
 
-**Dense scene.** The two differ on 90 values, **every one of which is classified against a documented
-divergence**: Hungarian versus confidence-ordered greedy matching, the previous-frame MOTP score,
-heading sign in APH, how ID switches are counted, and perception_eval clamping MOTA at zero. See
+**Dense scene.** The two differ on 65 values, **every one of which is classified against a documented
+divergence**: Hungarian versus confidence-ordered greedy matching in prediction, the previous-frame
+MOTP score, heading sign in APH, how ID switches are counted, and perception_eval clamping MOTA at
+zero. AP and mAP agree exactly, since both match in confidence order. See
 [Metric divergences](metric-divergences.md).
 
 `--check` exits non-zero on any difference that is not on that list. That is the point of the flag:

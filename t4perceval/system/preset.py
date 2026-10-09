@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from t4perceval.core.entity import EntityPathLike
     from t4perceval.system.base import System
     from t4perceval.system.matching import MatchingSystem
+    from t4perceval.system.matching.base import Assignment
     from t4perceval.system.matching.threshold import ThresholdsLike
 
 __all__ = ("average_precision_sweep",)
@@ -37,6 +38,7 @@ def average_precision_sweep(
     heading: bool = False,
     class_agnostic: bool = False,
     max_matchable_distance: ThresholdsLike | None = None,
+    assignment: Assignment = "greedy",
 ) -> list[System]:
     """Return the systems for average precision over several matching thresholds.
 
@@ -57,6 +59,9 @@ def average_precision_sweep(
         heading: Also emit APH and mAPH.
         class_agnostic: Passed through to each matcher.
         max_matchable_distance: Passed through to each matcher.
+        assignment: Passed through to each matcher. Defaults to ``"greedy"``, matching in
+            descending confidence as nuScenes does for AP, rather than the matchers' own
+            ``"hungarian"`` default.
 
     Returns:
         The systems in run order: a matcher and a metric per threshold, then the means.
@@ -78,6 +83,7 @@ def average_precision_sweep(
                 threshold=threshold,
                 class_agnostic=class_agnostic,
                 max_matchable_distance=max_matchable_distance,
+                assignment=assignment,
                 target=matching_target,
             ),
         )

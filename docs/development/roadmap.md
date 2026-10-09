@@ -424,8 +424,9 @@ t4perceval behavior
    aligned by index.
 2. **APH.** Heading similarity is treated as the true-positive count itself, which also changes the
    denominator of recall; Waymo uses the ordinary true-positive count for recall.
-3. **AP confidence-order association.** Association is a globally optimal Hungarian assignment
-   rather than confidence order; nuScenes matches greedily in descending confidence.
+3. **AP confidence-order association.** ~~Association is a globally optimal Hungarian assignment
+   rather than confidence order~~ (done: matchers take `assignment="greedy"`, and
+   `average_precision_sweep` uses it by default, matching in descending confidence as nuScenes does).
 4. **CLEAR ID-switch semantics.** An identity change across a missing frame is counted as an ID
    switch (`_count_switches()` only ever receives true-positive rows).
 5. **MOTA semantics.** ~~MOTA is clamped to 0 by `max(0.0, ...)`, while CLEAR permits negative
@@ -439,7 +440,7 @@ t4perceval behavior
 
 - [x] Prediction validity masks and time offsets
 - [ ] APH
-- [ ] AP confidence-order association
+- [x] AP confidence-order association
 - [ ] CLEAR ID-switch semantics
 - [x] MOTA clamping
 - [ ] MOTA class-agnostic counting

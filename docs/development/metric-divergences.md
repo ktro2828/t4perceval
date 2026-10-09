@@ -45,18 +45,13 @@ The current implementation therefore also changes the denominator and treats a t
 
 This behavior is compatible with the corresponding implementation in `autoware_perception_evaluation`, but it is not compatible with the [official Waymo implementation](https://github.com/waymo-research/waymo-open-dataset/blob/master/src/waymo_open_dataset/metrics/detection_metrics.cc).
 
-### 3. AP matching is not performed in confidence order
+### 3. AP matching is not performed in confidence order (resolved for AP)
 
-The current pipeline first fixes all associations using a globally optimal Hungarian assignment in [`t4perceval/system/matching/base.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/matching/base.py), then ranks the resulting match verdicts by confidence in [`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py).
+**Resolved for AP.** Matchers take `assignment="greedy"`, which walks the estimations in descending confidence and gives each the best-scoring ground truth still available, as the [official nuScenes implementation](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/eval/detection/algo.py) does. `average_precision_sweep` uses it by default, so AP, APH and their means follow nuScenes; on the dense benchmark scene AP and mAP now agree with `perception_eval` exactly. The number is kept so that the references to later items stay stable.
 
-nuScenes processes predictions in confidence order and matches each prediction to the closest ground truth that is still available. See the [official nuScenes implementation](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/eval/detection/algo.py).
+As originally found, every matcher fixed all associations with a globally optimal Hungarian assignment in [`t4perceval/system/matching/base.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/matching/base.py), and AP then ranked the resulting verdicts by confidence in [`t4perceval/system/metric/detection.py`](https://github.com/ktro2828/t4perceval/blob/main/t4perceval/system/metric/detection.py). With one ground truth and two predictions inside the threshold -- a high-confidence one slightly farther away and a low-confidence one very close -- Hungarian made the low-confidence prediction the true positive, whereas nuScenes makes the high-confidence one the true positive, and the AP values differed.
 
-For example, consider one ground truth with two predictions inside the matching threshold:
-
-- A high-confidence prediction that is slightly farther away.
-- A low-confidence prediction that is very close.
-
-The current Hungarian assignment can make the low-confidence prediction the true positive, whereas nuScenes makes the high-confidence prediction the true positive. The resulting AP values differ.
+**Still differs elsewhere:** matchers default to `assignment="hungarian"`, which is conventional for CLEAR and is what the tracking and prediction metrics use, while `perception_eval` matches greedily in confidence order everywhere (and pairs leftovers across labels in a second pass). The benchmark classifies the resulting prediction differences under this item (`hungarian-vs-greedy`). A matcher built by hand for AP needs `assignment="greedy"` to follow nuScenes.
 
 ## CLEAR tracking findings
 
@@ -86,8 +81,9 @@ This conflicts with the method documentation, which says that only the immediate
 `benchmarks/compare.py` feeds both libraries the same synthetic scene and compares every
 metric value (see `benchmarks/results/latest.md`). In a scene where every estimate has exactly
 one feasible ground truth the two agree to within floating-point noise; a dense scene exposes
-items 3 and 4 above and the three below. None of these is a bug in `t4perceval`; they are
-recorded so the benchmark can classify a difference as known rather than unexplained.
+items 3 (in prediction), 4 and 5 above and the three below. None of these is a bug in
+`t4perceval`; they are recorded so the benchmark can classify a difference as known rather than
+unexplained.
 
 ### 6. MOTP uses the previous frame's distance for a continuing pair
 
