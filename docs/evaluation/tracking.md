@@ -171,10 +171,13 @@ for target in clear.targets:
 ```
 
 ```text
-mota      [0.66666667        nan]
-motp      [0.2               nan]
-id_switch [1.                nan]
+mota [0.66666667        nan 0.66666667]
+motp [0.2 nan 0.2]
+id_switch [ 1. nan  1.]
 ```
+
+One row per class -- car, then pedestrian, which has nothing to score -- and last the all-class row,
+which pools every object and is what `values.aggregate` reads.
 
 Three frames, one ground-truth object per frame, three true positives, no false positives and one
 switch:

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 from attrs import define
 
-from t4perceval.component import MatchStatus
+from t4perceval.component import ALL_CLASSES, MatchStatus
 from t4perceval.core.entity import as_entity_path
 from t4perceval.descriptors import (
     CLASS_ID,
@@ -18,7 +18,7 @@ from t4perceval.descriptors import (
     MATCHING_SCORE,
     THRESHOLD,
 )
-from t4perceval.system.metric.base import MetricRow, MetricSystem
+from t4perceval.system.metric.base import MetricRow, MetricSystem, in_class
 
 if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
@@ -40,6 +40,9 @@ class ClearSystem(MetricSystem):
     An **ID switch** is a ground-truth object that was held by one estimation in the
     previous frame and by a different one now. Counting it needs the instance ids of both
     sides, which is why this metric requires more than a detection metric does.
+
+    The last row of each, class ``-1``, pools every object: MOTA over all hits, misses and
+    switches, MOTP over all true positives, and the total switch count.
 
     **MOTA is not clamped**: as in standard CLEAR it goes negative once the errors outnumber
     the ground-truth objects, so two bad trackers can still be told apart.
@@ -71,7 +74,7 @@ class ClearSystem(MetricSystem):
         motp: list[MetricRow] = []
         switches: list[MetricRow] = []
 
-        classes = self.classes(ctx, join)
+        classes = self.reported_classes(ctx, join)
         if not len(join.matches):
             empty = [(int(c), float("nan"), float("nan"), 0) for c in classes]
             return {mota_target: empty, motp_target: list(empty), switch_target: list(empty)}
@@ -99,8 +102,8 @@ class ClearSystem(MetricSystem):
         )
 
         for class_id in classes:
-            true_positive = is_true_positive & (gt_class == class_id)
-            false_positive = is_false_positive & join.has_estimation & (est_class == class_id)
+            true_positive = is_true_positive & in_class(gt_class, class_id)
+            false_positive = is_false_positive & join.has_estimation & in_class(est_class, class_id)
 
             num_true_positive = int(np.count_nonzero(true_positive))
             num_false_positive = int(np.count_nonzero(false_positive))
@@ -110,13 +113,20 @@ class ClearSystem(MetricSystem):
                 gt_instance[true_positive],
                 est_instance[true_positive],
             )
-            num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
+            num_ground_truth = int(np.count_nonzero(in_class(gt_classes_all, class_id)))
 
             mentions = (
-                true_positive | false_positive | (join.has_ground_truth & (gt_class == class_id))
+                true_positive
+                | false_positive
+                | (join.has_ground_truth & in_class(gt_class, class_id))
             )
             class_thresholds = thresholds[mentions]
-            threshold = float(class_thresholds[0]) if class_thresholds.size else float("nan")
+            # The all-class row is read by `MetricValues.aggregate`, which keys on NaN.
+            threshold = (
+                float(class_thresholds[0])
+                if class_thresholds.size and class_id != ALL_CLASSES
+                else float("nan")
+            )
 
             mota_value = (
                 (num_true_positive - num_false_positive - num_switch) / num_ground_truth
@@ -127,7 +137,9 @@ class ClearSystem(MetricSystem):
 
             # ID switches are a count, not a ratio, so they survive a zero support -- but a
             # class that was never seen at all reports nothing rather than a reassuring 0.
-            observed = num_ground_truth or int(np.count_nonzero(est_classes_all == class_id))
+            observed = num_ground_truth or int(
+                np.count_nonzero(in_class(est_classes_all, class_id))
+            )
             switch_value = float(num_switch) if observed else float("nan")
 
             mota.append((int(class_id), threshold, mota_value, num_ground_truth))

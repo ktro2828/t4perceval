@@ -495,7 +495,6 @@ def evaluate(
             _prediction_rows(setup.store), ["k", "minADE", "minFDE", "miss rate"], floatfmt=".4f"
         )
     )
-    print("  each cell: the mean over classes that scored at least one object")
 
     # Ground truth down the rows, estimation across the columns. The trailing `background`
     # column holds false negatives and the `background` row false positives. The sweep's
@@ -566,20 +565,24 @@ def _summary(recording: Recording) -> dict[str, str]:
 
 
 def _prediction_rows(source: Store | Recording) -> list[tuple[int, float, float, float]]:
-    """One ``(k, minADE, minFDE, miss rate)`` row per k, each the mean over scored classes.
+    """One ``(k, minADE, minFDE, miss rate)`` row per k, over every scored object.
 
-    Every class reports a row; one with no scored object is ``NaN`` and left out of the
-    mean rather than counted as a perfect zero.
+    Each metric entity ends with an all-class row that pools the objects of every class,
+    which ``aggregate`` reads.
     """
 
-    def mean(path: str) -> float:
+    def pooled(path: str) -> float:
         values = source.range(path, timeline=FRAME, time_range=SCENE).materialize(MetricValues)
-        finite = values.value.values[np.isfinite(values.value.values)]
-        return float(finite.mean()) if finite.size else float("nan")
+        return values.aggregate
 
     root = "/metrics/path_displacement"
     return [
-        (k, mean(f"{root}/min_ade{k}"), mean(f"{root}/min_fde{k}"), mean(f"{root}/miss_rate{k}"))
+        (
+            k,
+            pooled(f"{root}/min_ade{k}"),
+            pooled(f"{root}/min_fde{k}"),
+            pooled(f"{root}/miss_rate{k}"),
+        )
         for k in TOP_KS
     ]
 

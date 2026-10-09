@@ -113,6 +113,10 @@ class AveragePrecisionSystem(MetricSystem):
     A class's pool is the estimations *labelled* as that class, which is how the original
     package grouped them; a true positive additionally has to agree with its ground truth
     about the class, so a class-agnostic matcher cannot inflate the score.
+
+    The last row, class ``-1``, is the mean of the defined class APs -- the mAP at this
+    threshold. Unlike the other metrics it does not pool the objects: an AP over every
+    class at once would rank one class's confidences against another's.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (
@@ -148,7 +152,7 @@ class AveragePrecisionSystem(MetricSystem):
         if not len(join.matches):
             return {
                 self.target: [
-                    (int(c), float("nan"), float("nan"), 0) for c in self.classes(ctx, join)
+                    (c, float("nan"), float("nan"), 0) for c in self.reported_classes(ctx, join)
                 ]
             }
 
@@ -186,6 +190,15 @@ class AveragePrecisionSystem(MetricSystem):
             threshold = float(class_thresholds[0]) if class_thresholds.size else float("nan")
             rows.append((int(class_id), threshold, value, num_ground_truth))
 
+        # NaN threshold: the all-class row is read by `MetricValues.aggregate`.
+        rows.append(
+            (
+                ALL_CLASSES,
+                float("nan"),
+                nan_mean([value for _, _, value, _ in rows]),
+                len(gt_class),
+            )
+        )
         return {self.target: rows}
 
 

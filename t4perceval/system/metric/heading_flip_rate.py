@@ -16,7 +16,7 @@ import numpy as np
 from attrs import define, field
 
 from t4perceval import geometry
-from t4perceval.component import MatchStatus
+from t4perceval.component import ALL_CLASSES, MatchStatus
 from t4perceval.descriptors import (
     CLASS_ID,
     EST_INDEX,
@@ -25,7 +25,7 @@ from t4perceval.descriptors import (
     QUATERNION,
     THRESHOLD,
 )
-from t4perceval.system.metric.base import MetricRow, MetricSystem
+from t4perceval.system.metric.base import MetricRow, MetricSystem, in_class
 
 if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
@@ -55,6 +55,7 @@ class HeadingFlipRateSystem(MetricSystem):
     true-positive count, which the matching entity already carries.
 
     A class with no true positive reports ``NaN`` with its ground-truth count as support.
+    The last row, class ``-1``, is the rate over every true positive pooled.
     The threshold column carries the threshold the matching was run at.
     """
 
@@ -77,7 +78,7 @@ class HeadingFlipRateSystem(MetricSystem):
             raise ValueError(f"flip_threshold must lie in (0, pi], got {self.flip_threshold}")
 
     def compute(self, join: MatchJoin, ctx: SystemContext) -> dict[EntityPath, list[MetricRow]]:
-        classes = self.classes(ctx, join)
+        classes = self.reported_classes(ctx, join)
         rows: list[MetricRow] = []
 
         if not len(join.matches):
@@ -105,16 +106,21 @@ class HeadingFlipRateSystem(MetricSystem):
             )
 
         for class_id in classes:
-            true_positive = is_true_positive & (gt_class == class_id)
-            num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
+            true_positive = is_true_positive & in_class(gt_class, class_id)
+            num_ground_truth = int(np.count_nonzero(in_class(gt_classes_all, class_id)))
 
             mentions = (
                 true_positive
-                | (is_false_positive & (est_class == class_id))
-                | (join.has_ground_truth & (gt_class == class_id))
+                | (is_false_positive & in_class(est_class, class_id))
+                | (join.has_ground_truth & in_class(gt_class, class_id))
             )
             class_thresholds = thresholds[mentions]
-            threshold = float(class_thresholds[0]) if class_thresholds.size else float("nan")
+            # The all-class row is read by `MetricValues.aggregate`, which keys on NaN.
+            threshold = (
+                float(class_thresholds[0])
+                if class_thresholds.size and class_id != ALL_CLASSES
+                else float("nan")
+            )
 
             values = errors[true_positive]
             values = values[~np.isnan(values)]

@@ -22,7 +22,7 @@ from t4perceval.descriptors import (
     TIMESTEP_VALID,
     WAYPOINTS,
 )
-from t4perceval.system.metric.base import MetricRow, MetricSystem
+from t4perceval.system.metric.base import MetricRow, MetricSystem, in_class
 
 if TYPE_CHECKING:
     from t4perceval.core.descriptor import ComponentDescriptor
@@ -136,7 +136,8 @@ class PathDisplacementSystem(MetricSystem):
     ADE and FDE are averaged per object, then over objects. Each value of :attr:`top_k`
     writes its own ``ade{k}``, ``fde{k}`` and ``miss_rate{k}`` under :attr:`target` --
     ``min_ade{k}`` and ``min_fde{k}`` under :attr:`best_of_k` -- all from one interpolation
-    pass. See the prediction evaluation guide for the full rules.
+    pass. Each ends with an all-class row, class ``-1``, scored over every object pooled
+    together. See the prediction evaluation guide for the full rules.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (EST_INDEX, GT_INDEX, MATCH_STATUS)
@@ -198,7 +199,7 @@ class PathDisplacementSystem(MetricSystem):
         )
         results: dict[EntityPath, list[MetricRow]] = {target: [] for target in targets}
 
-        classes = self.classes(ctx, join)
+        classes = self.reported_classes(ctx, join)
         if not len(join.matches) or not len(join.estimation) or not len(join.ground_truth):
             for rows in results.values():
                 rows.extend((int(c), float("nan"), float("nan"), 0) for c in classes)
@@ -211,8 +212,8 @@ class PathDisplacementSystem(MetricSystem):
         gt_classes_all = join.ground_truth.component(CLASS_ID).values
 
         for class_id in classes:
-            rows = np.flatnonzero(scored & (gt_class == class_id))
-            num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
+            rows = np.flatnonzero(scored & in_class(gt_class, class_id))
+            num_ground_truth = int(np.count_nonzero(in_class(gt_classes_all, class_id)))
             per_mode = self._per_mode(join, rows) if rows.size else None
 
             for k, ade_target, fde_target, miss_target in zip(

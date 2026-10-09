@@ -144,7 +144,7 @@ Pipeline([matcher, ap]).run(SystemContext(store, FRAME, labels=labels), TimeRang
 values = store.range(
     "/metrics/ap_2d", timeline=FRAME, time_range=TimeRange.everything()
 ).materialize(MetricValues)
-values.value.values  # array([ 1., nan])  -- car, then pedestrian (no ground truth)
+values.value.values  # array([ 1., nan,  1.])  -- car, pedestrian (no ground truth), all classes
 ```
 
 A class with no ground truth in range gets a `NaN` row with `support == 0` rather than being

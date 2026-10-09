@@ -17,6 +17,7 @@ from t4perceval import (
     TimePoint,
     TimeRange,
 )
+from t4perceval.component import ALL_CLASSES
 from t4perceval.system import (
     CenterDistanceMatchingSystem,
     HeadingFlipRateSystem,
@@ -228,13 +229,13 @@ class TestClassesAndEdges:
 
         metrics = heading_flip_of(store, labels)
 
-        assert metrics.class_id.values.tolist() == [0, 1, 2]
+        assert metrics.class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
 
     def test_an_empty_store_yields_undefined_rows(self, labels: LabelRegistry) -> None:
         metrics = heading_flip_of(Store(), labels)
 
         assert np.isnan(metrics.value.values).all()
-        assert metrics.support.values.tolist() == [0] * len(labels)
+        assert metrics.support.values.tolist() == [0] * (len(labels) + 1)
 
     def test_a_frame_with_no_objects_is_harmless(self, labels: LabelRegistry) -> None:
         store = Store()
@@ -246,3 +247,21 @@ class TestClassesAndEdges:
         metrics = heading_flip_of(store, labels)
 
         assert metrics.of_class(0) == pytest.approx(1.0)
+
+
+class TestAllClasses:
+    def test_pools_every_true_positive_rather_than_averaging_classes(
+        self,
+        labels: LabelRegistry,
+    ) -> None:
+        """Three cars facing the right way and one reversed truck: 1/4, not (0 + 1) / 2."""
+        store = Store()
+        ground_truth = [(0.0, 0.0, 0.0, "car"), (10.0, 0.0, 0.0, "car"), (20.0, 0.0, 0.0, "car")]
+        boxes(store, 0, GT, [*ground_truth, (50.0, 0.0, 0.0, "truck")], labels)
+        boxes(store, 0, EST, [*ground_truth, (50.0, 0.0, 180.0, "truck")], labels)
+
+        metrics = heading_flip_of(store, labels)
+
+        assert metrics.of_class(labels.class_id("truck")) == pytest.approx(1.0)
+        assert metrics.aggregate == pytest.approx(0.25)
+        assert metrics.support.values[-1] == 4

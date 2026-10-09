@@ -124,7 +124,7 @@ class TestUniformSchema:
         labels: LabelRegistry,
     ) -> None:
         for result in outputs(metric.on(MATCHING, EST, GT), tracked_scene, labels):
-            assert result.class_id.values.tolist() == [0, 1, 2]
+            assert result.class_id.values.tolist() == [0, 1, 2, ALL_CLASSES]
 
     @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)
     def test_support_counts_the_ground_truths_behind_the_value(
@@ -134,7 +134,7 @@ class TestUniformSchema:
         labels: LabelRegistry,
     ) -> None:
         for result in outputs(metric.on(MATCHING, EST, GT), tracked_scene, labels):
-            assert result.support.values.tolist() == [2, 0, 0], "two frames of one car"
+            assert result.support.values.tolist() == [2, 0, 0, 2], "two frames of one car"
 
     @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)
     def test_a_class_that_was_never_seen_reports_nothing(
@@ -182,15 +182,31 @@ class TestUniformSchema:
         assert switches.of_class(truck) == pytest.approx(0.0), "but the class was seen"
 
     @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)
-    def test_per_class_rows_never_use_the_aggregate_sentinel(
+    def test_every_metric_ends_with_one_all_class_row(
         self,
         metric: type[MetricSystem],
         tracked_scene: Store,
         labels: LabelRegistry,
     ) -> None:
-        """``-1`` is unambiguous in a metrics table because no class is reported as -1."""
+        """Last, at a NaN threshold, so ``aggregate`` reads it whatever the metric."""
         for result in outputs(metric.on(MATCHING, EST, GT), tracked_scene, labels):
-            assert ALL_CLASSES not in result.class_id.values.tolist()
+            class_ids = result.class_id.values.tolist()
+            assert class_ids.count(ALL_CLASSES) == 1
+            assert class_ids[-1] == ALL_CLASSES
+            assert np.isnan(result.threshold.values[-1])
+            assert result.aggregate == pytest.approx(result.value.values[-1], nan_ok=True)
+
+    @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)
+    def test_one_class_scene_aggregates_to_that_class(
+        self,
+        metric: type[MetricSystem],
+        tracked_scene: Store,
+        labels: LabelRegistry,
+    ) -> None:
+        """Only cars are in the scene, so pooling every class gives the car's value."""
+        car = labels.class_id("car")
+        for result in outputs(metric.on(MATCHING, EST, GT), tracked_scene, labels):
+            assert result.aggregate == pytest.approx(result.of_class(car), nan_ok=True)
 
     @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)
     def test_needs_three_sources(self, metric: type[MetricSystem]) -> None:
@@ -216,7 +232,7 @@ class TestUniformSchema:
                 timeline=FRAME,
                 time_range=TimeRange.everything(),
             ).materialize(MetricValues)
-            assert len(result) == len(labels)
+            assert len(result) == len(labels) + 1, "every class, then all classes"
             assert np.isnan(result.value.values).all()
 
     @pytest.mark.parametrize("metric", ALL_METRICS, ids=lambda m: m.__name__)

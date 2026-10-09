@@ -15,7 +15,7 @@ import numpy as np
 from attrs import define, field
 
 from t4perceval import geometry
-from t4perceval.component import MatchStatus
+from t4perceval.component import ALL_CLASSES, MatchStatus
 from t4perceval.core import as_entity_path
 from t4perceval.descriptors import (
     CLASS_ID,
@@ -27,7 +27,7 @@ from t4perceval.descriptors import (
     SIZE,
     THRESHOLD,
 )
-from t4perceval.system.metric.base import MetricRow, MetricSystem
+from t4perceval.system.metric.base import MetricRow, MetricSystem, in_class
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -60,6 +60,7 @@ class CornerErrorSystem(MetricSystem):
     ``mean``, ``max``, then one ``p<N>`` per entry of :attr:`percentiles`.
 
     A class with no true positive reports ``NaN`` with its ground-truth count as support.
+    The last row, class ``-1``, takes the statistics over every true positive pooled.
     The threshold column carries the threshold the matching was run at.
     """
 
@@ -103,7 +104,7 @@ class CornerErrorSystem(MetricSystem):
         return (root / "mean", root / "max", *percentiles)
 
     def compute(self, join: MatchJoin, ctx: SystemContext) -> dict[EntityPath, list[MetricRow]]:
-        classes = self.classes(ctx, join)
+        classes = self.reported_classes(ctx, join)
         results: dict[EntityPath, list[MetricRow]] = {target: [] for target in self.targets}
 
         if not len(join.matches):
@@ -136,16 +137,21 @@ class CornerErrorSystem(MetricSystem):
             )
 
         for class_id in classes:
-            true_positive = is_true_positive & (gt_class == class_id)
-            num_ground_truth = int(np.count_nonzero(gt_classes_all == class_id))
+            true_positive = is_true_positive & in_class(gt_class, class_id)
+            num_ground_truth = int(np.count_nonzero(in_class(gt_classes_all, class_id)))
 
             mentions = (
                 true_positive
-                | (is_false_positive & (est_class == class_id))
-                | (join.has_ground_truth & (gt_class == class_id))
+                | (is_false_positive & in_class(est_class, class_id))
+                | (join.has_ground_truth & in_class(gt_class, class_id))
             )
             class_thresholds = thresholds[mentions]
-            threshold = float(class_thresholds[0]) if class_thresholds.size else float("nan")
+            # The all-class row is read by `MetricValues.aggregate`, which keys on NaN.
+            threshold = (
+                float(class_thresholds[0])
+                if class_thresholds.size and class_id != ALL_CLASSES
+                else float("nan")
+            )
 
             values = errors[true_positive]
             if values.size == 0:
