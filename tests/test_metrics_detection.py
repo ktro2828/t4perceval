@@ -122,10 +122,11 @@ class TestAveragePrecision:
         """Matching and ranking break a confidence tie alike, so the credited twin ranks first.
 
         Both estimations reach the ground truth at confidence 0.9. Greedy matching credits
-        the one logged first, and AP must rank that one ahead of its twin -- not whichever
-        verdict row happens to come first -- or the true positive trails a false positive.
+        the one logged last, as nuScenes does, and AP must rank that one ahead of its twin --
+        not whichever verdict row happens to come first -- or the true positive trails a
+        false positive.
         """
-        scene = [(0, [(0.0, "car")], [(0.8, "car", 0.9), (0.1, "car", 0.9)])]
+        scene = [(0, [(0.0, "car")], [(0.1, "car", 0.9), (0.8, "car", 0.9)])]
         systems, target = detection_pipeline(assignment="greedy")
 
         result = run(make_metric_scene(labels, scene), systems, labels, target)

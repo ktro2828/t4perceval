@@ -55,13 +55,16 @@ _ASSIGNMENTS: tuple[str, ...] = ("hungarian", "greedy")
 def confidence_order(confidence: ArrayLike, rows: ArrayLike) -> NDArrayI64:
     """Return the positions of ``confidence`` from most to least confident.
 
-    Ties go to the smaller ``rows`` value -- the estimation's row, so the one logged first.
-    Greedy matching visits estimations in this order and average precision ranks them in
-    it, and the two must agree: were ties broken differently, a tied estimation could be
-    credited with the match while its twin is ranked ahead of it as a false positive.
+    Ties go to the larger ``rows`` value -- the estimation's row, so the one logged last --
+    as in the nuScenes evaluator, which sorts ``(confidence, index)`` ascending and
+    reverses it. Greedy matching visits estimations in this order and average precision
+    ranks them in it, and the two must agree: were ties broken differently, a tied
+    estimation could be credited with the match while its twin is ranked ahead of it as a
+    false positive.
     """
     confidence = np.asarray(confidence, dtype=np.float64)
-    return np.lexsort((np.asarray(rows, dtype=np.int64), -confidence)).astype(np.int64)
+    rows = np.asarray(rows, dtype=np.int64)
+    return np.lexsort((-rows, -confidence)).astype(np.int64)
 
 
 #: Components describing a 3D box, needed by every mode that looks at the box's extent.
