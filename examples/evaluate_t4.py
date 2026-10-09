@@ -16,6 +16,7 @@ The sections mirror the documentation:
 2. Import       -- what lands in a Recording             docs/concepts/store.md
 3. Frames       -- the coordinate-frame graph            docs/concepts/coordinate-system.md
 4. Evaluate     -- filter (range, map), match, metrics   docs/evaluation/detection-3d.md
+                                                         docs/evaluation/prediction.md
 5. Persist      -- save, reopen, ask again (--save)      docs/user-guide/persistence.md
 6. Visualize    -- both streams in Rerun (--visualize)   t4-devkit's viewer
 """
@@ -47,13 +48,13 @@ from t4perceval import (
     SourceInfo,
     Store,
     TimePoint,
+    Predictions3D,
     TimeRange,
-    Trackings3D,
     Transform3D,
 )
 from t4perceval.descriptors import CLASS_ID, INSTANCE_ID, MASK, POSITION, QUATERNION, SIZE, VELOCITY
 from t4perceval.evaluation import build_evaluation_store
-from t4perceval.importer.t4 import SceneSelection, T4Importer, T4Source
+from t4perceval.importer.t4 import ImportOptions, SceneSelection, T4Importer, T4Source
 from t4perceval.io import read_recording, write_recording
 from t4perceval.lanelet import LaneletMap
 from t4perceval.system import (
@@ -62,6 +63,7 @@ from t4perceval.system import (
     ConfusionMatrixSystem,
     FilterByDistanceSystem,
     FilterByMapSystem,
+    PathDisplacementSystem,
     Pipeline,
     SystemContext,
     TransformEntitySystem,
@@ -74,6 +76,18 @@ GROUND_TRUTH = "/ground_truth/objects"
 ESTIMATION = "/estimation/objects"
 
 SCENE = TimeRange.everything()
+
+#: How far ahead the ground-truth futures reach. The importer writes ``Predictions3D`` --
+#: tracked boxes plus each object's observed future -- and the scene's last frames get
+#: shorter futures, padded and masked by ``timestep_valid``.
+FUTURE_SECONDS = 6.0
+
+#: How many predicted futures the stand-in estimation offers per object.
+NUM_MODES = 6
+
+#: The k values prediction is scored at, and the matching threshold it rides on.
+TOP_KS = (1, 3, 6)
+PREDICTION_THRESHOLD = 1.0
 
 
 def banner(title: str) -> None:
@@ -154,6 +168,17 @@ def import_scene(importer: T4Importer, labels: LabelRegistry) -> Recording:
     print(f"objects   : {len(objects)} rows over the whole scene")
     print(f"columns   : {', '.join(sorted(d.component for d in objects.descriptors))}")
     print(f"frame_id  : {recording.metadata.frame_id}")
+    if len(objects):
+        predictions = objects.materialize(Predictions3D)
+        num_modes, num_steps = predictions.waypoints.values.shape[1:3]
+        valid = predictions.timestep_valid
+        with_future = (
+            np.ones(len(objects), bool) if valid is None else valid.values.any(axis=(1, 2))
+        )
+        print(
+            f"futures   : {int(with_future.sum())}/{len(objects)} rows carry one; "
+            f"{num_modes} mode(s) x {num_steps} steps, up to {FUTURE_SECONDS:g} s ahead"
+        )
     print(f"provenance: {dict(recording.metadata.sources[0].extra)}")
 
     entities = [str(path) for path in recording.entity_paths()]
@@ -221,12 +246,23 @@ def coordinate_frames(recording: Recording) -> None:
 # ---------------------------------------------------------------------------------------
 
 
-def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recording:
+def fake_estimation(
+    ground_truth: Recording,
+    *,
+    offset: float = 0.3,
+    drift: float = 0.2,
+) -> Recording:
     """Nudge the ground truth into a stand-in 'estimation', to exercise the pipeline.
 
     Replace this with your model's output. It exists so the section below runs end to end
     on any dataset: a perfect detector shifted by ``offset`` metres should score close to
     1.0, which is the cheapest way to prove an evaluation setup is wired up correctly.
+
+    Each object also gets :data:`NUM_MODES` predicted futures: the observed one, with a
+    random walk of ``drift`` metres per step that grows with the mode index -- mode 0 is
+    the closest, so best-of-k errors shrink as k grows. The futures keep the ground
+    truth's ``time_offset`` and validity masks; a model would emit its own time axis,
+    which the metric interpolates against the ground truth's.
     """
     store = Store()
     rng = np.random.default_rng(0)
@@ -242,17 +278,43 @@ def fake_estimation(ground_truth: Recording, *, offset: float = 0.3) -> Recordin
         view = ground_truth.latest_at(GROUND_TRUTH, timeline=FRAME, at=frame)
         if not len(view):
             continue
-        objects = view.materialize(Trackings3D)
+        objects = view.materialize(Predictions3D)
+        count = len(objects)
+
+        # (N, 1, T, 3) -> (N, M, T, 3): every mode walks away from what happened.
+        observed = objects.waypoints.values[:, :1]
+        spread = np.arange(1, NUM_MODES + 1)[None, :, None, None]
+        walk = np.cumsum(rng.normal(0.0, drift, (count, NUM_MODES, *observed.shape[2:])), axis=2)
+        waypoints = observed + spread * walk
+        waypoints[..., 2] = observed[..., 2]  # displacement is scored in xy only
+
+        # A model ranks its modes; here the ranking is shuffled, so top-k has work to do.
+        confidence = rng.dirichlet(np.ones(NUM_MODES), count)
+        timestep_valid = objects.timestep_valid
+        mode_valid = objects.mode_valid
+
         store.log(
             ESTIMATION,
-            Trackings3D(
-                position=objects.position.values
-                + rng.normal(0.0, offset, objects.position.values.shape),
+            Predictions3D(
+                position=objects.position.values + rng.normal(0.0, offset, (count, 3)),
                 quaternion=objects.quaternion.values,
                 size=objects.size.values,
                 class_id=objects.class_id.values,
-                confidence=rng.uniform(0.5, 1.0, len(objects)),
+                confidence=rng.uniform(0.5, 1.0, count),
                 instance_id=objects.instance_id.values,
+                waypoints=waypoints,
+                mode_confidence=confidence,
+                mode_valid=(
+                    None
+                    if mode_valid is None
+                    else np.repeat(mode_valid.values[:, :1], NUM_MODES, axis=1)
+                ),
+                timestep_valid=(
+                    None
+                    if timestep_valid is None
+                    else np.repeat(timestep_valid.values[:, :1], NUM_MODES, axis=1)
+                ),
+                time_offset=objects.time_offset.values,
             ),
             # Both axes, as an importer would: TIMESTAMP is what the viewer's time
             # slider uses, and what `t4perceval.align` needs if the two sides were ever
@@ -283,7 +345,7 @@ def evaluate(
     estimation: Recording,
     lanelet_map: LaneletMap | None = None,
 ) -> Recording | None:
-    """Filter, match and score -- the shape every detection evaluation takes."""
+    """Filter, match and score -- detection on the current boxes, prediction on their futures."""
     banner("4. Evaluate")
 
     if not len(ground_truth.range(GROUND_TRUTH, timeline=FRAME, time_range=SCENE)):
@@ -358,6 +420,19 @@ def evaluate(
             )
         )
 
+    # Prediction rides on the same matching: the current boxes decide which estimation
+    # answers for which ground truth, then each pair's futures are compared. One system
+    # scores every k from one pass over the trajectories; `best_of_k` makes it minADE_k /
+    # minFDE_k, written as `min_ade{k}` / `min_fde{k}`.
+    prediction = PathDisplacementSystem.on(
+        f"/matching/center_distance/{thresholds.index(PREDICTION_THRESHOLD)}",
+        f"{ESTIMATION}/kept",
+        f"{GROUND_TRUTH}/kept",
+        top_k=TOP_KS,
+        best_of_k=True,
+    )
+    systems.append(prediction)
+
     Pipeline([*narrowing, *systems]).run(ctx, SCENE)
 
     def count(path: str, name: str) -> str:
@@ -413,6 +488,14 @@ def evaluate(
     print("\nper class (support > 0):")
     rows = sorted(scored, key=lambda row: -row[2])
     print(_table(rows, ["class", "AP", "objects"], floatfmt=".4f"))
+
+    print(f"\nprediction @{PREDICTION_THRESHOLD} m (true positives with a ground-truth future):")
+    print(
+        _table(
+            _prediction_rows(setup.store), ["k", "minADE", "minFDE", "miss rate"], floatfmt=".4f"
+        )
+    )
+    print("  each cell: the mean over classes that scored at least one object")
 
     # Ground truth down the rows, estimation across the columns. The trailing `background`
     # column holds false negatives and the `background` row false positives. The sweep's
@@ -477,7 +560,28 @@ def _summary(recording: Recording) -> dict[str, str]:
     for name, path in (("mAP", "/metrics/map"), ("mAPH", "/metrics/maph")):
         values = recording.range(path, timeline=FRAME, time_range=SCENE).materialize(MetricValues)
         summary[name] = f"{values.aggregate:.4f}"
+    for k, ade, fde, miss in _prediction_rows(recording):
+        summary[f"minADE/minFDE/MR @k={k}"] = f"{ade:.4f}/{fde:.4f}/{miss:.4f}"
     return summary
+
+
+def _prediction_rows(source: Store | Recording) -> list[tuple[int, float, float, float]]:
+    """One ``(k, minADE, minFDE, miss rate)`` row per k, each the mean over scored classes.
+
+    Every class reports a row; one with no scored object is ``NaN`` and left out of the
+    mean rather than counted as a perfect zero.
+    """
+
+    def mean(path: str) -> float:
+        values = source.range(path, timeline=FRAME, time_range=SCENE).materialize(MetricValues)
+        finite = values.value.values[np.isfinite(values.value.values)]
+        return float(finite.mean()) if finite.size else float("nan")
+
+    root = "/metrics/path_displacement"
+    return [
+        (k, mean(f"{root}/min_ade{k}"), mean(f"{root}/min_fde{k}"), mean(f"{root}/miss_rate{k}"))
+        for k in TOP_KS
+    ]
 
 
 def _print_confusion_matrix(labels: LabelRegistry, confusion: ConfusionMatrix) -> None:
@@ -646,7 +750,12 @@ def visualize(
 
 def main(data_root: str, *, viewer: str | None = None, save: str | None = None) -> None:
     print(f"dataset: {data_root}")
-    importer = T4Importer.open(data_root)
+    # Predictions3D are Trackings3D plus each object's observed future, so the detection
+    # half of the evaluation runs against them unchanged.
+    importer = T4Importer.open(
+        data_root,
+        options=ImportOptions(kind_3d="predictions", future_seconds=FUTURE_SECONDS),
+    )
 
     labels = inspect(importer)
     ground_truth = import_scene(importer, labels)
