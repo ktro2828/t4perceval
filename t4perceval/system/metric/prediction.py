@@ -154,7 +154,7 @@ class PathDisplacementSystem(MetricSystem):
     )
     METRIC_NAME: ClassVar[str] = "path_displacement"
 
-    top_k: tuple[int, ...] = field(default=(3,), kw_only=True, converter=_as_top_ks)
+    top_k: tuple[int, ...] = field(default=(1, 3, 6), kw_only=True, converter=_as_top_ks)
     """How many modes to score, most confident first; several values share one pass."""
 
     miss_tolerance: float = field(default=2.0, kw_only=True)

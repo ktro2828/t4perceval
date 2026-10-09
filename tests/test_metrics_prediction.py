@@ -80,7 +80,11 @@ def displacement(
     **params: object,
 ) -> dict[str, MetricValues]:
     """Score one object, keyed by metric name (``"ade"``) when one ``top_k`` is given and by
-    entity name (``"ade3"``) when several are."""
+    entity name (``"ade3"``) when several are.
+
+    ``top_k`` defaults to 3 here -- every helper mode -- rather than the system's (1, 3, 6).
+    """
+    params.setdefault("top_k", 3)
     store = Store()
     store.log(
         GT,
@@ -121,13 +125,20 @@ TWO_MODE_CONFIDENCES = [0.3, 0.7]
 
 
 class TestTargets:
-    def test_writes_one_entity_per_metric_suffixed_by_k(self) -> None:
+    def test_by_default_scores_the_top_1_3_and_6_modes(self) -> None:
         metric = PathDisplacementSystem.on("/m", EST, GT)
 
+        assert metric.top_k == (1, 3, 6)
         assert [str(target) for target in metric.targets] == [
+            "/metrics/path_displacement/ade1",
             "/metrics/path_displacement/ade3",
+            "/metrics/path_displacement/ade6",
+            "/metrics/path_displacement/fde1",
             "/metrics/path_displacement/fde3",
+            "/metrics/path_displacement/fde6",
+            "/metrics/path_displacement/miss_rate1",
             "/metrics/path_displacement/miss_rate3",
+            "/metrics/path_displacement/miss_rate6",
         ]
 
     def test_writes_one_entity_per_metric_and_k(self) -> None:

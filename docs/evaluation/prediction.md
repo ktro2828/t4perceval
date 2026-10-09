@@ -149,11 +149,11 @@ Each value of `top_k` writes its own `ade{k}`, `fde{k}` and `miss_rate{k}` under
 smaller k scores the first k of those modes -- so several values in one system cost about as much as
 one.
 
-| Parameter        | Default | Meaning                                                               |
-| :--------------- | ------: | :-------------------------------------------------------------------- |
-| `top_k`          |  `(3,)` | keep this many modes, highest `mode_confidence` first; one or several |
-| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                      |
-| `best_of_k`      | `False` | report minADE_k / minFDE_k instead of the average over the kept modes |
+| Parameter        |     Default | Meaning                                                               |
+| :--------------- | ----------: | :-------------------------------------------------------------------- |
+| `top_k`          | `(1, 3, 6)` | keep this many modes, highest `mode_confidence` first; one or several |
+| `miss_tolerance` |         2.0 | a displacement at or above this counts as a miss                      |
+| `best_of_k`      |     `False` | report minADE_k / minFDE_k instead of the average over the kept modes |
 
 Displacement is measured in **xy only**. What each metric reports, over the kept modes:
 

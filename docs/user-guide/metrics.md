@@ -22,7 +22,7 @@ ap.target  # /metrics/ap
 | `AveragePrecisionHeadingSystem`     | `/metrics/aph`                                                     | `class_id`, `confidence`, `quaternion`                    |
 | `MeanAveragePrecisionSystem`        | one entity, averaging several                                      | -- (reads metric entities)                                |
 | `ClearSystem`                       | `/metrics/clear/mota`, `/motp`, `/id_switch`                       | `class_id`, `instance_id`                                 |
-| `PathDisplacementSystem`            | `/metrics/path_displacement/ade3`, `/fde3`, `/miss_rate3`          | `class_id`, `waypoints`, `mode_confidence`, `time_offset` |
+| `PathDisplacementSystem`            | `/metrics/path_displacement/ade{k}`, `/fde{k}`, `/miss_rate{k}`    | `class_id`, `waypoints`, `mode_confidence`, `time_offset` |
 | `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size`              |
 | `HeadingFlipRateSystem`             | `/metrics/heading_flip_rate`                                       | `class_id`, `quaternion`                                  |
 | `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                                |
@@ -139,11 +139,11 @@ PathDisplacementSystem.on(matcher.target, EST, GT, top_k=(1, 3), miss_tolerance=
 # writes ade1, ade3, fde1, fde3, miss_rate1, miss_rate3 under /metrics/path_displacement
 ```
 
-| Parameter        | Default | Meaning                                                                 |
-| :--------------- | ------: | :---------------------------------------------------------------------- |
-| `top_k`          |  `(3,)` | how many highest-confidence modes are considered; one or several values |
-| `miss_tolerance` |     2.0 | a displacement at or above this counts as a miss                        |
-| `best_of_k`      | `False` | report minADE_k / minFDE_k instead of the average over the modes        |
+| Parameter        |     Default | Meaning                                                                 |
+| :--------------- | ----------: | :---------------------------------------------------------------------- |
+| `top_k`          | `(1, 3, 6)` | how many highest-confidence modes are considered; one or several values |
+| `miss_tolerance` |         2.0 | a displacement at or above this counts as a miss                        |
+| `best_of_k`      |     `False` | report minADE_k / minFDE_k instead of the average over the modes        |
 
 Every value of `top_k` gets its own `ade{k}`, `fde{k}` and `miss_rate{k}`, all computed from one pass
 over the trajectories, so pass several values to one system rather than building one system per k.
