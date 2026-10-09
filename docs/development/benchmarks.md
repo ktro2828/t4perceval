@@ -42,9 +42,9 @@ assignment pick the same pairs.
 > All 133 compared values -- per-class and overall AP / APH / mAP / mAPH, MOTA / MOTP / ID switches,
 > ADE / FDE / miss rate -- agree to within `1e-9` (`1e-8` for APH, which `perception_eval` rounds).
 
-**Dense scene.** The two differ on 87 values, **every one of which is classified against a documented
+**Dense scene.** The two differ on 90 values, **every one of which is classified against a documented
 divergence**: Hungarian versus confidence-ordered greedy matching, the previous-frame MOTP score,
-heading sign in APH, and how ID switches are counted. See
+heading sign in APH, how ID switches are counted, and perception_eval clamping MOTA at zero. See
 [Metric divergences](metric-divergences.md).
 
 `--check` exits non-zero on any difference that is not on that list. That is the point of the flag:
