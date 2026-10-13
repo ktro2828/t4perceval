@@ -102,14 +102,14 @@ importer = T4Importer.open(
 
 | Option                                 | Default       | Meaning                                                                  |
 | :------------------------------------- | :------------ | :----------------------------------------------------------------------- |
+| `entity_root`                          | required      | where objects are filed, `<entity_root>/objects`                         |
+| `instance_namespace`                   | from the root | prefix for interned instance UUIDs; `/ground_truth` gives `ground_truth` |
 | `kind_3d`                              | `"trackings"` | `"detections"`, `"trackings"` or `"predictions"`                         |
 | `kind_2d`                              | `"trackings"` | `"detections"` or `"trackings"`, for camera boxes                        |
 | `coords`                               | `"base_link"` | the frame boxes are expressed in                                         |
 | `future_seconds`                       | `0.0`         | how much future trajectory to attach (for `"predictions"`)               |
 | `velocity`, `num_points`, `visibility` | `"auto"`      | emit the optional column when the dataset has it (settled scene-wide)    |
 | `unknown_labels`                       | `"error"`     | what to do with a category the registry does not know                    |
-| `entity_root`                          | required      | where objects are filed, `<entity_root>/objects`                         |
-| `instance_namespace`                   | from the root | prefix for interned instance UUIDs; `/ground_truth` gives `ground_truth` |
 | `transforms`                           | `True`        | also import the frame graph                                              |
 | `strict`                               | `True`        | a sample missing a requested channel raises; `False` skips               |
 
@@ -196,11 +196,11 @@ topics: `{f"/estimation/{t.strip('/')}": BagSelection(topic=t) for t in topics}`
 
 | Option                          | Default                       | Meaning                                                                                     |
 | :------------------------------ | :---------------------------- | :------------------------------------------------------------------------------------------ |
+| `entity_root`                   | required                      | where `import_topic` files objects                                                          |
+| `instance_namespace`            | from the root                 | prefix for interned ids, shared by every topic of the bag; `/estimation` gives `estimation` |
 | `confidence`                    | `"classification"`            | or `"existence"` / `"product"`                                                              |
 | `velocity`                      | `"auto"`                      | emit the column when the message carries it                                                 |
 | `unknown_labels`                | `"error"`                     | what to do with an unmapped class                                                           |
-| `entity_root`                   | required                      | where `import_topic` files objects                                                          |
-| `instance_namespace`            | from the root                 | prefix for interned ids, shared by every topic of the bag; `/estimation` gives `estimation` |
 | `transforms`                    | `True`                        | also import `/tf` and `/tf_static`                                                          |
 | `tf_topics`, `tf_static_topics` | `("/tf",)`, `("/tf_static",)` | which topics carry transforms                                                               |
 | `tf_scope`                      | `"selection"`                 | which time span of transforms to keep                                                       |
