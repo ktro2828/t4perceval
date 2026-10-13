@@ -17,6 +17,11 @@ from t4perceval.system.metric.detection import (
     AveragePrecisionSystem,
     MeanAveragePrecisionSystem,
 )
+from t4perceval.system.metric.fp_validation import (
+    FpValidationSystem,
+    InstanceVerdicts,
+    fp_validation_by_instance,
+)
 from t4perceval.system.metric.heading_flip_rate import HeadingFlipRateSystem
 from t4perceval.system.metric.prediction import PathDisplacementSystem
 from t4perceval.system.metric.segmentation import (
@@ -33,7 +38,9 @@ __all__ = (
     "ClearSystem",
     "ConfusionMatrixSystem",
     "CornerErrorSystem",
+    "FpValidationSystem",
     "HeadingFlipRateSystem",
+    "InstanceVerdicts",
     "MeanAveragePrecisionSystem",
     "MetricRow",
     "MetricSystem",
@@ -41,6 +48,7 @@ __all__ = (
     "SegmentationConfusionMatrixSystem",
     "SegmentationIoUSystem",
     "SegmentationMetricSystem",
+    "fp_validation_by_instance",
     "latest_time",
     "nan_mean",
     "registered_classes",

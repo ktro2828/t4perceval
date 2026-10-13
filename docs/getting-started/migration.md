@@ -57,6 +57,7 @@ How `autoware_perception_evaluation` (`perception_eval`) maps onto `t4perceval`.
 | `detection2d`         | `Detections2D`'s components + ROI IoU matching + mAP   |
 | `tracking2d`          | as above + `INSTANCE_ID` + CLEAR                       |
 | `classification2d`    | `Classifications2D`'s components + classification      |
+| `fp_validation`       | a `class_agnostic` matcher + `FpValidationSystem`      |
 
 The branches disappear because a system only asks whether the components it needs are present:
 tracking data runs through a detection pipeline unchanged.

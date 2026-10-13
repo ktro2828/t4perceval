@@ -117,6 +117,15 @@ This is Jaccard/IoU rather than conventional classification accuracy. It can be 
 
 Benchmarks differ here. Some Cityscapes-derived scripts score an absent class as `1.0` or `0.0` before averaging; mmsegmentation averages with `nanmean` over classes present in the ground truth, which additionally drops a class that was only ever _predicted_ (here that class is defined, with IoU `0.0`). An ignored class (`ignore=`, and `UNKNOWN_CLASS_ID` by default) leaves the class axis entirely, so a prediction of it is a false negative for the true class rather than a false positive for the ignored one -- the "void" convention -- and pixel accuracy excludes ignored elements from its denominator.
 
+### FP validation threshold
+
+`FpValidationSystem` scores a false-positive annotation at the matching threshold of the
+ground-truth class, `false_positive`, because every matcher resolves per-class thresholds by the
+ground-truth class. `perception_eval` looks the threshold up by the **estimation's** label instead,
+since the annotation's own label says nothing about the object's size. The task therefore runs at
+one threshold here. `perception_fp_validation_lsim.py` configures the same value for every label,
+so its numbers are unaffected; a per-label `matching_threshold_list` is not reproducible.
+
 ### Prediction miss rate
 
 The current prediction miss rate is the fraction of all mode/timestep distances that exceed the tolerance.

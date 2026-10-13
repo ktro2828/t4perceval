@@ -42,6 +42,8 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 
 ::: t4perceval.system.metric.heading_flip_rate
 
+::: t4perceval.system.metric.fp_validation
+
 ::: t4perceval.system.metric.classification
 
 ::: t4perceval.system.metric.confusion
