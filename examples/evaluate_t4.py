@@ -71,8 +71,10 @@ from t4perceval.system import (
 )
 from t4perceval.transform import FrameGraph, TransformResolver
 
-#: Entity paths the evaluation reads. The T4 importer writes the first one.
-GROUND_TRUTH = "/ground_truth/objects"
+#: Where the T4 importer files the ground truth: ``<root>/objects``. The root is chosen here
+#: and handed to the importer below, so the path the evaluation reads is the one it wrote.
+GROUND_TRUTH_ROOT = "/ground_truth"
+GROUND_TRUTH = f"{GROUND_TRUTH_ROOT}/objects"
 ESTIMATION = "/estimation/objects"
 
 SCENE = TimeRange.everything()
@@ -758,7 +760,7 @@ def main(data_root: str, *, viewer: str | None = None, save: str | None = None) 
     importer = T4Importer.open(
         data_root,
         options=ImportOptions(
-            entity_root="/ground_truth", kind_3d="predictions", future_seconds=FUTURE_SECONDS
+            entity_root=GROUND_TRUTH_ROOT, kind_3d="predictions", future_seconds=FUTURE_SECONDS
         ),
     )
 
