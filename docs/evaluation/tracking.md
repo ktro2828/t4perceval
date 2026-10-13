@@ -199,8 +199,6 @@ missed disappears before switch counting and a lost-then-recovered identity can 
 and only the ground-truth side of a switch is counted. All of these are catalogued in
 [Metric divergences](metric-divergences.md).
 
-`HotaSystem` is [on the roadmap](../development/todos/roadmap.md), not implemented.
-
 ## Where to go next
 
 - [Prediction](prediction.md) -- tracking plus future trajectories.
