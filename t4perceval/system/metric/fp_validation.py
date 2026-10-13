@@ -5,8 +5,10 @@ an object that was not there. Those annotations carry one class, ``false_positiv
 convention, and the question asked of a new stack is the inverse of detection: an annotated
 box that **no** estimation matches is a pass, one that an estimation does match is a fail.
 
-The ordinary matcher already answers that question once it runs ``class_agnostic``, so that
-an estimation of any class may pair with the annotation. On this ground truth a ``TP``
+The ordinary matcher already answers that question once it exempts the annotation class
+from the class constraint (``agnostic_classes=["false_positive"]``), so that an estimation
+of any class may pair with an annotation while every other ground truth still needs the
+classes to agree. On this ground truth a ``TP``
 match row is the failure and an ``FN`` row the pass; an estimation that matched nothing is
 not a mistake here and is left out. :class:`FpValidationSystem` reads those rows and reports
 the pass rate, and :func:`fp_validation_by_instance` breaks the same verdicts down per
@@ -88,8 +90,9 @@ def _verdicts(join: MatchJoin, fp_class: int | None) -> tuple[NDArrayBool, NDArr
 class FpValidationSystem(MetricSystem):
     """Fraction of false-positive annotations that no estimation matched.
 
-    Run it over a ``class_agnostic`` matching, so that an estimation of any class can
-    claim an annotation. Every annotated box at every frame is one verdict: a pass when
+    Run it over a matching whose ``agnostic_classes`` names :attr:`fp_label`, so that an
+    estimation of any class can claim an annotation while ordinary ground truths keep the
+    class constraint and the detection metrics can share the matching. Every annotated box at every frame is one verdict: a pass when
     its match row is ``FN``, a fail when it is ``TP``. The value is the passes divided by
     the verdicts, ``NaN`` when there is no annotated box, and the support is the
     ground-truth count as in every metric of the family.
@@ -205,7 +208,7 @@ def fp_validation_by_instance(
 
     Args:
         store: The store the pipeline ran on.
-        matching: The ``class_agnostic`` matching entity the metric read.
+        matching: The matching entity the metric read, with ``fp_label`` exempted.
         estimation: The estimation entity that matching paired.
         ground_truth: The ground-truth entity; must carry ``instance_id``.
         timeline: The timeline the pipeline ran on.

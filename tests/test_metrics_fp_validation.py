@@ -76,8 +76,15 @@ def fp_validation_of(
     *,
     threshold: float = 2.0,
     fp_label: str = FP,
+    exempt: bool = True,
 ) -> MetricValues:
-    match = PlaneDistanceMatchingSystem.between(EST, GT, threshold=threshold, class_agnostic=True)
+    """Score with the annotation class exempted from the class rule, or strictly."""
+    match = PlaneDistanceMatchingSystem.between(
+        EST,
+        GT,
+        threshold=threshold,
+        agnostic_classes=[fp_label] if exempt else None,
+    )
     metric = FpValidationSystem.on(match.target, EST, GT, fp_label=fp_label)
     ctx = SystemContext(store, FRAME, labels=labels)
     Pipeline([match, metric]).run(ctx, TimeRange.everything())
@@ -206,6 +213,18 @@ class TestClassesAndEdges:
         assert metrics.support.values[car] == 1
         assert metrics.of_class(fp_labels.class_id(FP)) == pytest.approx(1.0)
 
+    def test_an_ordinary_ground_truth_of_another_class_cannot_take_the_estimation(
+        self, fp_labels: LabelRegistry
+    ) -> None:
+        """A car near a pedestrian and an annotation fails the annotation, not the pedestrian."""
+        store = Store()
+        boxes(store, 0, GT, [(10.0, 0.0, "pedestrian"), (11.0, 0.0, FP)], fp_labels)
+        boxes(store, 0, EST, [(10.2, 0.0, "car")], fp_labels)
+
+        metrics = fp_validation_of(store, fp_labels)
+
+        assert metrics.of_class(fp_labels.class_id(FP)) == pytest.approx(0.0)
+
     def test_a_normal_ground_truth_does_not_enter_the_pooled_row(
         self, fp_labels: LabelRegistry
     ) -> None:
@@ -229,11 +248,12 @@ class TestClassesAndEdges:
         assert metrics.of_class(labels.class_id("ghost")) == pytest.approx(0.0)
 
     def test_a_registry_without_the_class_is_undefined(self, labels: LabelRegistry) -> None:
+        """The matcher would refuse the unknown name; the metric alone reports NaN."""
         store = Store()
         boxes(store, 0, GT, [(10.0, 0.0, "car")], labels)
         boxes(store, 0, EST, [(10.0, 0.0, "car")], labels)
 
-        metrics = fp_validation_of(store, labels)
+        metrics = fp_validation_of(store, labels, exempt=False)
 
         assert np.isnan(metrics.value.values).all()
         assert metrics.support.values.tolist() == [1, 0, 0, 1]

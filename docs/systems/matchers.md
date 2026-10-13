@@ -19,6 +19,7 @@ Shared parameters:
 | :----------------------- | :------------ | :--------------------------------------------------------------------------------------------- |
 | `threshold`              | per mode      | a number, or `Thresholds(default, by_class=...)` keyed by ground-truth class                   |
 | `class_agnostic`         | `False`       | pair rows whose classes differ; the verdict then records the disagreement                      |
+| `agnostic_classes`       | `None`        | ground-truth classes that take an estimation of any class, while the rest still have to agree  |
 | `max_matchable_distance` | `None`        | largest 3D centre distance (m) a pair may have, on top of `threshold`; not for `IoURoi...`     |
 | `assignment`             | `"hungarian"` | `"hungarian"` (globally optimal) or `"greedy"` (descending estimation confidence, as nuScenes) |
 | `check_frames`           | `True`        | refuse two sources that declare different coordinate frames                                    |

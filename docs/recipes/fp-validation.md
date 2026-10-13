@@ -6,7 +6,7 @@ This is the `fp_validation` task of `perception_eval`. Its ground truth is a dat
 false positives: places where an earlier stack reported an object that was not there. The
 question is the inverse of detection. An annotated box that no estimation matches is a pass. An
 annotated box that an estimation matches is a fail. Nothing new is needed to ask it: a
-class-agnostic matcher and one metric.
+matcher that exempts the annotation class from the class rule, and one metric.
 
 ## 1. One registry that knows the annotation class
 
@@ -28,11 +28,14 @@ An estimation imported from a bag can emit Autoware names that the dataset lacks
 `trailer` or `hazard`. Pass `unknown_labels="unknown"` or `"drop"` on its `ImportOptions` instead
 of a second registry. See [Dataset importers](../user-guide/dataset-importers.md).
 
-## 2. Match class-agnostically
+## 2. Let any class claim an annotation
 
 Any estimation can claim an annotation, whatever class it reports, so the matcher must not require
-the classes to agree. `perception_eval` gates candidates by centre distance and judges by plane
-distance. `max_matchable_distance` and the plane-distance mode reproduce that:
+the classes to agree on annotations. `agnostic_classes` exempts exactly that class. Every other
+ground truth keeps the class rule, as in `perception_eval`, so a real pedestrian cannot take a
+car estimation away from the annotation next to it. `perception_eval` gates candidates by centre
+distance and judges by plane distance. `max_matchable_distance` and the plane-distance mode
+reproduce that:
 
 ```python
 from t4perceval.system import PlaneDistanceMatchingSystem
@@ -45,12 +48,14 @@ matcher = PlaneDistanceMatchingSystem.between(
     EST,
     GT,
     threshold=2.0,  # perception_eval's matching_threshold_list
-    class_agnostic=True,
+    agnostic_classes=["false_positive"],
     max_matchable_distance=5.0,  # its max_matchable_radii
 )
 ```
 
-The matching records a pair across classes as `TP`. That is what makes the verdict of an
+Do not use `class_agnostic=True` here: it lifts the class rule for every ground truth, so ordinary
+objects of the wrong class compete for the estimations and the detection metrics that share the
+matching go wrong. The matching records a pair across classes as `TP`. That is what makes the verdict of an
 annotation readable: on this ground truth a `TP` row is the failure and an `FN` row is the pass.
 An estimation that matched nothing is recorded as `FP` as usual, but this task does not count it.
 
@@ -74,7 +79,7 @@ region = [
 ]
 EST, GT = f"{EST}/kept", f"{GT}/kept"  # the matcher and the metric read the kept rows
 matcher = PlaneDistanceMatchingSystem.between(
-    EST, GT, threshold=2.0, class_agnostic=True, max_matchable_distance=5.0
+    EST, GT, threshold=2.0, agnostic_classes=["false_positive"], max_matchable_distance=5.0
 )
 ```
 
@@ -104,7 +109,9 @@ values.support.values  # ground-truth count per class, as in every metric
 The value is the passes divided by the verdicts. Every annotated box at every frame is one
 verdict. If there is no annotated box, the value is `NaN`. Other classes report `NaN` with their
 own support, because the detection metrics score them and this one does not. A dataset that mixes
-real objects and annotations therefore evaluates both in one pipeline. `setup` is the evaluation
+real objects and annotations therefore evaluates both in one pipeline, on the same matching: an
+estimation that claimed an annotation is a `TP` row whose classes disagree, which the detection
+metrics count as a false positive. `setup` is the evaluation
 store of [Evaluate a T4 dataset](evaluate-t4-dataset.md) or [an MCAP ROS bag](evaluate-rosbag.md).
 
 ## 5. Which annotation keeps failing?
@@ -133,6 +140,6 @@ of the scene. Pass `time_range=` to narrow the query to a stretch of the scene.
 
 ## Where to go next
 
-- [Matching](../user-guide/matching.md) for `class_agnostic`, `max_matchable_distance` and the rest.
+- [Matching](../user-guide/matching.md) for `agnostic_classes`, `max_matchable_distance` and the rest.
 - [Analyse a finished evaluation](offline-analysis.md) for more questions the stored rows answer.
 - [Metric divergences](../evaluation/metric-divergences.md) for where this differs from `perception_eval`.
