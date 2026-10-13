@@ -6,7 +6,10 @@ Requires the ``t4`` extra::
 
 The registry is an input, never derived here -- see :meth:`T4Importer.label_registry`::
 
-    importer = T4Importer.open("/data/t4/db_v1")
+    importer = T4Importer.open(
+        "/data/t4/db_v1",
+        options=ImportOptions(entity_root="/ground_truth"),
+    )
     labels = importer.label_registry()
     recording = importer.import_scene(labels=labels)
 """
@@ -34,11 +37,9 @@ from t4perceval.importer.t4.labels import (
     encode_class_ids,
     label_registry_from_categories,
 )
-from t4perceval.importer.t4.paths import DEFAULT_ROOT, objects2d_path, objects3d_path
 from t4perceval.importer.t4.source import Coords, SampleFrame, T4Source
 
 __all__ = (
-    "DEFAULT_ROOT",
     "Box2DColumns",
     "Box3DColumns",
     "Coords",
@@ -56,7 +57,5 @@ __all__ = (
     "boxes3d_to_columns",
     "encode_class_ids",
     "label_registry_from_categories",
-    "objects2d_path",
-    "objects3d_path",
     "trajectory_shape_of",
 )

@@ -23,9 +23,9 @@ out of the base install is what enforces that -- see [Installation](../getting-s
 Requires the `t4` extra.
 
 ```python
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-importer = T4Importer.open("/data/t4dataset")
+importer = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 
 labels = importer.label_registry()  # every category in the dataset
 labels.names
@@ -96,22 +96,22 @@ from t4perceval.importer.t4 import ImportOptions, T4Importer
 
 importer = T4Importer.open(
     "/data/t4dataset",
-    options=ImportOptions(kind_3d="detections", coords="base_link"),
+    options=ImportOptions(entity_root="/ground_truth", kind_3d="detections", coords="base_link"),
 )
 ```
 
-| Option                                 | Default         | Meaning                                                               |
-| :------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
-| `kind_3d`                              | `"trackings"`   | `"detections"`, `"trackings"` or `"predictions"`                      |
-| `kind_2d`                              | `"trackings"`   | `"detections"` or `"trackings"`, for camera boxes                     |
-| `coords`                               | `"base_link"`   | the frame boxes are expressed in                                      |
-| `future_seconds`                       | `0.0`           | how much future trajectory to attach (for `"predictions"`)            |
-| `velocity`, `num_points`, `visibility` | `"auto"`        | emit the optional column when the dataset has it (settled scene-wide) |
-| `unknown_labels`                       | `"error"`       | what to do with a category the registry does not know                 |
-| `entity_root`                          | `/ground_truth` | where objects are filed                                               |
-| `instance_namespace`                   | `"gt"`          | prefix for interned instance UUIDs                                    |
-| `transforms`                           | `True`          | also import the frame graph                                           |
-| `strict`                               | `True`          | a sample missing a requested channel raises; `False` skips            |
+| Option                                 | Default       | Meaning                                                                  |
+| :------------------------------------- | :------------ | :----------------------------------------------------------------------- |
+| `entity_root`                          | required      | where objects are filed, `<entity_root>/objects`                         |
+| `instance_namespace`                   | from the root | prefix for interned instance UUIDs; `/ground_truth` gives `ground_truth` |
+| `kind_3d`                              | `"trackings"` | `"detections"`, `"trackings"` or `"predictions"`                         |
+| `kind_2d`                              | `"trackings"` | `"detections"` or `"trackings"`, for camera boxes                        |
+| `coords`                               | `"base_link"` | the frame boxes are expressed in                                         |
+| `future_seconds`                       | `0.0`         | how much future trajectory to attach (for `"predictions"`)               |
+| `velocity`, `num_points`, `visibility` | `"auto"`      | emit the optional column when the dataset has it (settled scene-wide)    |
+| `unknown_labels`                       | `"error"`     | what to do with a category the registry does not know                    |
+| `transforms`                           | `True`        | also import the frame graph                                              |
+| `strict`                               | `True`        | a sample missing a requested channel raises; `False` skips               |
 
 The archetype you get follows `kind_3d`: `Detections3D`, `Trackings3D` or `Predictions3D`. They are
 a nested superset chain over the same annotation rows, so asking for a richer kind costs one
@@ -123,9 +123,12 @@ Requires the `rosbag` extra. An MCAP bag is decoded from the message definitions
 ROS installation** and no Autoware message packages are needed.
 
 ```python
-from t4perceval.importer.rosbag import BagSelection, RosbagImporter
+from t4perceval.importer.rosbag import BagSelection, ImportOptions, RosbagImporter
 
-importer = RosbagImporter.open("/data/bags/run_0")  # a directory of *.mcap, or one file
+importer = RosbagImporter.open(
+    "/data/bags/run_0",  # a directory of *.mcap, or one file
+    options=ImportOptions(entity_root="/estimation"),  # where import_topic files its objects
+)
 
 importer.topics()  # the DetectedObjects / TrackedObjects / PredictedObjects topics
 labels = importer.label_registry()  # the Autoware class enum, in enum order
@@ -136,7 +139,8 @@ estimation = importer.import_topic(
 )
 ```
 
-`import_topic` imports one topic into one `Recording`, at `/estimation/objects`.
+`import_topic` imports one topic into one `Recording`, at `<entity_root>/objects`: here
+`/estimation/objects`.
 
 ### Several topics of one bag
 
@@ -170,8 +174,8 @@ call and gives every recording its own copy of the frame tree:
   same frame; each chunk still states its own.
 
 Keys must be distinct roots, and -- while transforms are imported -- must not lie under `/tf`, where
-the transform edges are filed. `topic_entity_path(topic)` derives a root from the topic name if you
-would rather not choose one.
+the transform edges are filed. If you would rather not choose names, derive the roots from the
+topics: `{f"/estimation/{t.strip('/')}": BagSelection(topic=t) for t in topics}`.
 
 ### What the conversion does
 
@@ -185,21 +189,22 @@ would rather not choose one.
 - `Shape.dimensions` `(x=length, y=width, z=height)` becomes `BatchSize3D` `(width, length, height)`.
 - A body-frame twist is rotated into the message frame before becoming `velocity`.
 - `confidence` is the top classification probability by default;
-  `ImportOptions(confidence="existence")` uses `existence_probability` instead, and `"product"`
+  `ImportOptions(entity_root="/estimation", confidence="existence")` uses `existence_probability`
+  instead, and `"product"`
   multiplies the two.
 
 ### Import options
 
-| Option                          | Default                       | Meaning                                     |
-| :------------------------------ | :---------------------------- | :------------------------------------------ |
-| `confidence`                    | `"classification"`            | or `"existence"` / `"product"`              |
-| `velocity`                      | `"auto"`                      | emit the column when the message carries it |
-| `unknown_labels`                | `"error"`                     | what to do with an unmapped class           |
-| `entity_root`                   | `/estimation`                 | where objects are filed                     |
-| `instance_namespace`            | `"est"`                       | prefix for interned instance ids            |
-| `transforms`                    | `True`                        | also import `/tf` and `/tf_static`          |
-| `tf_topics`, `tf_static_topics` | `("/tf",)`, `("/tf_static",)` | which topics carry transforms               |
-| `tf_scope`                      | `"selection"`                 | which time span of transforms to keep       |
+| Option                          | Default                       | Meaning                                                                                     |
+| :------------------------------ | :---------------------------- | :------------------------------------------------------------------------------------------ |
+| `entity_root`                   | required                      | where `import_topic` files objects                                                          |
+| `instance_namespace`            | from the root                 | prefix for interned ids, shared by every topic of the bag; `/estimation` gives `estimation` |
+| `confidence`                    | `"classification"`            | or `"existence"` / `"product"`                                                              |
+| `velocity`                      | `"auto"`                      | emit the column when the message carries it                                                 |
+| `unknown_labels`                | `"error"`                     | what to do with an unmapped class                                                           |
+| `transforms`                    | `True`                        | also import `/tf` and `/tf_static`                                                          |
+| `tf_topics`, `tf_static_topics` | `("/tf",)`, `("/tf_static",)` | which topics carry transforms                                                               |
+| `tf_scope`                      | `"selection"`                 | which time span of transforms to keep                                                       |
 
 ### Bag transforms are on TIMESTAMP
 

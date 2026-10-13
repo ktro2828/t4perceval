@@ -46,7 +46,8 @@ from a dataset UUID by an [`InstanceRegistry`](../components/object.md#batchinst
 
 The two sides' id spaces are **independent**: a metric compares identity _continuity_, not id
 equality, so the tracker's own integers are fine. When both sides are interned into one registry,
-give them distinct namespaces -- `instance_namespace="gt"` and `"est"` is what the importers do.
+give them distinct namespaces. The importers derive one from the entity root (`/ground_truth`
+interns as `ground_truth/<uuid>`) unless `instance_namespace` is given.
 
 ## What it unlocks
 

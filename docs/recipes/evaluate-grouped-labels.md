@@ -38,9 +38,10 @@ grouped registry before anything runs.
 Start from the registry the ground truth defines, and merge it:
 
 ```python
+from t4perceval.importer.t4 import ImportOptions as T4ImportOptions
 from t4perceval.importer.t4 import T4Importer
 
-t4 = T4Importer.open("/data/t4dataset")
+t4 = T4Importer.open("/data/t4dataset", options=T4ImportOptions(entity_root="/ground_truth"))
 labels = t4.label_registry().merged({"vehicle": ["car", "truck", "bus"]})
 
 t4.label_registry().names
@@ -63,12 +64,16 @@ shared `InstanceRegistry`:
 ```python
 from t4perceval import InstanceRegistry
 from t4perceval.importer.rosbag import BagSelection, RosbagImporter
+from t4perceval.importer.rosbag import ImportOptions as BagImportOptions
 
 instances = InstanceRegistry()
 
 ground_truth = t4.import_scene(labels=labels, instances=instances)
 
-estimation = RosbagImporter.open("/data/bags/run_0").import_topic(
+estimation = RosbagImporter.open(
+    "/data/bags/run_0",
+    options=BagImportOptions(entity_root="/estimation"),
+).import_topic(
     labels=labels,
     instances=instances,
     selection=BagSelection(topic="/perception/object_recognition/objects"),
@@ -85,7 +90,7 @@ For model output you log yourself, `labels.encode(names)` resolves the aliases t
 Every name a source emits must be a class or an alias of the registry. The Autoware enum has
 classes a dataset may not -- `trailer`, `motorcycle`, `unknown` -- and the importer raises on them
 by default. Either add them to a group, or choose what happens with
-`ImportOptions(unknown_labels="drop")` or `"unknown"`; see
+`unknown_labels="drop"` or `"unknown"` on either importer's `ImportOptions`; see
 [Dataset importers](../user-guide/dataset-importers.md).
 
 ### 3. Evaluate as usual

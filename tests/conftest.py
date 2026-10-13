@@ -270,9 +270,9 @@ def t4_dataset_root() -> Path:
 def t4_importer(t4_dataset_root: Path) -> object:
     """A default importer over the vendored dataset."""
     pytest.importorskip("t4_devkit")
-    from t4perceval.importer.t4 import T4Importer
+    from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-    return T4Importer.open(t4_dataset_root)
+    return T4Importer.open(t4_dataset_root, options=ImportOptions(entity_root="/ground_truth"))
 
 
 @pytest.fixture(scope="session")
@@ -287,6 +287,6 @@ def rosbag_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def rosbag_importer(rosbag_path: Path) -> object:
     """A default importer over the generated bag."""
-    from t4perceval.importer.rosbag import RosbagImporter
+    from t4perceval.importer.rosbag import ImportOptions, RosbagImporter
 
-    return RosbagImporter.open(rosbag_path)
+    return RosbagImporter.open(rosbag_path, options=ImportOptions(entity_root="/estimation"))

@@ -43,7 +43,7 @@ other filter and matcher reads it unchanged.
 ```python
 from t4perceval import TimeRange
 from t4perceval.evaluation import SourceSpec, build_evaluation_store_from
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 from t4perceval.system import (
     ApplyMaskSystem,
     FilterByMapSystem,
@@ -52,7 +52,7 @@ from t4perceval.system import (
 )
 from t4perceval.transform import TransformResolver
 
-importer = T4Importer.open("/data/t4/db_v1")
+importer = T4Importer.open("/data/t4/db_v1", options=ImportOptions(entity_root="/ground_truth"))
 labels = importer.label_registry()
 ground_truth = importer.import_scene(labels=labels)
 estimation = ...  # a recording of your model's output over the same scene, in base_link

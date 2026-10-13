@@ -13,6 +13,11 @@ A bag usually carries detection, tracking and prediction outputs side by side, a
 one frame tree. :meth:`RosbagImporter.import_topics` imports several of them into one
 recording, each under its own entity root, and reads ``/tf`` once for all of them;
 :meth:`RosbagImporter.import_topic` is the one-topic case.
+
+Objects land at ``<root>/objects``. A topic names a message *source*; an entity path names
+a semantic *location*. They are not the same concept, so no path is minted from the topic
+string: the root is the caller's choice, and which topic it came from is recorded in
+``SourceInfo.topic`` instead.
 """
 
 from __future__ import annotations
@@ -24,7 +29,7 @@ from attrs import define, field
 from t4perceval.core.entity import EntityPath, as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import TimePoint
-from t4perceval.importer._columns import resolve_emit
+from t4perceval.importer._columns import instance_namespace_of, resolve_emit
 from t4perceval.importer._importer import (
     import_metadata,
     narrow,
@@ -38,7 +43,6 @@ from t4perceval.importer.rosbag.convert import (
     trajectory_shape_of,
 )
 from t4perceval.importer.rosbag.labels import label_registry_from_autoware
-from t4perceval.importer.rosbag.paths import DEFAULT_ROOT, objects3d_path
 from t4perceval.importer.rosbag.source import BagSource
 from t4perceval.importer.rosbag.transforms import log_bag_transforms, transform_samples
 from t4perceval.label import InstanceRegistry
@@ -76,14 +80,19 @@ class BagSelection:
 class ImportOptions:
     """How the import is performed."""
 
+    entity_root: EntityPathLike
+    """Where :meth:`RosbagImporter.import_topic` files its objects, at
+    ``<entity_root>/objects``. :meth:`RosbagImporter.import_topics` takes a root per topic."""
+
+    instance_namespace: str | None = None
+    """Prefix for interned identities, shared by every topic of the bag. ``None`` derives
+    it from :attr:`entity_root`."""
+
     confidence: Confidence = "classification"
     """Which message field becomes ``BatchConfidence``."""
 
     velocity: Emit = "auto"
     unknown_labels: UnknownLabels = "error"
-    entity_root: EntityPathLike = DEFAULT_ROOT
-    instance_namespace: str = "est"
-    """Prefix for interned identities, so two sources cannot collide on one integer."""
 
     transforms: bool = True
     """Whether to record the bag's frame tree alongside the objects.
@@ -107,15 +116,12 @@ class RosbagImporter:
     """
 
     source: BagSource
-    options: ImportOptions = field(factory=ImportOptions, kw_only=True)
+    options: ImportOptions
 
     @classmethod
-    def open(cls, path: str | Path, *, options: ImportOptions | None = None) -> Self:
+    def open(cls, path: str | Path, *, options: ImportOptions) -> Self:
         """Open a bag file or directory."""
-        return cls(
-            BagSource(path),
-            options=options if options is not None else ImportOptions(),
-        )
+        return cls(BagSource(path), options=options)
 
     def topics(self) -> tuple[TopicInfo, ...]:
         """Return the object topics the bag holds."""
@@ -233,7 +239,16 @@ class RosbagImporter:
             )
 
         sources = tuple(
-            self._log_topic(store, topic, objects3d_path(root), labels=labels, instances=registry)
+            self._log_topic(
+                store,
+                topic,
+                root / "objects",
+                labels=labels,
+                instances=registry,
+                instance_namespace=options.instance_namespace
+                if options.instance_namespace is not None
+                else instance_namespace_of(options.entity_root),
+            )
             for root, topic in zip(roots, topics)
         )
 
@@ -276,6 +291,7 @@ class RosbagImporter:
         *,
         labels: LabelRegistry,
         instances: InstanceRegistry,
+        instance_namespace: str,
     ) -> SourceInfo:
         """Convert and log one materialized topic, returning its provenance."""
         options = self.options
@@ -285,7 +301,7 @@ class RosbagImporter:
                 kind=topic.kind,
                 labels=labels,
                 instances=instances,
-                instance_namespace=options.instance_namespace,
+                instance_namespace=instance_namespace,
                 unknown_labels=options.unknown_labels,
                 confidence=options.confidence,
                 velocity=topic.velocity,

@@ -10,6 +10,13 @@ concatenates, so whether a scene emits a velocity column and what trajectory sha
 have to be settled for the whole scene before the first frame is written. A per-frame
 decision produces chunks that log without complaint and then make any whole-scene query
 raise.
+
+Objects land at ``<entity_root>/objects``: one 3D entity per scene regardless of which
+sensor channel fetched the boxes, because a sample has exactly one set of 3D annotations
+and the channel only decides the coordinate frame, which ``Chunk.frame_id`` already
+records. 2D annotations genuinely differ per camera, so each camera gets its own entity at
+``<entity_root>/<channel>/objects``, the channel kept verbatim (``CAM_FRONT``) so a path
+traces straight back to ``sensor.channel``.
 """
 
 from __future__ import annotations
@@ -22,7 +29,7 @@ from attrs import define, evolve, field
 from t4perceval.core.entity import as_entity_path
 from t4perceval.core.store import Store
 from t4perceval.core.timeline import TimePoint
-from t4perceval.importer._columns import resolve_emit
+from t4perceval.importer._columns import instance_namespace_of, resolve_emit
 from t4perceval.importer._importer import (
     import_metadata,
     narrow,
@@ -34,7 +41,6 @@ from t4perceval.importer.t4.convert import (
     trajectory_shape_of,
 )
 from t4perceval.importer.t4.labels import label_registry_from_categories
-from t4perceval.importer.t4.paths import DEFAULT_ROOT, objects2d_path, objects3d_path
 from t4perceval.importer.t4.source import T4Source
 from t4perceval.importer.t4.transforms import log_scene_transforms
 from t4perceval.label import InstanceRegistry
@@ -47,8 +53,8 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from t4perceval.core.entity import EntityPathLike
-    from t4perceval.importer.t4.convert import Emit, Kind2D, Kind3D
     from t4perceval.importer._labels import UnknownLabels
+    from t4perceval.importer.t4.convert import Emit, Kind2D, Kind3D
     from t4perceval.importer.t4.source import Coords
     from t4perceval.label import LabelRegistry
 
@@ -71,10 +77,24 @@ class SceneSelection:
     channels_2d: tuple[str, ...] = field(default=(), converter=tuple)
     """Camera channels to import 2D boxes for. Each gets its own entity."""
 
+    @channels_2d.validator
+    def _channels_are_named(self, _attribute: object, channels: tuple[str, ...]) -> None:
+        # An empty channel would file its boxes at ``<root>//objects``, which collapses
+        # onto the 3D entity.
+        if any(not channel for channel in channels):
+            raise ValueError("channels_2d must not contain an empty channel name")
+
 
 @define(frozen=True, slots=True)
 class ImportOptions:
     """How the import is performed."""
+
+    entity_root: EntityPathLike
+    """Where objects are filed: ``<entity_root>/objects`` for 3D boxes and
+    ``<entity_root>/<channel>/objects`` for each camera's 2D boxes."""
+
+    instance_namespace: str | None = None
+    """Prefix for interned identities. ``None`` derives it from :attr:`entity_root`."""
 
     kind_3d: Kind3D = "trackings"
     """Which 3D archetype to write. ``Trackings3D`` by default: it costs one extra column
@@ -90,9 +110,6 @@ class ImportOptions:
     num_points: Emit = "auto"
     visibility: Emit = "auto"
     unknown_labels: UnknownLabels = "error"
-    entity_root: EntityPathLike = DEFAULT_ROOT
-    instance_namespace: str = "gt"
-    """Prefix for interned identities, so two sources cannot collide on one integer."""
 
     strict: bool = True
     """Whether a sample missing a requested channel is an error."""
@@ -117,7 +134,7 @@ class T4Importer:
     """
 
     source: T4Source
-    options: ImportOptions = field(factory=ImportOptions, kw_only=True)
+    options: ImportOptions
 
     @classmethod
     def open(
@@ -125,14 +142,11 @@ class T4Importer:
         data_root: str | Path,
         revision: str | None = None,
         *,
-        options: ImportOptions | None = None,
+        options: ImportOptions,
         verbose: bool = False,
     ) -> Self:
         """Open a dataset by path."""
-        return cls(
-            T4Source(data_root, revision, verbose=verbose),
-            options=options if options is not None else ImportOptions(),
-        )
+        return cls(T4Source(data_root, revision, verbose=verbose), options=options)
 
     def label_registry(
         self,
@@ -233,8 +247,13 @@ class T4Importer:
         # -- pass 2: convert and log ----------------------------------------------------
         store = Store()
         entity_root = as_entity_path(options.entity_root)
-        path_3d = objects3d_path(entity_root)
-        paths_2d = {channel: objects2d_path(entity_root, channel) for channel in chosen.channels_2d}
+        instance_namespace = (
+            options.instance_namespace
+            if options.instance_namespace is not None
+            else instance_namespace_of(entity_root)
+        )
+        path_3d = entity_root / "objects"
+        paths_2d = {channel: entity_root / channel / "objects" for channel in chosen.channels_2d}
         num_frames = 0
 
         if options.transforms and chosen.channel_3d is not None:
@@ -251,7 +270,7 @@ class T4Importer:
                     labels=labels,
                     instances=registry,
                     base_time_ns=timestamp_ns,
-                    instance_namespace=options.instance_namespace,
+                    instance_namespace=instance_namespace,
                     unknown_labels=options.unknown_labels,
                     trajectory=trajectory,
                     **emit,
@@ -276,7 +295,7 @@ class T4Importer:
                     self.source.boxes2d(token),
                     labels=labels,
                     instances=registry,
-                    instance_namespace=options.instance_namespace,
+                    instance_namespace=instance_namespace,
                     unknown_labels=options.unknown_labels,
                 )
                 store.log(

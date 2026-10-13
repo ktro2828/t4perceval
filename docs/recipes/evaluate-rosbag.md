@@ -20,9 +20,13 @@ message, so the two `FRAME` axes are unrelated.
 ## 1. Open the bag
 
 ```python
+from t4perceval.importer.rosbag import ImportOptions as BagImportOptions
 from t4perceval.importer.rosbag import RosbagImporter
 
-importer = RosbagImporter.open("/data/bags/run_0")  # a directory of *.mcap, or one file
+importer = RosbagImporter.open(
+    "/data/bags/run_0",  # a directory of *.mcap, or one file
+    options=BagImportOptions(entity_root="/estimation"),  # where its objects are filed
+)
 
 importer.topics()
 # the DetectedObjects / TrackedObjects / PredictedObjects topics the bag holds
@@ -31,9 +35,10 @@ importer.topics()
 ## 2. Share one label registry
 
 ```python
+from t4perceval.importer.t4 import ImportOptions as T4ImportOptions
 from t4perceval.importer.t4 import T4Importer
 
-t4 = T4Importer.open("/data/t4dataset")
+t4 = T4Importer.open("/data/t4dataset", options=T4ImportOptions(entity_root="/ground_truth"))
 labels = t4.label_registry()  # the ground truth's registry is the authority
 ```
 
@@ -76,7 +81,7 @@ The schema decides the archetype:
 | `PredictedObjects` | `Predictions3D` |
 
 Objects land at `/estimation/objects`. `/tf` and `/tf_static` come along as transform edges unless
-you pass `ImportOptions(transforms=False)`.
+you pass `BagImportOptions(entity_root="/estimation", transforms=False)`.
 
 ### What the conversion does
 
@@ -84,7 +89,8 @@ you pass `ImportOptions(transforms=False)`.
 - `Shape.dimensions` `(x=length, y=width, z=height)` → `BatchSize3D` `(width, length, height)`.
 - A body-frame twist is rotated into the message frame before becoming `velocity`.
 - `confidence` is the **top classification probability**; use
-  `ImportOptions(confidence="existence")` for `existence_probability`.
+  `BagImportOptions(entity_root="/estimation", confidence="existence")` for
+  `existence_probability`.
 
 ### Several topics at once
 
@@ -151,7 +157,8 @@ ValueError: Cannot compare geometry across coordinate frames: /estimation/object
 
 Options, best first:
 
-1. Import the T4 side in the bag's frame -- `ImportOptions(coords="map")` on the T4 importer.
+1. Import the T4 side in the bag's frame -- `T4ImportOptions(entity_root="/ground_truth", coords="map")`
+   on the T4 importer.
 2. Transform the bag side with its own transform graph, as the first stage of the pipeline:
 
    ```python

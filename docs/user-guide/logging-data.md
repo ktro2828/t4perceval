@@ -165,9 +165,9 @@ things that genuinely do not vary.
 If your data is a T4 dataset or an MCAP bag, do not hand-roll the conversion:
 
 ```python
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-importer = T4Importer.open("/data/t4dataset")
+importer = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 labels = importer.label_registry()
 ground_truth = importer.import_scene(labels=labels)  # -> Recording
 ```

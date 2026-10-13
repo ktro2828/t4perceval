@@ -40,8 +40,8 @@ are two entities:
 /ground_truth/CAM_BACK/objects    frame_id="CAM_BACK"
 ```
 
-The T4 importer files them that way; see
-[`objects2d_path`](../user-guide/dataset-importers.md#t4-dataset).
+The T4 importer files them that way, at `<entity_root>/<channel>/objects`; see
+[the T4 dataset importer](../user-guide/dataset-importers.md#t4-dataset).
 
 ### Estimation
 
