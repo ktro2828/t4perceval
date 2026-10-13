@@ -24,7 +24,6 @@ Metric Semantics
 2. [P1: Transform completion](#p1-transform-completion)
 3. [P2: Segmentation support](#p2-segmentation-support)
 4. [P3: Metric correctness](#p3-metric-correctness)
-5. [P4: Additional metrics and productization](#p4-additional-metrics-and-productization)
 
 The immediate objective is **semantic and architectural stabilization rather than feature
 accumulation**. The first major completion milestone:
@@ -414,20 +413,6 @@ Each item is described, with the reasoning, under its number in
 - [ ] Regression tests over all of the above
 
 After this phase, metric semantics can be considered stable.
-
-## P4: Additional metrics and productization
-
-Lower-priority functionality, once the core design has stabilized. None of it should drive changes
-to the core architecture unless it exposes a genuine abstraction problem.
-
-### Additional metrics
-
-- [ ] `HotaSystem`
-- [ ] `PassFailSystem`, including the critical-object verdict: it would require `MATCH_STATUS`
-      plus the `MASK` of the critical-object filters, so `CriticalObjectFilterConfig` becomes
-      filter systems and `PerceptionPassFailConfig` its parameters
-- [ ] Additional segmentation metrics
-- [ ] Task-specific aggregate metrics
 
 ### Visualization
 
