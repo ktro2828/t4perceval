@@ -163,12 +163,12 @@ pinned logical CPU); matching is a single frame.
 
 Numerical agreement is checked on two scenes. On the **unambiguous** scene all 133 compared values
 agree to within `1e-9`. On the **dense** scene the two differ on 65 values, every one of which is
-classified against a [documented divergence](docs/development/metric-divergences.md); `--check`
+classified against a [documented divergence](docs/evaluation/metric-divergences.md); `--check`
 fails on any difference that is not.
 
 Full report: [`benchmarks/results/latest.md`](benchmarks/results/latest.md) ·
 options and prerequisites: [`benchmarks/README.md`](benchmarks/README.md) ·
-narrative: [docs/development/benchmarks.md](docs/development/benchmarks.md).
+narrative: [benchmarks/README.md](benchmarks/README.md).
 
 ## Documentation
 
@@ -186,10 +186,10 @@ Run `uv run zensical serve` for the full site, or read the sources under [`docs/
 | [Archetypes](docs/archetypes/index.md) & [Components](docs/components/index.md) | the schema catalogue                              |
 | [Systems](docs/systems/index.md)                                                | the catalogue of filters, matchers and metrics    |
 | [API reference](docs/reference/api/index.md)                                    | generated from the docstrings                     |
-| [Development](docs/development/architecture.md)                                 | architecture, ADRs, and how to extend it          |
+| [Development](docs/development/for-developers/architecture.md)                  | architecture, and how to extend it                |
 
 Coming from `autoware_perception_evaluation`? The
-[migration guide](docs/development/migration.md) maps its types, tasks and config keys onto this
+[migration guide](docs/getting-started/migration.md) maps its types, tasks and config keys onto this
 package.
 
 ## Development
@@ -201,7 +201,7 @@ uv run ruff check t4perceval tests && uv run ruff format --check t4perceval test
 uv run zensical serve
 ```
 
-See [Contributing](docs/development/contributing.md).
+See [Contributing](docs/development/for-developers/contributing.md).
 
 ## Status
 
@@ -226,9 +226,9 @@ in as well.
 **Next.** Metric correctness against the official definitions, `HotaSystem` and pass/fail, a
 lidarseg importer, and a visualization layer.
 
-See [the roadmap](docs/development/roadmap.md) for the current list,
-[Design principles](docs/development/design-principles.md) for the rules they follow,
-and [Metric divergences](docs/development/metric-divergences.md) for where the metric
+See [the roadmap](docs/development/todos/roadmap.md) for the current list,
+[Design principles](docs/development/for-developers/design-principles.md) for the rules they follow,
+and [Metric divergences](docs/evaluation/metric-divergences.md) for where the metric
 implementations differ from the official benchmark definitions.
 
 ## License

@@ -197,9 +197,9 @@ switches outnumber the ground-truth objects. `perception_eval` clamps it at zero
 ID switches are counted only over rows that were true positives, so a frame where the object was
 missed disappears before switch counting and a lost-then-recovered identity can read as a switch,
 and only the ground-truth side of a switch is counted. All of these are catalogued in
-[Metric divergences](../development/metric-divergences.md).
+[Metric divergences](metric-divergences.md).
 
-`HotaSystem` is [on the roadmap](../development/roadmap.md), not implemented.
+`HotaSystem` is [on the roadmap](../development/todos/roadmap.md), not implemented.
 
 ## Where to go next
 

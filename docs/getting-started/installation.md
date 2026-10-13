@@ -66,7 +66,7 @@ uv run pytest tests -q
 uv sync --group dev --all-extras
 ```
 
-See [Contributing](../development/contributing.md) for the lint and documentation commands.
+See [Contributing](../development/for-developers/contributing.md) for the lint and documentation commands.
 
 ## Next steps
 

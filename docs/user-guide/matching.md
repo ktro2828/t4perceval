@@ -98,7 +98,7 @@ a ratio, NaN on an unmatched row -- not the internal cost.
 `autoware_perception_evaluation` always matches greedily in confidence order, and additionally pairs
 leftover objects across labels in a second pass. On scenes where each estimate has exactly one
 feasible ground truth every assignment agrees; on dense scenes the Hungarian one does not. See
-[Metric divergences](../development/metric-divergences.md).
+[Metric divergences](../evaluation/metric-divergences.md).
 
 ## Thresholds
 

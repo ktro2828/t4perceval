@@ -268,7 +268,7 @@ With `best_of_k=True` the better of the two modes is kept, so ADE and FDE are ze
 
 The miss rate is the fraction of _all_ scored mode/timestep distances over the tolerance, where a
 common forecasting definition reports the fraction of _objects_ whose selected trajectory misses at
-the final step. See [Metric divergences](../development/metric-divergences.md).
+the final step. See [Metric divergences](metric-divergences.md).
 
 ## Where to go next
 

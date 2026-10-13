@@ -188,4 +188,4 @@ See [Persistence](../user-guide/persistence.md#saving-a-whole-recording).
 ## Where to go next
 
 - [Offline analysis](../user-guide/offline-analysis.md) -- the query surface.
-- [Metric divergences](../development/metric-divergences.md) -- when the number is right but unexpected.
+- [Metric divergences](../evaluation/metric-divergences.md) -- when the number is right but unexpected.

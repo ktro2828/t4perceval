@@ -103,4 +103,4 @@ concatenates across frames without special handling, and it densifies on demand.
 ## Where to go next
 
 - [Metrics](../user-guide/metrics.md) -- producing and reading them.
-- [Metric divergences](../development/metric-divergences.md) -- where the numbers differ from the official definitions.
+- [Metric divergences](../evaluation/metric-divergences.md) -- where the numbers differ from the official definitions.

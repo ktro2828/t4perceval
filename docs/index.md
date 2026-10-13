@@ -16,7 +16,7 @@ pipeline you compose**.
 !!! warning "Project status"
 
     Under active development. APIs and data layouts may change without backward compatibility until
-    the design stabilizes. See the [roadmap](development/roadmap.md).
+    the design stabilizes. See the [roadmap](development/todos/roadmap.md).
 
 ## Start here
 
@@ -87,7 +87,7 @@ still there afterwards -- and asking about one frame costs another query, not an
 
 ## What it gives you
 
-**Speed.** The [benchmark](development/benchmarks.md) runs both libraries over the same synthetic
+**Speed.** The [benchmark](https://github.com/ktro2828/t4perceval/blob/main/benchmarks/README.md) runs both libraries over the same synthetic
 scenes: 67x to 224x faster on the metric workloads, 16x smaller in retained memory. On the
 unambiguous scene all 133 compared metric values agree with `perception_eval` to within `1e-9`.
 
@@ -129,25 +129,12 @@ Not by Python package -- by what you are trying to do.
 | [Components](components/index.md) & [Archetypes](archetypes/index.md) | "What data types exist?"                             |
 | [Systems](systems/index.md)                                           | "What can a pipeline stage do?"                      |
 | [API reference](reference/api/index.md)                               | "What exactly does this API do?"                     |
-| [Development](development/architecture.md)                            | "I want to understand or extend the library itself." |
+| [Development](development/for-developers/architecture.md)             | "I want to understand or extend the library itself." |
 
 Only the API reference follows the implementation structure, and it is generated from the docstrings.
 
 ## Design documents
 
-The rationale lives in the [architecture decision records](development/design-decisions/index.md),
-and the [migration guide](development/migration.md) maps `autoware_perception_evaluation` onto this
+The rationale lives in [Architecture](development/for-developers/architecture.md) and
+[Design principles](development/for-developers/design-principles.md), and the [migration guide](getting-started/migration.md) maps `autoware_perception_evaluation` onto this
 package.
-
-## Local preview
-
-```console
-uv sync --group dev
-uv run zensical serve
-```
-
-To produce a static site instead:
-
-```console
-uv run zensical build --clean
-```

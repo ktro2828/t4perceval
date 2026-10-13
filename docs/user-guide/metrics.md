@@ -278,8 +278,8 @@ per_frame = [
 
 Several metric implementations differ from the official benchmark definitions -- APH's denominator
 and how ID switches are counted. They are catalogued, with the reasoning, in
-[Metric divergences](../development/metric-divergences.md), and the
-[benchmark](../development/benchmarks.md) checks every difference against that list.
+[Metric divergences](../evaluation/metric-divergences.md), and the
+[benchmark](https://github.com/ktro2828/t4perceval/blob/main/benchmarks/README.md) checks every difference against that list.
 
 ## Where to go next
 

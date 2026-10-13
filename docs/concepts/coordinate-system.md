@@ -120,4 +120,3 @@ so one check covers all of them. Two rules keep it from firing spuriously:
 
 - [Working with transforms](../user-guide/transforms.md) -- the how-to.
 - [Transform3D](../archetypes/transform-3d.md) -- the archetype's schema.
-- [ADR 0003: coordinate frames as recorded data](../development/design-decisions/0003-coordinate-system.md).

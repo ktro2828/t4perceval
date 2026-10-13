@@ -62,21 +62,12 @@ can exist before it has any edge -- so the schema must not depend on the row cou
 
 `component_type` is resolved back to a class through
 [`t4perceval.io.registry`](../reference/api/io.md), which is why a new component must be reachable
-from `t4perceval.component` -- see [Extending components](extending-components.md#register-it-for-io).
+from `t4perceval.component` -- see [Extending components](../development/for-developers/extending-components.md#register-it-for-io).
 
 ## Round trip
 
-```python
-from t4perceval.io import chunk_from_table, chunk_to_table, read_parquet, write_parquet
-
-table = chunk_to_table(chunk, labels=labels)
-chunk, labels = chunk_from_table(table)
-
-write_parquet(chunk, "matching.parquet", labels=labels)
-chunk, labels = read_parquet("matching.parquet")
-```
-
-Lossless for one chunk: dtypes, row shapes, partition boundaries, timelines, `frame_id`, `is_static`
+`chunk_to_table` / `chunk_from_table` and `write_parquet` / `read_parquet` are shown in
+[Persistence](persistence.md#arrow-and-parquet). Lossless for one chunk: dtypes, row shapes, partition boundaries, timelines, `frame_id`, `is_static`
 and the registry all survive.
 
 ## What one chunk does not carry
@@ -89,7 +80,7 @@ Three things belong to the **store**, not to a chunk, and so are not in the file
 3. **The instance registry.** Only the label registry travels.
 
 That is why saving a whole evaluation is not just "write every chunk", and why the recording format
-below exists. The decision is [ADR 0004](design-decisions/0004-persistent-recording.md).
+below exists.
 
 ## A whole recording
 
@@ -166,5 +157,5 @@ what makes it a _chunk_ rather than a table.
 
 ## Where to go next
 
-- [Persistence](../user-guide/persistence.md) -- using it.
-- [ADR 0002: Arrow as the storage format](design-decisions/0002-arrow-storage.md).
+- [Persistence](persistence.md) -- using it.
+- [Architecture](../development/for-developers/architecture.md) -- where `t4perceval.io` sits among the layers.

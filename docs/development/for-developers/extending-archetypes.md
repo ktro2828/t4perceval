@@ -60,7 +60,7 @@ that already has one is what stops an existing system from running against your 
 is the whole point of the model.
 
 Add a new descriptor only for a genuinely new meaning, and then add it to
-[the components catalogue](../components/index.md).
+[the components catalogue](../../components/index.md).
 
 ### Cross-column validation goes in `__attrs_post_init__`
 
@@ -113,7 +113,7 @@ common vocabulary.
 
 ## Document it
 
-An archetype is schema, so it gets a page in [the catalogue](../archetypes/index.md) with a
+An archetype is schema, so it gets a page in [the catalogue](../../archetypes/index.md) with a
 requirement table, not just a docstring. State what each optional component _unlocks_ -- that table
 is how a reader works out which systems will run against their data.
 
@@ -130,4 +130,4 @@ is how a reader works out which systems will run against their data.
 ## Where to go next
 
 - [Extending systems](extending-systems.md) -- doing something with it.
-- [Archetypes](../archetypes/index.md) -- the catalogue.
+- [Archetypes](../../archetypes/index.md) -- the catalogue.

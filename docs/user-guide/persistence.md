@@ -107,11 +107,10 @@ in what it writes is `metadata.format_version`, stamped with the format version 
 The registries live in the manifest only. A chunk file lifted out of the directory carries no label
 registry, and `read_recording` refuses one that does -- there is a single authority for what a class
 id means. The layout is described in
-[Serialization format](../development/serialization-format.md#a-whole-recording) and the decision
-in [ADR 0004](../development/design-decisions/0004-persistent-recording.md).
+[Serialization format](serialization-format.md#a-whole-recording).
 
 ## Where to go next
 
 - [Offline analysis](offline-analysis.md) -- querying a finished run.
-- [Serialization format](../development/serialization-format.md) -- how a chunk maps onto Arrow,
+- [Serialization format](serialization-format.md) -- how a chunk maps onto Arrow,
   and how a recording is laid out on disk.

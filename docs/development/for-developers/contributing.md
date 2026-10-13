@@ -41,7 +41,7 @@ uv sync --only-group docs --no-install-project
 uv run --no-sync zensical serve
 ```
 
-That works because mkdocstrings renders the [API reference](../reference/api/index.md) through
+That works because mkdocstrings renders the [API reference](../../reference/api/index.md) through
 griffe, which parses the source **statically** -- the package does not have to be importable. A
 signature or docstring change therefore updates the reference automatically. Everything else is
 written by hand.
@@ -51,7 +51,7 @@ Pages on every push to `main`, so a docs change is live once it merges. It can a
 hand from the Actions tab.
 
 When you add a page, add it to the `nav` in `zensical.toml`. The navigation is organised by **user
-intent**, not by the Python package hierarchy -- see [the index](../index.md#how-this-documentation-is-organised)
+intent**, not by the Python package hierarchy -- see [the index](../../index.md#how-this-documentation-is-organised)
 for what belongs where.
 
 ## What the code expects of a change
@@ -87,9 +87,9 @@ uv run python benchmarks/compare.py --check
 ```
 
 `--check` fails on any numerical difference from `perception_eval` that is not already classified in
-[Metric divergences](metric-divergences.md). If your change moves a number, either fix it or
+[Metric divergences](../../evaluation/metric-divergences.md). If your change moves a number, either fix it or
 document the divergence there -- and regenerate `benchmarks/results/latest.md`. See
-[Benchmarks](benchmarks.md).
+[`benchmarks/README.md`](https://github.com/ktro2828/t4perceval/blob/main/benchmarks/README.md) for the options and prerequisites.
 
 ## Ruff
 
@@ -103,10 +103,10 @@ there, with the reason recorded, not a side effect of an upgrade.
 
 - One concern per commit.
 - If a change alters a documented behaviour, update the page in the same commit.
-- If it changes an architectural decision, add or supersede an
-  [ADR](design-decisions/index.md).
+- If it changes an architectural decision, update [Architecture](architecture.md) or
+  [Design principles](design-principles.md) in the same commit.
 
 ## Where to go next
 
-- [Roadmap](roadmap.md) -- what is wanted.
+- [Roadmap](../todos/roadmap.md) -- what is wanted.
 - [Architecture](architecture.md) -- where things live.

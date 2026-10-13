@@ -31,7 +31,7 @@ Three rules hold everywhere:
 | Cross-frame query | traverse a nest of lists | one range query     |
 | Intermediates     | discarded                | logged as entities  |
 
-The [benchmark](../development/benchmarks.md) puts numbers on the first row: 67x to 224x faster on
+The [benchmark](https://github.com/ktro2828/t4perceval/blob/main/benchmarks/README.md) puts numbers on the first row: 67x to 224x faster on
 the metric workloads, and 16x smaller in retained memory.
 
 ## Descriptors
@@ -110,4 +110,4 @@ and `LabelRegistry.fingerprint` exist to catch it, and
 
 - [Entity, component, archetype](entity-component-archetype.md) -- how columns get named and bundled.
 - [Store](store.md) -- where chunks live.
-- [ADR 0001](../development/design-decisions/0001-ecs-data-model.md) -- why the model looks like this.
+- [Architecture](../development/for-developers/architecture.md) -- why the model looks like this.

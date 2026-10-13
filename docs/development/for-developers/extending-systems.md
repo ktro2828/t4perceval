@@ -1,7 +1,7 @@
 # Extending systems
 
-Most extensions are a [custom filter](../recipes/custom-filter.md),
-[matcher](../recipes/custom-matcher.md) or [metric](../recipes/custom-metric.md), and those recipes
+Most extensions are a [custom filter](../../recipes/custom-filter.md),
+[matcher](../../recipes/custom-matcher.md) or [metric](../../recipes/custom-metric.md), and those recipes
 cover the common case. This page is for the rest: implementing the `System` protocol directly.
 
 ## The protocol
@@ -199,5 +199,5 @@ the difference between sugar and the `EvaluationTask` enum this package set out 
 
 ## Where to go next
 
-- [Evaluation pipeline](../concepts/evaluation-pipeline.md) -- the model.
-- [Custom filter](../recipes/custom-filter.md) · [matcher](../recipes/custom-matcher.md) · [metric](../recipes/custom-metric.md)
+- [Evaluation pipeline](../../concepts/evaluation-pipeline.md) -- the model.
+- [Custom filter](../../recipes/custom-filter.md) · [matcher](../../recipes/custom-matcher.md) · [metric](../../recipes/custom-metric.md)

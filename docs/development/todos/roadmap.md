@@ -1,9 +1,8 @@
 # Roadmap
 
 What is next, and what is already done. The data model and the system layer are designed and
-implemented; see the [design decisions](./design-decisions/index.md) for the design itself,
-[Architecture](./architecture.md) for the layer map, and
-[Design decisions](./design-decisions/index.md) for the individual calls.
+implemented; see [Architecture](../for-developers/architecture.md) for the layer map and
+[Design principles](../for-developers/design-principles.md) for the rules behind it.
 
 ## Direction
 
@@ -73,7 +72,7 @@ write_recording(recording, "result.t4eval")
 recording = read_recording("result.t4eval")
 ```
 
-Design: [ADR 0004](./design-decisions/0004-persistent-recording.md).
+Design: [Serialization format](../../user-guide/serialization-format.md#a-whole-recording).
 
 ### Why this comes first
 
@@ -90,37 +89,11 @@ Persistence is not merely an I/O feature. Implementing it forces us to state exa
 That is the persistent boundary of the t4perceval data model, and `.t4eval` is its canonical
 artifact.
 
-### Proposed first format
+### Format
 
-A directory-based format is enough for the first version:
-
-```text
-result.t4eval/
-├── manifest.json
-└── chunks/
-    ├── 000000.parquet
-    ├── 000001.parquet
-    ├── 000002.parquet
-    └── ...
-```
-
-The manifest maps chunks to their logical metadata rather than encoding `EntityPath` into the
-filesystem hierarchy:
-
-```json
-{
-  "format_version": 1,
-  "chunks": [
-    {
-      "id": 0,
-      "entity_path": "/ground_truth/objects",
-      "file": "chunks/000000.parquet"
-    }
-  ]
-}
-```
-
-This keeps the storage layout independent of `EntityPath` semantics.
+A directory of Parquet chunks plus one `manifest.json` that maps each chunk to its logical
+metadata, so the storage layout stays independent of `EntityPath` semantics. The shipped layout is
+specified in [Serialization format](../../user-guide/serialization-format.md#a-whole-recording).
 
 ### Required work
 
@@ -267,7 +240,7 @@ This validates the System architecture beyond evaluation-specific operations.
 
 - [x] Validate cross-frame composition of two recordings end to end
 - [x] A worked example of bringing two recordings into one coordinate frame
-      ([recipe](../recipes/align-frames.md))
+      ([recipe](../../recipes/align-frames.md))
 
 ## P2: Segmentation support
 
@@ -327,7 +300,7 @@ expose `CLASS_ID`, one metric implementation can operate on both.
       `from_label_map` / `as_label_map` are gone. The metrics read `CLASS_ID` or `CLASS_ID_IMAGE`
       (flattened row-major), so one implementation still serves both
 - [x] Segmentation metric documentation, and an
-      [evaluation page](../evaluation/segmentation-3d.md) that stops saying "not implemented yet"
+      [evaluation page](../../evaluation/segmentation-3d.md) that stops saying "not implemented yet"
 
 ### Architectural purpose
 
@@ -391,7 +364,7 @@ be validated on real data immediately.
 Once the architecture is stable, align the metric implementations with their canonical definitions
 and fix the metric semantics. `benchmarks/compare.py` runs the metric systems and `perception_eval`
 1.3.6 on the same synthetic scenes and reports speed, memory and per-metric agreement; the
-divergences are classified in [metric-divergences.md](./metric-divergences.md).
+divergences are classified in [metric-divergences.md](../../evaluation/metric-divergences.md).
 
 ### Guiding principle
 
@@ -419,22 +392,15 @@ t4perceval behavior
 
 ### Suggested order
 
-1. **Prediction validity and time offsets.** The prediction metrics do not consult `MODE_VALID` /
-   `TIMESTEP_VALID` / `TIME_OFFSET`, so padding leaks into ADE / FDE / MissRate and the time axis is
-   aligned by index.
-2. **APH.** Heading similarity is treated as the true-positive count itself, which also changes the
-   denominator of recall; Waymo uses the ordinary true-positive count for recall.
-3. **AP confidence-order association.** ~~Association is a globally optimal Hungarian assignment
-   rather than confidence order~~ (done: matchers take `assignment="greedy"`, and
-   `average_precision_sweep` uses it by default, matching in descending confidence as nuScenes does).
-4. **CLEAR ID-switch semantics.** An identity change across a missing frame is counted as an ID
-   switch (`_count_switches()` only ever receives true-positive rows).
-5. **MOTA semantics.** ~~MOTA is clamped to 0 by `max(0.0, ...)`, while CLEAR permits negative
-   values~~ (done: MOTA is no longer clamped). Under class-agnostic matching, a pair whose classes
-   disagree becomes neither a true positive nor a false positive.
-6. **Classification and miss-rate cleanup.** `accuracy` is defined as `TP / (TP + FP + FN)`
-   (Jaccard/IoU), which does not match its name; MissRate is the fraction of all mode × timestep
-   distances over the tolerance, which differs from the per-object definition.
+Each item is described, with the reasoning, under its number in
+[Metric divergences](../../evaluation/metric-divergences.md):
+
+1. **Prediction validity and time offsets** (#1).
+2. **APH** (#2).
+3. **AP confidence-order association** (#3, done).
+4. **CLEAR ID-switch semantics** (#4).
+5. **MOTA semantics** (#5: clamping done; class-agnostic counting open).
+6. **Classification and miss-rate cleanup** ("Definition differences").
 7. **Comprehensive regression tests**, pinned to the canonical definitions rather than to the
    current output.
 
@@ -598,7 +564,7 @@ Real but unscheduled; none of them blocks a phase above.
 Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers converge on.
 
 - [x] Implement an importer on top of `t4_devkit.T4Devkit`. See "Dataloader design" in
-      [dataset importers](../user-guide/dataset-importers.md).
+      [dataset importers](../../user-guide/dataset-importers.md).
   - [x] Load by dataset root / revision.
   - [x] Narrow by scene, sample and sensor channel.
   - [x] Convert `Box3D` into `Detections3D` / `Trackings3D` / `Predictions3D` and `Box2D`
@@ -693,9 +659,8 @@ Correctness against the official definitions is [P3](#p3-metric-correctness).
       child in a `child_frame_id` component, neither in the entity path. The path version
       could not express a frame name containing `/`, and tied the graph to where it was
       filed. `static` now means only "not on a timeline", so a calibration is `log_static`
-      and an ego pose is `log` -- same archetype. Recorded in
-      [ADR 0003](./design-decisions/0003-coordinate-system.md), superseded designs included
-      rather than deleted.
+      and an ego pose is `log` -- same archetype. See
+      [Coordinate system](../../concepts/coordinate-system.md).
 - [x] Mono components. `Transform3D` describes one relationship, not N objects, so its
       fields are `Position3D` / `Quaternion` / `FrameId` -- values, not columns, with
       `.value` / `.name` accessors and no row to index. `MonoComponent` is a boundary type:

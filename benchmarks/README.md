@@ -27,6 +27,20 @@ The coordinator generates every scene once and writes it to a temporary director
 launches one worker per library over the same files, so "the same input" is a file identity rather
 than trust that two NumPy majors draw identical random streams.
 
+```text
+              ┌──────────────┐
+              │ coordinator  │  generates scenes → .npz
+              └──────┬───────┘
+           ┌─────────┴─────────┐
+           ▼                   ▼
+   t4perceval worker     perception_eval worker
+   (project env)         (uv run --no-project --with ...)
+           │                   │
+           └────────┬──────────┘
+                    ▼
+            merged JSON + Markdown report
+```
+
 - The `t4perceval` worker uses the project environment.
 - The `perception_eval` worker is started with
   `uv run --no-project --with "perception_eval @ git+...@v1.3.6"`, because that package pins NumPy 1.
@@ -45,13 +59,17 @@ metrics for two agreement scenes and prints one JSON line, which the coordinator
 
 - **unambiguous** -- ground truths sit on a jittered grid whose spacing exceeds twice the largest
   matching threshold plus the largest estimation offset, and every estimate lies within that offset
-  of its own ground truth. The feasible graph has degree at most one, so `perception_eval`'s greedy
-  assignment and `t4perceval`'s linear-sum assignment pick the same pairs and every metric is
+  of its own ground truth. The feasible graph has degree at most one, so every assignment --
+  `perception_eval`'s greedy one, and `t4perceval`'s confidence-ordered greedy (detection) and
+  linear-sum (tracking, prediction) ones -- picks the same pairs and every metric is
   expected to agree (tolerance `1e-9`; `1e-8` for APH, which `perception_eval` rounds).
 - **dense** -- random positions, per-frame noise, label confusion and missed frames. Used for the
   timing tables and for the divergence report, where each difference is classified against a
-  documented item in [`docs/development/metric-divergences.md`](../docs/development/metric-divergences.md); anything unclassified is
-  a mismatch and fails `--check`.
+  documented item in [`docs/evaluation/metric-divergences.md`](../docs/evaluation/metric-divergences.md); anything unclassified is
+  a mismatch and fails `--check`. The two currently differ on 65 values, every one classified:
+  Hungarian versus confidence-ordered greedy matching in prediction, the previous-frame MOTP
+  score, heading sign in APH, how ID switches are counted, and `perception_eval` clamping MOTA
+  at zero. AP and mAP agree exactly, since both match in confidence order.
 
 Both sides of a scene share their frame indices by construction (frame `i` of the estimation is
 frame `i` of the ground truth, stamped at `i × 500 ms`), so `t4perceval.align` is not part of
