@@ -81,7 +81,7 @@ The schema decides the archetype:
 | `PredictedObjects` | `Predictions3D` |
 
 Objects land at `/estimation/objects`. `/tf` and `/tf_static` come along as transform edges unless
-you pass `BagImportOptions(transforms=False)`.
+you pass `BagImportOptions(entity_root="/estimation", transforms=False)`.
 
 ### What the conversion does
 
@@ -89,7 +89,8 @@ you pass `BagImportOptions(transforms=False)`.
 - `Shape.dimensions` `(x=length, y=width, z=height)` → `BatchSize3D` `(width, length, height)`.
 - A body-frame twist is rotated into the message frame before becoming `velocity`.
 - `confidence` is the **top classification probability**; use
-  `BagImportOptions(confidence="existence")` for `existence_probability`.
+  `BagImportOptions(entity_root="/estimation", confidence="existence")` for
+  `existence_probability`.
 
 ### Several topics at once
 
@@ -156,7 +157,8 @@ ValueError: Cannot compare geometry across coordinate frames: /estimation/object
 
 Options, best first:
 
-1. Import the T4 side in the bag's frame -- `T4ImportOptions(coords="map")` on the T4 importer.
+1. Import the T4 side in the bag's frame -- `T4ImportOptions(entity_root="/ground_truth", coords="map")`
+   on the T4 importer.
 2. Transform the bag side with its own transform graph, as the first stage of the pipeline:
 
    ```python

@@ -189,7 +189,8 @@ topics: `{f"/estimation/{t.strip('/')}": BagSelection(topic=t) for t in topics}`
 - `Shape.dimensions` `(x=length, y=width, z=height)` becomes `BatchSize3D` `(width, length, height)`.
 - A body-frame twist is rotated into the message frame before becoming `velocity`.
 - `confidence` is the top classification probability by default;
-  `ImportOptions(confidence="existence")` uses `existence_probability` instead, and `"product"`
+  `ImportOptions(entity_root="/estimation", confidence="existence")` uses `existence_probability`
+  instead, and `"product"`
   multiplies the two.
 
 ### Import options

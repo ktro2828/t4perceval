@@ -57,7 +57,8 @@ Predictions3D(
 )
 ```
 
-The T4 importer produces this shape from `ImportOptions(kind_3d="predictions", future_seconds=3.0)`.
+The T4 importer produces this shape from
+`ImportOptions(entity_root="/ground_truth", kind_3d="predictions", future_seconds=3.0)`.
 
 ## Required components
 
