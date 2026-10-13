@@ -20,6 +20,7 @@ from attrs import define
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from t4perceval.core.entity import EntityPathLike
     from t4perceval.label import InstanceRegistry
     from t4perceval.typing import NDArrayBool, NDArrayF64, NDArrayI64
 
@@ -29,6 +30,7 @@ __all__ = (
     "TrajectoryColumns",
     "column",
     "encode_instance_ids",
+    "instance_namespace_of",
     "normalize_quaternions",
     "padded_trajectory",
     "resolve_emit",
@@ -122,6 +124,19 @@ def encode_instance_ids(
     if namespace:
         names = [f"{namespace}/{name}" for name in names]
     return instances.encode(names)
+
+
+def instance_namespace_of(root: EntityPathLike) -> str:
+    """Return the namespace identities are interned under when none was given.
+
+    It is the entity root without its leading separator: objects filed under
+    ``/ground_truth`` intern as ``ground_truth/<uuid>``. Two sources imported to different
+    roots therefore never collide on one integer, and the recording says which root an
+    identity came from. The root path ``/`` gives no namespace at all.
+    """
+    from t4perceval.core.entity import as_entity_path
+
+    return "/".join(as_entity_path(root).parts)
 
 
 @define(frozen=True, slots=True)

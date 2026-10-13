@@ -41,8 +41,8 @@ store.log(
 
 Same archetype, with the tracker's own ids. The two sides' id spaces are **independent** -- a metric
 compares identity _continuity_, not id equality -- so the tracker's own integers are fine. If both
-sides are interned into one registry, use distinct namespaces (`instance_namespace="gt"` and
-`"est"` is what the importers do).
+sides are interned into one registry, use distinct namespaces (the importers derive one from the
+entity root unless `instance_namespace` is given).
 
 ## Required components
 

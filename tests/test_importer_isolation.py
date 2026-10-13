@@ -65,9 +65,9 @@ def test_a_missing_extra_names_the_install_command() -> None:
     probe = (
         "import sys\n"
         "sys.modules['t4_devkit'] = None\n"
-        "from t4perceval.importer.t4 import T4Importer\n"
+        "from t4perceval.importer.t4 import ImportOptions, T4Importer\n"
         "try:\n"
-        "    T4Importer.open('tests/data/t4dataset')\n"
+        "    T4Importer.open('tests/data/t4dataset', options=ImportOptions(entity_root='/gt'))\n"
         "except ImportError as error:\n"
         "    print(error)\n"
     )
@@ -106,9 +106,9 @@ def test_a_missing_rosbag_extra_names_the_install_command() -> None:
         "import sys\n"
         "sys.modules['mcap'] = None\n"
         "sys.modules['mcap.reader'] = None\n"
-        "from t4perceval.importer.rosbag import RosbagImporter\n"
+        "from t4perceval.importer.rosbag import ImportOptions, RosbagImporter\n"
         "try:\n"
-        "    RosbagImporter.open('nonexistent.mcap')\n"
+        "    RosbagImporter.open('nonexistent.mcap', options=ImportOptions(entity_root='/est'))\n"
         "except ImportError as error:\n"
         "    print(error)\n"
     )

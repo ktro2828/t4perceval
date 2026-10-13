@@ -757,7 +757,9 @@ def main(data_root: str, *, viewer: str | None = None, save: str | None = None) 
     # half of the evaluation runs against them unchanged.
     importer = T4Importer.open(
         data_root,
-        options=ImportOptions(kind_3d="predictions", future_seconds=FUTURE_SECONDS),
+        options=ImportOptions(
+            entity_root="/ground_truth", kind_3d="predictions", future_seconds=FUTURE_SECONDS
+        ),
     )
 
     labels = inspect(importer)

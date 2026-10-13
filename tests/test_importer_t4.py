@@ -164,7 +164,9 @@ class TestCoordinateFrames:
         coords: str,
         expected: str,
     ) -> None:
-        importer = T4Importer.open(t4_dataset_root, options=ImportOptions(coords=coords))  # type: ignore[arg-type]
+        importer = T4Importer.open(
+            t4_dataset_root, options=ImportOptions(entity_root="/ground_truth", coords=coords)
+        )  # type: ignore[arg-type]
         scene = importer.import_scene(labels=importer.label_registry())
 
         assert scene.metadata.frame_id == expected
@@ -200,7 +202,9 @@ class TestPredictions:
     def test_trajectories_are_padded_and_masked(self, t4_dataset_root: Path) -> None:
         importer = T4Importer.open(
             t4_dataset_root,
-            options=ImportOptions(kind_3d="predictions", future_seconds=2.0),
+            options=ImportOptions(
+                entity_root="/ground_truth", kind_3d="predictions", future_seconds=2.0
+            ),
         )
         scene = importer.import_scene(labels=importer.label_registry())
         view = scene.range("/ground_truth/objects", timeline=FRAME, time_range=EVERYTHING)
@@ -217,7 +221,9 @@ class TestPredictions:
     ) -> None:
         importer = T4Importer.open(
             t4_dataset_root,
-            options=ImportOptions(kind_3d="predictions", future_seconds=2.0),
+            options=ImportOptions(
+                entity_root="/ground_truth", kind_3d="predictions", future_seconds=2.0
+            ),
         )
         scene = importer.import_scene(labels=importer.label_registry())
         view = scene.range("/ground_truth/objects", timeline=FRAME, time_range=EVERYTHING)
@@ -244,7 +250,36 @@ class TestInstances:
         assert len(shared) == 1
 
     def test_identities_are_namespaced(self, scene: Recording) -> None:
+        assert all(uuid.startswith("ground_truth/") for uuid in scene.instances.decode([0]))
+
+    def test_the_namespace_follows_the_root(self, t4_dataset_root: Path) -> None:
+        importer = T4Importer.open(
+            t4_dataset_root, options=ImportOptions(entity_root="/annotations/lidar")
+        )
+        scene = importer.import_scene(labels=importer.label_registry())
+
+        assert rows(scene, "/annotations/lidar/objects") > 0
+        assert all(uuid.startswith("annotations/lidar/") for uuid in scene.instances.decode([0]))
+
+    def test_an_explicit_namespace_wins_over_the_root(self, t4_dataset_root: Path) -> None:
+        importer = T4Importer.open(
+            t4_dataset_root,
+            options=ImportOptions(entity_root="/ground_truth", instance_namespace="gt"),
+        )
+        scene = importer.import_scene(labels=importer.label_registry())
+
         assert all(uuid.startswith("gt/") for uuid in scene.instances.decode([0]))
+
+    def test_the_root_is_required(self) -> None:
+        with pytest.raises(TypeError, match="entity_root"):
+            ImportOptions()  # type: ignore[call-arg]
+
+
+class TestSceneSelection:
+    def test_an_empty_channel_is_rejected(self) -> None:
+        # It would file 2D boxes at ``<root>//objects``, on top of the 3D entity.
+        with pytest.raises(ValueError, match="empty channel"):
+            SceneSelection(channels_2d=("CAM_FRONT", ""))
 
 
 class TestProvenance:
@@ -384,7 +419,9 @@ class TestTransforms:
         assert pose.child_frame_id.name == "LIDAR_CONCAT"
 
     def test_they_can_be_switched_off(self, t4_dataset_root: Path) -> None:
-        importer = T4Importer.open(t4_dataset_root, options=ImportOptions(transforms=False))
+        importer = T4Importer.open(
+            t4_dataset_root, options=ImportOptions(entity_root="/ground_truth", transforms=False)
+        )
         scene = importer.import_scene(labels=importer.label_registry())
 
         assert transform_edges(scene) == ()

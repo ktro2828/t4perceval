@@ -20,9 +20,12 @@ message, so the two `FRAME` axes are unrelated.
 ## 1. Open the bag
 
 ```python
-from t4perceval.importer.rosbag import RosbagImporter
+from t4perceval.importer.rosbag import ImportOptions, RosbagImporter
 
-importer = RosbagImporter.open("/data/bags/run_0")  # a directory of *.mcap, or one file
+importer = RosbagImporter.open(
+    "/data/bags/run_0",  # a directory of *.mcap, or one file
+    options=ImportOptions(entity_root="/estimation"),  # where its objects are filed
+)
 
 importer.topics()
 # the DetectedObjects / TrackedObjects / PredictedObjects topics the bag holds
@@ -31,9 +34,9 @@ importer.topics()
 ## 2. Share one label registry
 
 ```python
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-t4 = T4Importer.open("/data/t4dataset")
+t4 = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 labels = t4.label_registry()  # the ground truth's registry is the authority
 ```
 

@@ -38,9 +38,9 @@ grouped registry before anything runs.
 Start from the registry the ground truth defines, and merge it:
 
 ```python
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-t4 = T4Importer.open("/data/t4dataset")
+t4 = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 labels = t4.label_registry().merged({"vehicle": ["car", "truck", "bus"]})
 
 t4.label_registry().names
@@ -62,13 +62,16 @@ shared `InstanceRegistry`:
 
 ```python
 from t4perceval import InstanceRegistry
-from t4perceval.importer.rosbag import BagSelection, RosbagImporter
+from t4perceval.importer.rosbag import BagSelection, ImportOptions, RosbagImporter
 
 instances = InstanceRegistry()
 
 ground_truth = t4.import_scene(labels=labels, instances=instances)
 
-estimation = RosbagImporter.open("/data/bags/run_0").import_topic(
+estimation = RosbagImporter.open(
+    "/data/bags/run_0",
+    options=ImportOptions(entity_root="/estimation"),
+).import_topic(
     labels=labels,
     instances=instances,
     selection=BagSelection(topic="/perception/object_recognition/objects"),

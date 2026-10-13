@@ -179,7 +179,9 @@ class TestDetections:
         np.testing.assert_allclose(confidence, [0.9, 0.8, 0.5], rtol=1e-6)
 
     def test_confidence_can_be_the_existence_probability(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(confidence="existence"))
+        importer = RosbagImporter.open(
+            rosbag_path, options=ImportOptions(entity_root="/estimation", confidence="existence")
+        )
         recording = importer.import_topic(
             labels=importer.label_registry(),
             selection=BagSelection(topic=DETECTION_TOPIC),
@@ -208,8 +210,62 @@ class TestTrackings:
     def test_identities_are_namespaced_uuids(self, trackings: Recording) -> None:
         ids = everything(trackings).component(INSTANCE_ID).values
 
-        assert trackings.instances.uuid(int(ids[0])) == "est/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        assert (
+            trackings.instances.uuid(int(ids[0]))
+            == "estimation/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+        )
         assert UUID_A == "aa" * 16
+
+    def test_the_namespace_follows_the_root(self, rosbag_path: Path) -> None:
+        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(entity_root="/runs/0"))
+        recording = importer.import_topic(
+            labels=importer.label_registry(),
+            selection=BagSelection(topic=TRACKING_TOPIC),
+        )
+
+        ids = everything(recording, "/runs/0/objects").component(INSTANCE_ID).values
+
+        assert recording.instances.uuid(int(ids[0])).startswith("runs/0/")
+
+    def test_every_topic_of_one_bag_shares_the_namespace(self, rosbag_path: Path) -> None:
+        # A tracked object and its prediction carry the same UUID: one bag, one source.
+        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(entity_root="/runs/0"))
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                "/runs/0/tracking": BagSelection(topic=TRACKING_TOPIC),
+                "/runs/0/prediction": BagSelection(topic=PREDICTION_TOPIC),
+            },
+        )
+
+        first = everything(recording, "/runs/0/tracking/objects").component(INSTANCE_ID).values
+        second = everything(recording, "/runs/0/prediction/objects").component(INSTANCE_ID).values
+
+        assert recording.instances.uuid(int(first[0])).startswith("runs/0/")
+        assert int(first[0]) == int(second[0])
+
+    def test_an_explicit_namespace_wins_over_the_root(self, rosbag_path: Path) -> None:
+        importer = RosbagImporter.open(
+            rosbag_path,
+            options=ImportOptions(entity_root="/runs/0", instance_namespace="est"),
+        )
+        recording = importer.import_topics(
+            labels=importer.label_registry(),
+            selections={
+                "/runs/a": BagSelection(topic=TRACKING_TOPIC),
+                "/runs/b": BagSelection(topic=PREDICTION_TOPIC),
+            },
+        )
+
+        first = everything(recording, "/runs/a/objects").component(INSTANCE_ID).values
+        second = everything(recording, "/runs/b/objects").component(INSTANCE_ID).values
+
+        assert recording.instances.uuid(int(first[0])).startswith("est/")
+        assert int(first[0]) == int(second[0])
+
+    def test_the_root_is_required(self) -> None:
+        with pytest.raises(TypeError, match="entity_root"):
+            ImportOptions()  # type: ignore[call-arg]
 
 
 class TestPredictions:
@@ -320,7 +376,9 @@ class TestTransforms:
         assert kept.tolist() == [-0.05, 0.0, 0.5, 1.0, 2.0]
 
     def test_the_whole_topic_can_be_kept(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(tf_scope="all"))
+        importer = RosbagImporter.open(
+            rosbag_path, options=ImportOptions(entity_root="/estimation", tf_scope="all")
+        )
         recording = importer.import_topic(
             labels=importer.label_registry(),
             selection=BagSelection(topic=TRACKING_TOPIC),
@@ -352,7 +410,9 @@ class TestTransforms:
         assert pose.translation.value.tolist() == [10.0, 0.0, 2.0]
 
     def test_transforms_can_be_left_out(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(transforms=False))
+        importer = RosbagImporter.open(
+            rosbag_path, options=ImportOptions(entity_root="/estimation", transforms=False)
+        )
         recording = importer.import_topic(
             labels=importer.label_registry(),
             selection=BagSelection(topic=TRACKING_TOPIC),
@@ -517,7 +577,9 @@ class TestSeveralTopics:
             )
 
     def test_without_transforms_any_root_is_allowed(self, rosbag_path: Path) -> None:
-        importer = RosbagImporter.open(rosbag_path, options=ImportOptions(transforms=False))
+        importer = RosbagImporter.open(
+            rosbag_path, options=ImportOptions(entity_root="/estimation", transforms=False)
+        )
         recording = importer.import_topics(
             labels=importer.label_registry(),
             selections={"/tf/objects": BagSelection(topic=DETECTION_TOPIC)},
@@ -575,7 +637,10 @@ class TestTransformConflicts:
             ),
             *tf_records,
         ]
-        importer = RosbagImporter.open(write_bag(tmp_path / "bag.mcap", records))
+        importer = RosbagImporter.open(
+            write_bag(tmp_path / "bag.mcap", records),
+            options=ImportOptions(entity_root="/estimation"),
+        )
         return importer.import_topic(labels=importer.label_registry())
 
     def test_a_repeated_identical_static_edge_is_written_once(self, tmp_path: Path) -> None:

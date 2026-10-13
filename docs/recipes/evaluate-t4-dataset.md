@@ -20,9 +20,9 @@ everything that happened to be loaded.
 ## 1. Open the dataset and take its registry
 
 ```python
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-importer = T4Importer.open("/data/t4dataset")
+importer = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 
 labels = importer.label_registry()
 labels.names
@@ -65,7 +65,7 @@ from t4perceval.importer.t4 import ImportOptions, T4Importer
 
 importer = T4Importer.open(
     "/data/t4dataset",
-    options=ImportOptions(kind_3d="predictions", future_seconds=3.0),
+    options=ImportOptions(entity_root="/ground_truth", kind_3d="predictions", future_seconds=3.0),
 )
 ```
 

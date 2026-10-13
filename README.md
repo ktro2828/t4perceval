@@ -131,9 +131,9 @@ Importing a dataset is two more lines:
 
 ```python
 from t4perceval.evaluation import build_evaluation_store
-from t4perceval.importer.t4 import T4Importer
+from t4perceval.importer.t4 import ImportOptions, T4Importer
 
-importer = T4Importer.open("/data/t4dataset")
+importer = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
 labels = importer.label_registry()  # hand this same registry to every source
 ground_truth = importer.import_scene(labels=labels)
 
