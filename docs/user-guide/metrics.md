@@ -25,6 +25,7 @@ ap.target  # /metrics/ap
 | `PathDisplacementSystem`            | `/metrics/path_displacement/ade{k}`, `/fde{k}`, `/miss_rate{k}`    | `class_id`, `waypoints`, `mode_confidence`, `time_offset` |
 | `CornerErrorSystem`                 | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `class_id`, `position`, `quaternion`, `size`              |
 | `HeadingFlipRateSystem`             | `/metrics/heading_flip_rate`                                       | `class_id`, `quaternion`                                  |
+| `FpValidationSystem`                | `/metrics/fp_validation`                                           | `class_id`                                                |
 | `ClassificationSystem`              | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `class_id`                                                |
 | `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                                |
 | `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)                            |

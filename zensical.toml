@@ -54,6 +54,7 @@ nav = [
         { "Filter by map region" = "recipes/filter-by-lanelet.md" },
         { "Analyse a finished evaluation" = "recipes/offline-analysis.md" },
         { "Evaluate with grouped labels" = "recipes/evaluate-grouped-labels.md" },
+        { "Validate false positives" = "recipes/fp-validation.md" },
         { "Custom filter" = "recipes/custom-filter.md" },
         { "Custom matcher" = "recipes/custom-matcher.md" },
         { "Custom metric" = "recipes/custom-metric.md" },

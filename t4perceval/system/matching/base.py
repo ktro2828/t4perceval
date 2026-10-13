@@ -32,10 +32,11 @@ from t4perceval.system.base import (
     require_same_frame,
     resolve_frame,
 )
+from t4perceval.system.filter.identity import resolve_class_ids
 from t4perceval.system.matching.threshold import Thresholds
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from typing_extensions import Self
 
@@ -50,6 +51,10 @@ if TYPE_CHECKING:
 Assignment: TypeAlias = Literal["hungarian", "greedy"]
 
 _ASSIGNMENTS: tuple[str, ...] = ("hungarian", "greedy")
+
+
+def _as_classes(values: Sequence[str | int] | None) -> tuple[str | int, ...] | None:
+    return None if values is None else tuple(values)
 
 
 def confidence_order(confidence: ArrayLike, rows: ArrayLike) -> NDArrayI64:
@@ -107,6 +112,21 @@ class MatchingSystem(EntitySystem):
         kw_only=True,
     )
     class_agnostic: bool = field(default=False, kw_only=True)
+    """Let any two classes pair; the verdict then records the disagreement."""
+
+    agnostic_classes: tuple[str | int, ...] | None = field(
+        default=None,
+        converter=_as_classes,
+        kw_only=True,
+    )
+    """Ground-truth classes an estimation of **any** class may pair with.
+
+    Class names or ids, resolved like :attr:`threshold`'s keys. Every other ground truth
+    still requires the estimation's class to agree, so one matching serves both an
+    ordinary evaluation and a class that stands for "anything reported here is wrong",
+    such as a false-positive annotation. ``None`` exempts nothing; it is redundant with
+    :attr:`class_agnostic`, which exempts every class, and the two are not combined.
+    """
 
     max_matchable_distance: Thresholds | None = field(
         default=None,
@@ -165,6 +185,18 @@ class MatchingSystem(EntitySystem):
                 f"{type(self).__name__} thresholds are distances and must be positive, "
                 f"got {list(thresholds)}",
             )
+
+        if self.agnostic_classes is not None:
+            if len(self.agnostic_classes) == 0:
+                raise ValueError(
+                    f"{type(self).__name__} agnostic_classes must not be empty; "
+                    "pass None to exempt no class",
+                )
+            if self.class_agnostic:
+                raise ValueError(
+                    f"{type(self).__name__} class_agnostic=True already exempts every "
+                    "class; agnostic_classes has nothing left to exempt",
+                )
 
         if self.max_matchable_distance is not None:
             if POSITION not in self.REQUIRES:
@@ -416,6 +448,13 @@ class MatchingSystem(EntitySystem):
 
         if not self.class_agnostic:
             est_class = est_view.component(CLASS_ID).values
-            feasible &= est_class[:, None] == gt_class[None, :]
+            same_class = est_class[:, None] == gt_class[None, :]
+            if self.agnostic_classes is not None:
+                exempt = resolve_class_ids(
+                    self.agnostic_classes, ctx, field_name="agnostic_classes"
+                )
+                # Such a ground truth takes any estimation; the rest still need agreement.
+                same_class |= np.isin(gt_class, list(exempt))[None, :]
+            feasible &= same_class
 
         return feasible

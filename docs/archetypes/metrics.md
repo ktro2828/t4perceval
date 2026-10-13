@@ -97,6 +97,7 @@ concatenates across frames without special handling, and it densifies on demand.
 | `PathDisplacementSystem`        | `/metrics/path_displacement/ade{k}`, `/fde{k}`, `/miss_rate{k}`    | `MetricValues`    |
 | `CornerErrorSystem`             | `/metrics/corner_error/mean`, `/max`, `/p95`                       | `MetricValues`    |
 | `HeadingFlipRateSystem`         | `/metrics/heading_flip_rate`                                       | `MetricValues`    |
+| `FpValidationSystem`            | `/metrics/fp_validation`                                           | `MetricValues`    |
 | `ClassificationSystem`          | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `MetricValues`    |
 | `ConfusionMatrixSystem`         | `/metrics/confusion_matrix`                                        | `ConfusionMatrix` |
 

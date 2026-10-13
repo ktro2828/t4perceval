@@ -605,6 +605,91 @@ class TestPerClassThresholds:
             list(system(SystemContext(box_store, FRAME), 0))
 
 
+class TestAgnosticClasses:
+    """One ground-truth class takes any estimation; the others keep the class rule."""
+
+    @staticmethod
+    def registry() -> LabelRegistry:
+        return LabelRegistry.from_names(["car", "pedestrian", "false_positive"])
+
+    def test_an_exempt_ground_truth_takes_any_class(self) -> None:
+        labels = self.registry()
+        store = Store()
+        store.log(
+            GT, boxes([[10.0, 0.0, 0.0]], labels, ["false_positive"]), at=TimePoint.at(frame=0)
+        )
+        store.log(EST, boxes([[10.2, 0.0, 0.0]], labels, ["car"]), at=TimePoint.at(frame=0))
+        ctx = SystemContext(store, FRAME, labels=labels)
+
+        strict = CenterDistanceMatchingSystem.between(EST, GT)
+        exempt = CenterDistanceMatchingSystem.between(EST, GT, agnostic_classes=["false_positive"])
+
+        assert counts(result_of(strict, ctx)) == (0, 1, 1)
+        assert counts(result_of(exempt, ctx)) == (1, 0, 0)
+
+    def test_other_classes_still_have_to_agree(self) -> None:
+        labels = self.registry()
+        store = Store()
+        store.log(GT, boxes([[10.0, 0.0, 0.0]], labels, ["pedestrian"]), at=TimePoint.at(frame=0))
+        store.log(EST, boxes([[10.2, 0.0, 0.0]], labels, ["car"]), at=TimePoint.at(frame=0))
+        ctx = SystemContext(store, FRAME, labels=labels)
+
+        system = CenterDistanceMatchingSystem.between(EST, GT, agnostic_classes=["false_positive"])
+
+        assert counts(result_of(system, ctx)) == (0, 1, 1)
+
+    def test_an_ordinary_ground_truth_cannot_steal_from_the_exempt_one(self) -> None:
+        """The closer pedestrian is of the wrong class, so the car goes to the annotation."""
+        labels = self.registry()
+        store = Store()
+        store.log(
+            GT,
+            boxes([[10.0, 0.0, 0.0], [11.0, 0.0, 0.0]], labels, ["pedestrian", "false_positive"]),
+            at=TimePoint.at(frame=0),
+        )
+        store.log(EST, boxes([[10.2, 0.0, 0.0]], labels, ["car"]), at=TimePoint.at(frame=0))
+        ctx = SystemContext(store, FRAME, labels=labels)
+
+        system = CenterDistanceMatchingSystem.between(
+            EST, GT, threshold=2.0, agnostic_classes=["false_positive"]
+        )
+        result = result_of(system, ctx)
+
+        assert counts(result) == (1, 0, 1)
+        assert pairs_of(result) == [(0, 1)]
+
+    def test_ids_work_as_well_as_names(self) -> None:
+        labels = self.registry()
+        store = Store()
+        store.log(
+            GT, boxes([[10.0, 0.0, 0.0]], labels, ["false_positive"]), at=TimePoint.at(frame=0)
+        )
+        store.log(EST, boxes([[10.2, 0.0, 0.0]], labels, ["car"]), at=TimePoint.at(frame=0))
+        ctx = SystemContext(store, FRAME, labels=labels)
+
+        system = CenterDistanceMatchingSystem.between(
+            EST, GT, agnostic_classes=[labels.class_id("false_positive")]
+        )
+
+        assert counts(result_of(system, ctx)) == (1, 0, 0)
+
+    def test_an_empty_exemption_is_rejected(self) -> None:
+        with pytest.raises(ValueError, match="agnostic_classes must not be empty"):
+            CenterDistanceMatchingSystem.between(EST, GT, agnostic_classes=[])
+
+    def test_it_is_not_combined_with_class_agnostic(self) -> None:
+        with pytest.raises(ValueError, match="already exempts every class"):
+            CenterDistanceMatchingSystem.between(
+                EST, GT, class_agnostic=True, agnostic_classes=["false_positive"]
+            )
+
+    def test_names_need_a_registry(self, box_store: Store) -> None:
+        system = CenterDistanceMatchingSystem.between(EST, GT, agnostic_classes=["false_positive"])
+
+        with pytest.raises(ValueError, match="require a LabelRegistry"):
+            result_of(system, SystemContext(box_store, FRAME))
+
+
 class TestAssignment:
     def test_the_assignment_is_globally_optimal(self, labels: LabelRegistry) -> None:
         """A best-pair-first greedy would pair est1 with gt1 and leave est0 too far from gt0."""
