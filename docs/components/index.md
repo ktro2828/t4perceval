@@ -73,4 +73,4 @@ Shapes with wildcard dimensions need them supplied when empty: `BatchWaypoints3D
 ## Where to go next
 
 - [Archetypes](../archetypes/index.md) -- how these columns are bundled.
-- [Extending components](../development/extending-components.md) -- adding your own.
+- [Extending components](../development/for-developers/extending-components.md) -- adding your own.

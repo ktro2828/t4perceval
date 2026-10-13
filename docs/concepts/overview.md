@@ -68,22 +68,8 @@ System             components → components      filter, match, metric
 
 ## How the layers map to modules
 
-| Module                  | Responsibility                                                              |
-| :---------------------- | :-------------------------------------------------------------------------- |
-| `t4perceval.core`       | Entity paths, descriptors, components, archetypes, chunks, timelines, store |
-| `t4perceval.component`  | The concrete column types                                                   |
-| `t4perceval.archetype`  | The concrete bundles                                                        |
-| `t4perceval.system`     | Filtering, matching, metrics -- the "S" of ECS                              |
-| `t4perceval.transform`  | Coordinate-frame edges, graph discovery and composition                     |
-| `t4perceval.geometry`   | Vectorized, pairwise box geometry                                           |
-| `t4perceval.label`      | Meaning for the integer id columns                                          |
-| `t4perceval.recording`  | An immutable log plus what its integers mean                                |
-| `t4perceval.align`      | Pairing two recordings' frames by timestamp                                 |
-| `t4perceval.reconcile`  | Expressing one registry's class ids in another's                            |
-| `t4perceval.lanelet`    | A Lanelet2 map read into lanelet polygons, in `map`                         |
-| `t4perceval.evaluation` | Assembling recordings into a store a pipeline can write to                  |
-| `t4perceval.importer`   | External formats in (T4 dataset, MCAP ROS bag)                              |
-| `t4perceval.io`         | Arrow and Parquet persistence                                               |
+Each abstraction above is one module, and each module has a short list of modules it must not
+know about. The table is in [Architecture](../development/for-developers/architecture.md#module-responsibilities).
 
 `importer` converts an external representation into this one; `io` moves an already-native
 recording to and from storage. **Reading a saved recording is `io`; reading a dataset is
@@ -96,5 +82,5 @@ semantics are deliberately close, so anyone who knows Rerun already knows how to
 here. The implementation is separate because evaluation needs things a visualization log does not:
 validated archetypes, per-class registries, and systems that write results back into the same store.
 
-For the rationale, see [Architecture](../development/architecture.md) and the
-[design decisions](../development/design-decisions/index.md).
+For the rationale, see [Architecture](../development/for-developers/architecture.md) and
+[Design principles](../development/for-developers/design-principles.md).

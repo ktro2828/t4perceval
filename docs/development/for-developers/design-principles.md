@@ -105,4 +105,3 @@ code that was clean when it was written. Widening it is a deliberate change, mad
 ## Where to go next
 
 - [Architecture](architecture.md) -- the layers these principles produced.
-- [Design decisions](design-decisions/index.md) -- the individual calls, with alternatives.

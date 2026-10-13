@@ -18,9 +18,8 @@ The manifest is the single authority: chunk files carry no label registry, and e
 are never used as filenames. "Log order" here is per entity. A live store keeps the order
 chunks were logged to each entity and the order entities were first seen, but no global
 sequence across entities -- so that is neither recorded nor needed, and replaying the
-manifest reproduces every observable ordering. See ``docs/development/serialization-format.md``
-for the layout and ``docs/development/design-decisions/0004-persistent-recording.md`` for the
-decision.
+manifest reproduces every observable ordering. See ``docs/user-guide/serialization-format.md``
+for the layout.
 """
 
 from __future__ import annotations

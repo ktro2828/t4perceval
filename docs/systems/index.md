@@ -46,4 +46,4 @@ the same way, in order, before it runs.
 ## Where to go next
 
 - [Evaluation pipeline](../concepts/evaluation-pipeline.md) -- how systems compose into a run.
-- [Extending systems](../development/extending-systems.md) -- adding your own.
+- [Extending systems](../development/for-developers/extending-systems.md) -- adding your own.

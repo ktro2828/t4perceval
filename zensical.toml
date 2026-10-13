@@ -14,6 +14,7 @@ nav = [
         { "Installation" = "getting-started/installation.md" },
         { "Quick start" = "getting-started/quickstart.md" },
         { "First evaluation" = "getting-started/first-evaluation.md" },
+        { "Migrating from autoware_perception_evaluation" = "getting-started/migration.md" },
     ] },
     { "Concepts" = [
         { "Overview" = "concepts/overview.md" },
@@ -33,6 +34,7 @@ nav = [
         { "Transforms" = "user-guide/transforms.md" },
         { "Dataset importers" = "user-guide/dataset-importers.md" },
         { "Persistence" = "user-guide/persistence.md" },
+        { "Serialization format" = "user-guide/serialization-format.md" },
         { "Offline analysis" = "user-guide/offline-analysis.md" },
     ] },
     { "Evaluation" = [
@@ -41,6 +43,7 @@ nav = [
         { "Tracking" = "evaluation/tracking.md" },
         { "Prediction" = "evaluation/prediction.md" },
         { "Segmentation" = "evaluation/segmentation-3d.md" },
+        { "Metric divergences" = "evaluation/metric-divergences.md" },
     ] },
     { "Recipes" = [
         { "Evaluate model output" = "recipes/evaluate-model-output.md" },
@@ -100,24 +103,17 @@ nav = [
         { "io" = "reference/api/io.md" },
     ] },
     { "Development" = [
-        { "Architecture" = "development/architecture.md" },
-        { "Design principles" = "development/design-principles.md" },
-        { "Serialization format" = "development/serialization-format.md" },
-        { "Benchmarks" = "development/benchmarks.md" },
-        { "Extending components" = "development/extending-components.md" },
-        { "Extending archetypes" = "development/extending-archetypes.md" },
-        { "Extending systems" = "development/extending-systems.md" },
-        { "Contributing" = "development/contributing.md" },
-        { "Roadmap" = "development/roadmap.md" },
-        { "Metric divergences" = "development/metric-divergences.md" },
-        { "Design decisions" = [
-            { "Overview" = "development/design-decisions/index.md" },
-            { "0001 ECS data model" = "development/design-decisions/0001-ecs-data-model.md" },
-            { "0002 Arrow storage" = "development/design-decisions/0002-arrow-storage.md" },
-            { "0003 Coordinate frames as data" = "development/design-decisions/0003-coordinate-system.md" },
-            { "0004 Persistent recordings" = "development/design-decisions/0004-persistent-recording.md" },
+        { "For developers" = [
+            { "Architecture" = "development/for-developers/architecture.md" },
+            { "Design principles" = "development/for-developers/design-principles.md" },
+            { "Extending components" = "development/for-developers/extending-components.md" },
+            { "Extending archetypes" = "development/for-developers/extending-archetypes.md" },
+            { "Extending systems" = "development/for-developers/extending-systems.md" },
+            { "Contributing" = "development/for-developers/contributing.md" },
         ] },
-        { "Migration guide" = "development/migration.md" },
+        { "TODO" = [
+            { "Roadmap" = "development/todos/roadmap.md" },
+        ] },
     ] },
 ]
 

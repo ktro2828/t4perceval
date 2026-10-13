@@ -162,5 +162,5 @@ by following the indices back, because only the matcher knew it.
 ## Where to go next
 
 - [Detection 3D](../evaluation/detection-3d.md) -- a whole task, end to end.
-- [Extending systems](../development/extending-systems.md) -- writing your own filter, matcher or metric.
-- [Design principles](../development/design-principles.md) -- the rules the systems follow.
+- [Extending systems](../development/for-developers/extending-systems.md) -- writing your own filter, matcher or metric.
+- [Design principles](../development/for-developers/design-principles.md) -- the rules the systems follow.

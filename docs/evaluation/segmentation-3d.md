@@ -273,4 +273,4 @@ result.aggregate  # 0.5 -- mIoU
 
 - [Segmentation archetypes](../archetypes/segmentation.md) -- the schemas.
 - [Metrics](../user-guide/metrics.md#segmentation-iou-accuracy-confusion) -- the parameters.
-- [Metric divergences](../development/metric-divergences.md) -- how an undefined IoU is treated.
+- [Metric divergences](metric-divergences.md) -- how an undefined IoU is treated.

@@ -48,6 +48,6 @@ When both entities carry `point`, the coordinates are compared row by row within
 ## Where to go next
 
 - [Metrics](../user-guide/metrics.md) -- reading values back, per class and aggregate.
-- [Metric divergences](../development/metric-divergences.md) -- where the definitions differ from
+- [Metric divergences](../evaluation/metric-divergences.md) -- where the definitions differ from
   `autoware_perception_evaluation`.
 - [Write a custom metric](../recipes/custom-metric.md).

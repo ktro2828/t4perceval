@@ -159,4 +159,4 @@ and a mono component inherits its batch class's. Do not register a shared base s
 ## Where to go next
 
 - [Extending archetypes](extending-archetypes.md) -- bundling it.
-- [Serialization format](serialization-format.md) -- how it reaches Arrow.
+- [Serialization format](../../user-guide/serialization-format.md) -- how it reaches Arrow.

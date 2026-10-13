@@ -219,7 +219,7 @@ if batch.has(*Detections3D.required_descriptors()):
 ```
 
 `isinstance(tracking, Detections3D)` is now **False**, because the inheritance was dropped. That is
-intended; see [Composition over inheritance](design-principles.md#4-composition-over-inheritance).
+intended; see [Composition over inheritance](../development/for-developers/design-principles.md#4-composition-over-inheritance).
 
 ### Saving results
 

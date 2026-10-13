@@ -168,4 +168,4 @@ reversed indices are allowed. Lazy narrowing is [`EntityView`](store.md#entityvi
 
 - [Store](store.md) -- how chunks of these columns are logged and queried.
 - [Components](../components/index.md) and [Archetypes](../archetypes/index.md) -- the catalogues.
-- [Extending archetypes](../development/extending-archetypes.md) -- adding your own.
+- [Extending archetypes](../development/for-developers/extending-archetypes.md) -- adding your own.

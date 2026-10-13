@@ -201,7 +201,7 @@ print("car:", round(m_ap.of_class(labels.class_id("car")), 4))  # car: 0.9938
 ## Known divergences
 
 APH's denominator follows `autoware_perception_evaluation` rather than Waymo. This is catalogued in
-[Metric divergences](../development/metric-divergences.md), along with the confidence-ordered
+[Metric divergences](metric-divergences.md), along with the confidence-ordered
 matching AP now uses by default.
 
 ## Where to go next

@@ -1,7 +1,7 @@
 # Architecture
 
 The internal view: how the layers fit, what each one owns, and where the boundaries are. For the
-public mental model, read [Concepts](../concepts/overview.md) first.
+public mental model, read [Concepts](../../concepts/overview.md) first.
 
 ## Layers
 
@@ -109,21 +109,20 @@ These hold everywhere, and code may rely on them:
 
 ## Where the design is written down
 
-| Document                                        | What it covers                                         |
-| :---------------------------------------------- | :----------------------------------------------------- |
-| [Design principles](design-principles.md)       | the rules the code is written to                       |
-| [Migration guide](migration.md)                 | mapping from `autoware_perception_evaluation`          |
-| [Design decisions](design-decisions/index.md)   | ADRs: what was decided, and why                        |
-| [Serialization format](serialization-format.md) | how a chunk maps onto Arrow                            |
-| [Roadmap](roadmap.md)                           | what is done and what is next                          |
-| [Metric divergences](metric-divergences.md)     | where the numbers differ from the official definitions |
+| Document                                                         | What it covers                                         |
+| :--------------------------------------------------------------- | :----------------------------------------------------- |
+| [Design principles](design-principles.md)                        | the rules the code is written to                       |
+| [Migration guide](../../getting-started/migration.md)            | mapping from `autoware_perception_evaluation`          |
+| [Serialization format](../../user-guide/serialization-format.md) | how a chunk maps onto Arrow                            |
+| [Roadmap](../todos/roadmap.md)                                   | what is done and what is next                          |
+| [Metric divergences](../../evaluation/metric-divergences.md)     | where the numbers differ from the official definitions |
 
 ## Relationship to Rerun
 
 The vocabulary and semantics are [Rerun](https://github.com/rerun-io/rerun)'s, reimplemented here
 rather than depended on. Evaluation needs three things a visualization log does not: archetypes that
 _validate_, registries that give integer columns meaning, and systems that write results back into
-the same store. See [ADR 0001](design-decisions/0001-ecs-data-model.md).
+the same store.
 
 ## Where to go next
 

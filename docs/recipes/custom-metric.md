@@ -164,7 +164,7 @@ class FrequencyWeightedIoUSystem(SegmentationMetricSystem):
 ```
 
 For data that is neither matched nor row-aligned, implement the `System` protocol directly. See
-[Extending systems](../development/extending-systems.md).
+[Extending systems](../development/for-developers/extending-systems.md).
 
 ## Where to go next
 

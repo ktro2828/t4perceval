@@ -3,16 +3,10 @@
 Where the metric implementations differ from the standard or official benchmark definitions, and
 from `autoware_perception_evaluation`.
 
-This page is the authority the [benchmark](./benchmarks.md) checks against: `compare.py --check`
+This page is the authority the [benchmark](https://github.com/ktro2828/t4perceval/blob/main/benchmarks/README.md) checks against: `compare.py --check`
 classifies every numerical difference from `perception_eval` against the numbered items below and
 fails on any that is not here. An unexplained divergence is a regression; an explained one is a
 design decision.
-
-## Conclusion
-
-The metric implementations pass the existing tests, but some behaviors do not match the standard or official benchmark definitions.
-
-No implementation changes were made as part of this review.
 
 ## Important findings
 
@@ -24,7 +18,7 @@ interpolated at the same time offset (the current position anchors offset 0, and
 ends early is held at its last valid point); invalid modes never enter the top-k or the best-of-k choice;
 invalid ground-truth steps are not scored and FDE is taken at the last valid one; ADE and FDE are
 averaged per object first. See
-[Prediction evaluation](../evaluation/prediction.md#how-the-metric-reads-them). On dense trajectories that share one time axis the numbers are unchanged. The number is kept so that
+[Prediction evaluation](prediction.md#how-the-metric-reads-them). On dense trajectories that share one time axis the numbers are unchanged. The number is kept so that
 the references to later items stay stable.
 
 As originally found, the metric did not require or use `MODE_VALID`, `TIMESTEP_VALID`, or
@@ -128,22 +122,3 @@ Benchmarks differ here. Some Cityscapes-derived scripts score an absent class as
 The current prediction miss rate is the fraction of all mode/timestep distances that exceed the tolerance.
 
 A common forecasting definition instead reports the fraction of objects whose selected or best trajectory has a final displacement above the threshold. For an example, see the [official Argoverse implementation](https://github.com/argoverse/argoverse-api/blob/master/argoverse/evaluation/eval_forecasting.py).
-
-## Test results
-
-The following test runs succeeded:
-
-```text
-Metric tests: 152 passed
-Full suite:    924 passed
-```
-
-The full suite was run with pytest plugin auto-loading disabled to avoid unrelated ROS pytest plugins:
-
-```bash
-UV_CACHE_DIR=/tmp/t4perceval-uv-cache \
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-uv run pytest -q
-```
-
-The current tests adequately verify the behavior implemented by the project, but they do not cover official benchmark compatibility or an identity change across a missing frame. Prediction validity masks and time alignment are now covered by `tests/test_metrics_prediction.py`.
