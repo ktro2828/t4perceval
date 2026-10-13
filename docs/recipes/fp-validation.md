@@ -108,11 +108,35 @@ values.support.values  # ground-truth count per class, as in every metric
 
 The value is the passes divided by the verdicts. Every annotated box at every frame is one
 verdict. If there is no annotated box, the value is `NaN`. Other classes report `NaN` with their
-own support, because the detection metrics score them and this one does not. A dataset that mixes
-real objects and annotations therefore evaluates both in one pipeline, on the same matching: an
-estimation that claimed an annotation is a `TP` row whose classes disagree, which the detection
-metrics count as a false positive. `setup` is the evaluation
-store of [Evaluate a T4 dataset](evaluate-t4-dataset.md) or [an MCAP ROS bag](evaluate-rosbag.md).
+own support, because the detection metrics score them and this one does not. `setup` is the
+evaluation store of [Evaluate a T4 dataset](evaluate-t4-dataset.md) or
+[an MCAP ROS bag](evaluate-rosbag.md).
+
+### Detection metrics on a mixed dataset
+
+A dataset that mixes real objects and annotations can be scored for detection in the same
+pipeline, but not on the same ground truth. The registry holds `false_positive`, so
+`AveragePrecisionSystem` reports a row for it. On a ground truth that still contains the
+annotations, that row has support and an AP of zero, because no estimation reports that class.
+The mAP then averages the zero in, and the pooled row counts the annotations as objects to find.
+Give the detection metrics a ground truth without the annotations, and a strict matcher of
+their own:
+
+```python
+from t4perceval.system import FilterByLabelSystem, average_precision_sweep
+
+REAL = f"{GT}/real"
+detection = [
+    FilterByLabelSystem.on(GT, name="real", exclude=["false_positive"]),
+    ApplyMaskSystem.of(GT, f"{GT}/filter/real", name="real"),
+    *average_precision_sweep(EST, REAL, thresholds=[0.5, 1.0, 2.0, 4.0]),
+]
+Pipeline([*region, matcher, metric, *detection]).run(setup.context(), TimeRange.everything())
+```
+
+On that ground truth the `false_positive` row has no support and reports `NaN`, which the mAP
+skips. An estimation that claimed an annotation matches nothing real, so the detection metrics
+count it as a false positive, which is what it is.
 
 ## 5. Which annotation keeps failing?
 

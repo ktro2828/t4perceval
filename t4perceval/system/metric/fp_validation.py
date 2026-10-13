@@ -98,7 +98,9 @@ class FpValidationSystem(MetricSystem):
     ground-truth count as in every metric of the family.
 
     Only the :attr:`fp_label` class carries a value. Other classes report ``NaN`` with
-    their own support: their boxes are scored by the detection metrics, not here. The last
+    their own support: their boxes are scored by the detection metrics, not here. Those
+    metrics must read a ground truth **without** the annotations, since they report every
+    registered class and would score :attr:`fp_label` as a class nobody detects. The last
     row, class ``-1``, pools every verdict. The threshold column carries the threshold the
     matching was run at.
     """

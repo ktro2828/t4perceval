@@ -285,6 +285,41 @@ class TestClassesAndEdges:
         assert metrics.of_class(fp_labels.class_id(FP)) == pytest.approx(0.0)
 
 
+class TestAlongsideDetection:
+    def test_detection_metrics_read_the_ground_truth_without_annotations(
+        self, fp_labels: LabelRegistry
+    ) -> None:
+        """The recipe's mixed-dataset pipeline: AP skips the annotation class entirely."""
+        from t4perceval.system import (
+            ApplyMaskSystem,
+            FilterByLabelSystem,
+            average_precision_sweep,
+        )
+
+        store = Store()
+        boxes(store, 0, GT, [(0.0, 0.0, "car"), (50.0, 0.0, FP)], fp_labels)
+        boxes(store, 0, EST, [(0.2, 0.0, "car"), (50.0, 0.0, "car")], fp_labels)
+        real = f"{GT}/real"
+        systems = [
+            FilterByLabelSystem.on(GT, name="real", exclude=[FP]),
+            ApplyMaskSystem.of(GT, f"{GT}/filter/real", name="real"),
+            *average_precision_sweep(EST, real, thresholds=[1.0]),
+        ]
+        Pipeline(systems).run(SystemContext(store, FRAME, labels=fp_labels), TimeRange.everything())
+
+        ap = store.range(
+            "/metrics/ap/0", timeline=FRAME, time_range=TimeRange.everything()
+        ).materialize(MetricValues)
+        m_ap = store.range(
+            "/metrics/map", timeline=FRAME, time_range=TimeRange.everything()
+        ).materialize(MetricValues)
+
+        fp = fp_labels.class_id(FP)
+        assert np.isnan(ap.of_class(fp))
+        assert ap.support.values[fp] == 0
+        assert m_ap.aggregate == pytest.approx(ap.of_class(fp_labels.class_id("car")))
+
+
 class TestByInstance:
     @staticmethod
     def scene(labels: LabelRegistry) -> Store:
