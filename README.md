@@ -1,6 +1,6 @@
 # t4perceval
 
-[![docs](https://img.shields.io/badge/docs-t4perceval-4051b5)](https://github.com/ktro2828/t4perceval)
+[![docs](https://img.shields.io/badge/docs-t4perceval-4051b5)](https://ktro2828.github.io/t4perceval/)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
@@ -61,7 +61,7 @@ pip install 't4perceval[rosbag]'   # read an MCAP ROS bag (no ROS installation n
 
 Python 3.10+.
 
-## Usage
+## Example
 
 ```python
 from t4perceval import (
@@ -127,19 +127,6 @@ print(
 Every intermediate is still there afterwards — the filter masks, the matching verdicts, the
 per-threshold AP — so "why is this number low?" is a query rather than a re-run.
 
-Importing a dataset is two more lines:
-
-```python
-from t4perceval.evaluation import build_evaluation_store
-from t4perceval.importer.t4 import ImportOptions, T4Importer
-
-importer = T4Importer.open("/data/t4dataset", options=ImportOptions(entity_root="/ground_truth"))
-labels = importer.label_registry()  # hand this same registry to every source
-ground_truth = importer.import_scene(labels=labels)
-
-setup = build_evaluation_store(ground_truth, estimation)
-```
-
 ## Benchmark
 
 `benchmarks/compare.py` feeds `autoware_perception_evaluation` (`perception_eval` 1.3.6) and
@@ -166,71 +153,5 @@ agree to within `1e-9`. On the **dense** scene the two differ on 65 values, ever
 classified against a [documented divergence](docs/evaluation/metric-divergences.md); `--check`
 fails on any difference that is not.
 
-Full report: [`benchmarks/results/latest.md`](benchmarks/results/latest.md) ·
-options and prerequisites: [`benchmarks/README.md`](benchmarks/README.md) ·
-narrative: [benchmarks/README.md](benchmarks/README.md).
-
-## Documentation
-
-Run `uv run zensical serve` for the full site, or read the sources under [`docs/`](docs/).
-
-|                                                                                 |                                                   |
-| :------------------------------------------------------------------------------ | :------------------------------------------------ |
-| [Installation](docs/getting-started/installation.md)                            | extras, and the development setup                 |
-| [Quick start](docs/getting-started/quickstart.md)                               | the five things the library is made of            |
-| [First evaluation](docs/getting-started/first-evaluation.md)                    | the smallest complete workflow                    |
-| [Concepts](docs/concepts/overview.md)                                           | the mental model, and why the APIs look like this |
-| [User guide](docs/user-guide/logging-data.md)                                   | logging, querying, filtering, matching, metrics   |
-| [Evaluation tasks](docs/evaluation/detection-3d.md)                             | inputs, required components, complete examples    |
-| [Recipes](docs/recipes/evaluate-model-output.md)                                | model output, T4 dataset, ROS bag, custom systems |
-| [Archetypes](docs/archetypes/index.md) & [Components](docs/components/index.md) | the schema catalogue                              |
-| [Systems](docs/systems/index.md)                                                | the catalogue of filters, matchers and metrics    |
-| [API reference](docs/reference/api/index.md)                                    | generated from the docstrings                     |
-| [Development](docs/development/for-developers/architecture.md)                  | architecture, and how to extend it                |
-
-Coming from `autoware_perception_evaluation`? The
-[migration guide](docs/getting-started/migration.md) maps its types, tasks and config keys onto this
-package.
-
-## Development
-
-```bash
-uv sync --group dev --all-extras
-uv run pytest tests -q
-uv run ruff check t4perceval tests && uv run ruff format --check t4perceval tests
-uv run zensical serve
-```
-
-See [Contributing](docs/development/for-developers/contributing.md).
-
-## Status
-
-**Implemented.** The data model (`core`), all component and archetype types, the store with
-timelines and static data, lazy views, the label registries, Arrow/Parquet IO, the system protocol
-with `Pipeline`, the full filter family (nine filters on a shared `MaskSystem` base -- including
-`FilterByMapSystem`, which keeps the objects inside the lanelets of a Lanelet2 map read by
-`t4perceval.lanelet` -- plus `CombineMasksSystem`, `ApplyMaskSystem` and `masked_view`), the full
-matching family (six modes on a
-shared `MatchingSystem` base, with per-class `Thresholds` and vectorized geometry in
-`t4perceval.geometry`), the metric systems (mAP/APH, CLEAR, ADE/FDE/MissRate, classification,
-confusion matrix, and segmentation IoU/mIoU/accuracy/confusion with no matching stage), the T4 and
-MCAP/ROS bag importers with the `Recording` boundary and
-`t4perceval.evaluation`, `t4perceval.align` for pairing ground-truth and estimation frames by
-timestamp, and coordinate transforms — static and temporal edges, frame-graph discovery from the
-data, composition through `TransformResolver`, and the cross-frame guard.
-
-Persistence (`write_recording` / `read_recording` to a `.t4eval` directory) and
-`TransformEntitySystem`, which expresses an entity in another coordinate frame as a new entity, are
-in as well.
-
-**Next.** Metric correctness against the official definitions, `HotaSystem` and pass/fail, a
-lidarseg importer, and a visualization layer.
-
-See [the roadmap](docs/development/todos/roadmap.md) for the current list,
-[Design principles](docs/development/for-developers/design-principles.md) for the rules they follow,
-and [Metric divergences](docs/evaluation/metric-divergences.md) for where the metric
-implementations differ from the official benchmark definitions.
-
-## License
-
-[Apache License 2.0](LICENSE).
+- Full report: [`benchmarks/results/latest.md`](benchmarks/results/latest.md)
+- Narrative: [benchmarks/README.md](benchmarks/README.md)
