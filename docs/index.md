@@ -111,6 +111,7 @@ construction; two recordings that disagree about class ids raise.
 | [Tracking](evaluation/tracking.md)            | any 3D or 2D matcher                      | MOTA, MOTP, ID switches                   |
 | [Prediction](evaluation/prediction.md)        | any 3D matcher, on the current pose       | ADE, FDE, miss rate                       |
 | [Segmentation](evaluation/segmentation-3d.md) | _not applicable_ (rows are aligned)       | IoU, mIoU, accuracy, confusion matrix     |
+| [FP validation](evaluation/fp-validation.md)  | any matcher, with `agnostic_classes`      | pass rate of annotated false positives    |
 
 Inputs come from your own arrays, from a [T4 dataset](user-guide/dataset-importers.md#t4-dataset),
 or from an [MCAP ROS bag](user-guide/dataset-importers.md#mcap-ros-bag).
