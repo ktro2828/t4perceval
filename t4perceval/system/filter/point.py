@@ -5,7 +5,7 @@
 :mod:`t4perceval.system.filter.position` -- distance, an xy box, a polar grid, a map
 polygon -- to the ``POINT`` column. They are separate classes rather than the object filters
 pointed at a cloud on purpose: ``POINT`` is not ``POSITION`` (see
-:class:`~t4perceval.archetype.SemanticSegmentation3D`), so a filter has to say which of
+:class:`~t4perceval.archetype.SemanticPointCloud`), so a filter has to say which of
 the two it means.
 """
 
@@ -140,7 +140,7 @@ class FilterPointsByDistanceSystem(FilterByDistanceSystem):
     """Keep the points whose distance from the origin is within ``[min, max]``.
 
     :class:`~t4perceval.system.filter.position.FilterByDistanceSystem` over the ``point``
-    column of a cloud such as :class:`~t4perceval.archetype.SemanticSegmentation3D`. The
+    column of a cloud such as :class:`~t4perceval.archetype.SemanticPointCloud`. The
     parameters, the inclusive bounds and ``bev`` mean the same; the distance is measured in
     the frame the cloud declares, so it has to be ``base_link`` for "distance from the
     ego". The mask is written to ``<source>/filter/distance``.

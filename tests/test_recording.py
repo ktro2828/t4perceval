@@ -13,7 +13,7 @@ from t4perceval import (
     Detections3D,
     InstanceRegistry,
     LabelRegistry,
-    SemanticSegmentation2D,
+    SemanticImage,
     Store,
     TimePoint,
     TimeRange,
@@ -177,7 +177,7 @@ class TestReconcile:
         # registry orders the classes differently must have it remapped like any other.
         source = LabelRegistry.from_names(["car", "pedestrian"])
         target = LabelRegistry.from_names(["pedestrian", "car"])
-        image = SemanticSegmentation2D(class_id_image=[[0, 1, -1], [1, 0, -2]])
+        image = SemanticImage(class_id_image=[[0, 1, -1], [1, 0, -2]])
         chunk = image.to_chunk("/pixels", at=TimePoint.at(frame=0), frame_id="CAM_FRONT")
 
         remapped = remap_class_ids(chunk, class_id_lut(source, target))

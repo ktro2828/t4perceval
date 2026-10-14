@@ -8,8 +8,8 @@ from t4perceval import (
     FRAME,
     Detections3D,
     Predictions3D,
-    SemanticSegmentation2D,
-    SemanticSegmentation3D,
+    SemanticImage,
+    SemanticPointCloud,
     Store,
     TimePoint,
     TimeRange,
@@ -45,8 +45,8 @@ class TestPublicApi:
             Trackings3D,
             Predictions3D,
             Trajectories3D,
-            SemanticSegmentation2D,
-            SemanticSegmentation3D,
+            SemanticImage,
+            SemanticPointCloud,
             MatchResults,
         )
 
@@ -203,10 +203,10 @@ class TestPrediction:
         assert (prediction.num_modes, prediction.num_timesteps) == (4, 6)
 
 
-class TestSemanticSegmentation:
+class TestSemanticImageAndPointCloud:
     def test_an_image_in_and_the_image_out(self) -> None:
         image = [[0, 1, 1], [2, 2, 0]]
-        segmentation = SemanticSegmentation2D(class_id_image=image)
+        segmentation = SemanticImage(class_id_image=image)
 
         assert len(segmentation) == 1, "the row is the image"
         np.testing.assert_array_equal(segmentation.class_id_image.value, image)
@@ -214,27 +214,27 @@ class TestSemanticSegmentation:
         assert (segmentation.class_id_image.height, segmentation.class_id_image.width) == (2, 3)
 
     def test_the_one_component_is_the_image(self) -> None:
-        assert SemanticSegmentation2D.required_descriptors() == (CLASS_ID_IMAGE,)
-        assert SemanticSegmentation2D.optional_descriptors() == ()
+        assert SemanticImage.required_descriptors() == (CLASS_ID_IMAGE,)
+        assert SemanticImage.optional_descriptors() == ()
         with pytest.raises(TypeError):
-            SemanticSegmentation2D(class_id=[0])  # type: ignore[call-arg]
+            SemanticImage(class_id=[0])  # type: ignore[call-arg]
 
     def test_more_than_one_image_is_rejected(self) -> None:
         with pytest.raises(ValueError, match="exactly one value"):
-            SemanticSegmentation2D(class_id_image=np.zeros((2, 2, 3)))
+            SemanticImage(class_id_image=np.zeros((2, 2, 3)))
 
     def test_a_flat_vector_is_not_an_image(self) -> None:
         with pytest.raises(ValueError, match=r"must have shape \(N, \*, \*\), got \(6,\)"):
-            SemanticSegmentation2D(class_id_image=[0, 1, 1, 2, 2, 0])
+            SemanticImage(class_id_image=[0, 1, 1, 2, 2, 0])
 
     def test_it_round_trips_through_a_chunk(self) -> None:
-        segmentation = SemanticSegmentation2D(class_id_image=[[0, 1, 1], [2, 2, 0]])
+        segmentation = SemanticImage(class_id_image=[[0, 1, 1], [2, 2, 0]])
 
         chunk = segmentation.to_chunk("/pixels", at=TimePoint.at(frame=0), frame_id="CAM_FRONT")
 
         assert type(chunk.columns[CLASS_ID_IMAGE]) is BatchClassIdImage, "stored columnar"
         assert chunk.columns[CLASS_ID_IMAGE].values.shape == (1, 2, 3)
-        assert SemanticSegmentation2D.from_chunk(chunk) == segmentation
+        assert SemanticImage.from_chunk(chunk) == segmentation
 
     def test_a_range_over_frames_is_a_stack_of_images_not_an_archetype(self) -> None:
         # One frame is one image, so a scene of images is read column-wise -- the
@@ -243,7 +243,7 @@ class TestSemanticSegmentation:
         for frame in range(2):
             store.log(
                 "/pixels",
-                SemanticSegmentation2D(class_id_image=np.full((2, 3), frame)),
+                SemanticImage(class_id_image=np.full((2, 3), frame)),
                 at=TimePoint.at(frame=frame),
                 frame_id="CAM_FRONT",
             )
@@ -252,15 +252,15 @@ class TestSemanticSegmentation:
 
         assert view.component(CLASS_ID_IMAGE).values.shape == (2, 2, 3)
         with pytest.raises(ValueError, match="exactly one value"):
-            view.materialize(SemanticSegmentation2D)
+            view.materialize(SemanticImage)
         latest = store.latest_at("/pixels", timeline=FRAME, at=1)
-        assert latest.materialize(SemanticSegmentation2D).class_id_image.value.tolist() == [
+        assert latest.materialize(SemanticImage).class_id_image.value.tolist() == [
             [1, 1, 1],
             [1, 1, 1],
         ]
 
     def test_a_class_per_point(self) -> None:
-        segmentation = SemanticSegmentation3D(
+        segmentation = SemanticPointCloud(
             point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
             class_id=[1, 2],
         )
@@ -269,13 +269,13 @@ class TestSemanticSegmentation:
 
     def test_validates_point_class_alignment(self) -> None:
         with pytest.raises(ValueError, match="class_id has length 1, expected 2"):
-            SemanticSegmentation3D(
+            SemanticPointCloud(
                 point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
                 class_id=[1],
             )
 
     def test_segmentation_supports_the_shared_selection_api(self) -> None:
-        segmentation = SemanticSegmentation3D(
+        segmentation = SemanticPointCloud(
             point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             class_id=[0, 1, 2],
         )

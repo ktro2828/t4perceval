@@ -16,7 +16,7 @@ from t4perceval import (
     FRAME,
     Chunk,
     MatchResults,
-    SemanticSegmentation3D,
+    SemanticPointCloud,
     Store,
     TimePoint,
     TimeRange,
@@ -197,7 +197,7 @@ class TestOpaqueTargets:
         store = Store()
         store.log(
             EST,
-            SemanticSegmentation3D(point=[[0.0, 0.0, 0.0]], class_id=[0]),
+            SemanticPointCloud(point=[[0.0, 0.0, 0.0]], class_id=[0]),
             at=TimePoint.at(frame=0),
             frame_id="base_link",
         )

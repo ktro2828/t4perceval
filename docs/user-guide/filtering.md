@@ -74,7 +74,7 @@ FilterByRegionSystem.symmetric(path, max_xy=(100.0, 50.0))  # ±100 by ±50, mir
 `symmetric` is the region the original package's `max_x_position` / `max_y_position` described.
 
 These, the polar grid and the map filter below judge an object's `position`. A point cloud such as
-`SemanticSegmentation3D` carries `point` instead, and the same predicates over it are
+`SemanticPointCloud` carries `point` instead, and the same predicates over it are
 `FilterPointsByDistanceSystem`, `FilterPointsByRegionSystem`, `FilterPointsByPolarGridSystem` and
 `FilterPointsByMapSystem`, with the same parameters:
 

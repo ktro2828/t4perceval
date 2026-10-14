@@ -11,7 +11,7 @@ from conftest import make_detections, make_ego_scene, make_segmentation
 from t4perceval import (
     FRAME,
     Detections3D,
-    SemanticSegmentation3D,
+    SemanticPointCloud,
     Trackings3D,
     Chunk,
     InstanceRegistry,
@@ -741,7 +741,7 @@ class TestPointPositionFilters:
         )
 
         assert len(view) == 2
-        cloud = view.materialize(SemanticSegmentation3D)
+        cloud = view.materialize(SemanticPointCloud)
         assert cloud.point.values[:, 0].tolist() == [1.0, 3.0]
 
     def test_the_mask_reads_back_as_a_view(self, cloud_context: SystemContext) -> None:
@@ -757,7 +757,7 @@ class TestPointPositionFilters:
             time_range=TimeRange.single(0),
         )
 
-        assert view.materialize(SemanticSegmentation3D).point.values[:, 0].tolist() == [1.0, 3.0]
+        assert view.materialize(SemanticPointCloud).point.values[:, 0].tolist() == [1.0, 3.0]
 
 
 class TestFilterByLabel:

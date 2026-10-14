@@ -5,8 +5,8 @@ already aligned element by element and there is nothing to pair. The systems her
 sources instead of a matching result plus two entities, and read one label column -- either
 ``CLASS_ID``, a label per row, or ``CLASS_ID_IMAGE``, one label image per row flattened
 row-major -- so one implementation serves
-:class:`~t4perceval.archetype.SemanticSegmentation3D` and
-:class:`~t4perceval.archetype.SemanticSegmentation2D` alike. Everything is derived from one
+:class:`~t4perceval.archetype.SemanticPointCloud` and
+:class:`~t4perceval.archetype.SemanticImage` alike. Everything is derived from one
 count matrix over ``(ground-truth class, estimated class)``.
 """
 

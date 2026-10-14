@@ -81,7 +81,7 @@ Two flavours exist:
 - **Mono** (`MonoComponent`): exactly one value, written and read without a row index.
   [`Transform3D`](../archetypes/transform-3d.md) uses these -- it describes one relationship between
   two frames, not `N` objects -- and so does
-  [`SemanticSegmentation2D`](../archetypes/segmentation.md), which holds one label image per frame.
+  [`SemanticImage`](../archetypes/segmentation.md), which holds one label image per frame.
 
 ```python
 from t4perceval.component import Position3D

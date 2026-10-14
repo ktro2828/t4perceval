@@ -12,7 +12,7 @@ from t4perceval import (
     Detections3D,
     LabelRegistry,
     Predictions3D,
-    SemanticSegmentation3D,
+    SemanticPointCloud,
     Store,
     TimePoint,
     Trackings3D,
@@ -144,7 +144,7 @@ def make_segmentation(
         points = [[float(i), 0.0, 0.0] for i in range(len(class_ids))]
     store.log(
         path,
-        SemanticSegmentation3D(point=points, class_id=class_ids),
+        SemanticPointCloud(point=points, class_id=class_ids),
         at=TimePoint.at(frame=frame, timestamp_ns=(frame + 1) * 1_000),
         frame_id=frame_id,
     )

@@ -10,21 +10,21 @@ the others, not a reproduction of the Python signatures. For those, see the
 
 ## The catalogue
 
-| Archetype                | Page                                | What it is                                        |
-| :----------------------- | :---------------------------------- | :------------------------------------------------ |
-| `Detections2D`           | [Detection 2D](detection-2d.md)     | image-plane regions with a class and a confidence |
-| `Detections3D`           | [Detection 3D](detection-3d.md)     | 3D boxes with a class and a confidence            |
-| `Trackings2D`            | [Tracking](tracking.md)             | `Detections2D` plus a persistent instance id      |
-| `Trackings3D`            | [Tracking](tracking.md)             | `Detections3D` plus a persistent instance id      |
-| `Predictions3D`          | [Prediction](prediction.md)         | `Trackings3D` plus multi-modal futures            |
-| `Trajectories3D`         | [Trajectory](trajectory.md)         | futures on their own, no box                      |
-| `Classifications2D`      | [Classification](classification.md) | a class and a confidence, no geometry             |
-| `SemanticSegmentation2D` | [Segmentation](segmentation.md)     | one class-id image per frame, mono                |
-| `SemanticSegmentation3D` | [Segmentation](segmentation.md)     | a class per labelled point                        |
-| `Transform3D`            | [Transform 3D](transform-3d.md)     | the pose of a child frame in its parent           |
-| `MatchResults`           | [Matching](matching.md)             | the outcome of matching two entities              |
-| `MetricValues`           | [Metrics](metrics.md)               | one metric's values, by class and threshold       |
-| `ConfusionMatrix`        | [Metrics](metrics.md)               | long-form detection confusion matrix              |
+| Archetype            | Page                                | What it is                                        |
+| :------------------- | :---------------------------------- | :------------------------------------------------ |
+| `Detections2D`       | [Detection 2D](detection-2d.md)     | image-plane regions with a class and a confidence |
+| `Detections3D`       | [Detection 3D](detection-3d.md)     | 3D boxes with a class and a confidence            |
+| `Trackings2D`        | [Tracking](tracking.md)             | `Detections2D` plus a persistent instance id      |
+| `Trackings3D`        | [Tracking](tracking.md)             | `Detections3D` plus a persistent instance id      |
+| `Predictions3D`      | [Prediction](prediction.md)         | `Trackings3D` plus multi-modal futures            |
+| `Trajectories3D`     | [Trajectory](trajectory.md)         | futures on their own, no box                      |
+| `Classifications2D`  | [Classification](classification.md) | a class and a confidence, no geometry             |
+| `SemanticImage`      | [Segmentation](segmentation.md)     | one class-id image per frame, mono                |
+| `SemanticPointCloud` | [Segmentation](segmentation.md)     | a class per labelled point                        |
+| `Transform3D`        | [Transform 3D](transform-3d.md)     | the pose of a child frame in its parent           |
+| `MatchResults`       | [Matching](matching.md)             | the outcome of matching two entities              |
+| `MetricValues`       | [Metrics](metrics.md)               | one metric's values, by class and threshold       |
+| `ConfusionMatrix`    | [Metrics](metrics.md)               | long-form detection confusion matrix              |
 
 ## The object family
 

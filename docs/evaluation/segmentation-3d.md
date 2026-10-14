@@ -91,11 +91,11 @@ Pipeline([covered, gt_kept, align, iou]).run(ctx, TimeRange.everything())
 ### 3D
 
 ```python
-from t4perceval import SemanticSegmentation3D
+from t4perceval import SemanticPointCloud
 
 store.log(
     "/ground_truth/points",
-    SemanticSegmentation3D(
+    SemanticPointCloud(
         point=[[1.0, 2.0, 0.3], [1.1, 2.0, 0.3]],  # (N, 3) f64
         class_id=labels.encode(["car", "car"]),  # (N,)   i32
     ),
@@ -117,23 +117,23 @@ not `H * W` rows. The image size is not logged separately: it is the row shape o
 every image on an entity has the same resolution and a `range` over a resolution change raises.
 
 ```python
-from t4perceval import SemanticSegmentation2D
+from t4perceval import SemanticImage
 
 store.log(
     "/ground_truth/pixels",
-    SemanticSegmentation2D(class_id_image=label_image),  # (H, W) int
+    SemanticImage(class_id_image=label_image),  # (H, W) int
     at=TimePoint.at(frame=0),
     frame_id="CAM_FRONT",
 )
 ```
 
-`latest_at(...).materialize(SemanticSegmentation2D).class_id_image.value` reads the image back.
+`latest_at(...).materialize(SemanticImage).class_id_image.value` reads the image back.
 `frame_id` is the camera channel, as for every 2D archetype.
 
 ## Required components
 
 ```text
-SemanticSegmentation3D          SemanticSegmentation2D
+SemanticPointCloud              SemanticImage
 ├── point      required         └── class_id_image   required     one (H, W) image, mono
 └── class_id   required
 ```
@@ -142,10 +142,10 @@ Neither archetype has optional components.
 
 ## Filtering
 
-`FilterByLabelSystem` works on `SemanticSegmentation3D`, because it only needs `class_id`. It does
-not apply to `SemanticSegmentation2D`: a mask is a verdict per row, and the row there is the whole
+`FilterByLabelSystem` works on `SemanticPointCloud`, because it only needs `class_id`. It does
+not apply to `SemanticImage`: a mask is a verdict per row, and the row there is the whole
 image, so leave classes out of a 2D evaluation with `ignore=` instead. The geometric filters need
-`POSITION` and so do **not** apply to `SemanticSegmentation3D` despite its `point` column -- by
+`POSITION` and so do **not** apply to `SemanticPointCloud` despite its `point` column -- by
 design.
 
 Applying the **same** mask to both entities keeps them aligned:
@@ -230,7 +230,7 @@ from t4perceval import (
     FRAME,
     LabelRegistry,
     MetricValues,
-    SemanticSegmentation3D,
+    SemanticPointCloud,
     Store,
     TimePoint,
     TimeRange,
@@ -242,7 +242,7 @@ store = Store()
 
 store.log(
     "/ground_truth/points",
-    SemanticSegmentation3D(
+    SemanticPointCloud(
         point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
         class_id=labels.encode(["road", "car", "car"]),
     ),
@@ -251,7 +251,7 @@ store.log(
 )
 store.log(
     "/estimation/points",
-    SemanticSegmentation3D(
+    SemanticPointCloud(
         point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
         class_id=labels.encode(["road", "car", "road"]),
     ),
