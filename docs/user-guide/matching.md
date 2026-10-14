@@ -152,7 +152,7 @@ CenterDistanceMatchingSystem.between(EST, GT, threshold=1.0, agnostic_classes=["
 A ground truth of a named class then takes an estimation of any class, while every other pair
 still has to agree. That is how a false-positive annotation, which says "anything reported here
 is wrong", shares one matching with the real objects around it. See
-[Validate false positives](../recipes/fp-validation.md). The two settings are not combined:
+[FP validation](../evaluation/fp-validation.md). The two settings are not combined:
 `class_agnostic=True` already exempts every class.
 
 ## Coordinate frames

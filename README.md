@@ -36,13 +36,14 @@ answer to all four:
 
 ## Supported evaluation tasks
 
-| Task         | Matching                                                              | Metrics                                                     |
-| :----------- | :-------------------------------------------------------------------- | :---------------------------------------------------------- |
-| Detection 3D | centre distance, centre distance BEV, plane distance, IoU BEV, IoU 3D | AP, APH, mAP, mAPH, confusion matrix                        |
-| Detection 2D | ROI IoU                                                               | AP, mAP, classification, confusion matrix                   |
-| Tracking     | any 3D or 2D matcher                                                  | MOTA, MOTP, ID switches                                     |
-| Prediction   | any 3D matcher, on the current pose                                   | ADE, FDE, miss rate                                         |
-| Segmentation | _not applicable_ (rows are aligned)                                   | IoU, mIoU, class accuracy, pixel accuracy, confusion matrix |
+| Task          | Matching                                                              | Metrics                                                     |
+| :------------ | :-------------------------------------------------------------------- | :---------------------------------------------------------- |
+| Detection 3D  | centre distance, centre distance BEV, plane distance, IoU BEV, IoU 3D | AP, APH, mAP, mAPH, confusion matrix                        |
+| Detection 2D  | ROI IoU                                                               | AP, mAP, classification, confusion matrix                   |
+| Tracking      | any 3D or 2D matcher                                                  | MOTA, MOTP, ID switches                                     |
+| Prediction    | any 3D matcher, on the current pose                                   | ADE, FDE, miss rate                                         |
+| Segmentation  | _not applicable_ (rows are aligned)                                   | IoU, mIoU, class accuracy, pixel accuracy, confusion matrix |
+| FP validation | any matcher, with `agnostic_classes` for the annotation class         | pass rate of annotated false positives, per instance too    |
 
 Inputs come from your own arrays, from a **T4 dataset**, or from an **MCAP ROS bag**.
 
