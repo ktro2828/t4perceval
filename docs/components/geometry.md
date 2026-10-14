@@ -99,7 +99,7 @@ images.as_class_id()  # BatchClassId of N * H * W rows, image by image, each row
 ```
 
 Descriptor: `CLASS_ID_IMAGE`. The archetype field is the **mono** `ClassIdImage`, written and read as
-a bare `(H, W)` value, because [`SemanticSegmentation2D`](../archetypes/segmentation.md) holds one
+a bare `(H, W)` value, because [`SemanticImage`](../archetypes/segmentation.md) holds one
 image per point in time; storage widens it to a one-row `BatchClassIdImage`, and a `range` over
 several frames reads back as a stack. The segmentation metrics consume `as_class_id()`.
 

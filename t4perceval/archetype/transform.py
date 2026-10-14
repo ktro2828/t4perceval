@@ -39,7 +39,7 @@ class Transform3D(Archetype):
 
     Every component here is **mono** (:class:`~t4perceval.core.component.MonoComponent`).
     Most archetypes describe *N* objects; this describes one relationship, of which an entity
-    holds exactly one per point in time -- as :class:`~t4perceval.archetype.SemanticSegmentation2D`
+    holds exactly one per point in time -- as :class:`~t4perceval.archetype.SemanticImage`
     holds one label image. So the
     translation is a ``(3,)`` value rather than an ``(N, 3)`` column, and the frame name is
     a ``str`` -- there is no row to index into, and "what if it has three rows?" is not a

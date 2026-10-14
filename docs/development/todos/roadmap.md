@@ -287,12 +287,12 @@ Output entities:
 
 ### Design questions
 
-How much is shared between `SemanticSegmentation2D` and `SemanticSegmentation3D`? The evaluation
+How much is shared between `SemanticImage` and `SemanticPointCloud`? The evaluation
 logic should depend on semantic components rather than dimensionality wherever possible: if both
 expose `CLASS_ID`, one metric implementation can operate on both.
 
-- [x] Decide the 2D/3D sharing boundary — everything: both archetypes expose `CLASS_ID` and the row is the element, so one implementation serves both. `SemanticSegmentation2D` became `class_id` alone (the row is the pixel) with a static `IMAGE_SIZE`; `pixel` was removed
-- [x] Redesign `SemanticSegmentation2D` as one **mono** `(H, W)` `ClassIdImage` per frame. The
+- [x] Decide the 2D/3D sharing boundary — everything: both archetypes expose `CLASS_ID` and the row is the element, so one implementation serves both. `SemanticImage` became `class_id` alone (the row is the pixel) with a static `IMAGE_SIZE`; `pixel` was removed
+- [x] Redesign `SemanticImage` as one **mono** `(H, W)` `ClassIdImage` per frame. The
       static `IMAGE_SIZE` sidecar needed a second `log` call, nothing read it, and a resolution
       change was a silent last-write-wins; the image size is now the column's row shape, an
       invariant of the entity that `concat_chunks` enforces. `BatchImageSize` / `IMAGE_SIZE` /
@@ -321,7 +321,7 @@ be validated on real data immediately.
 
 - [ ] **T4 lidarseg import.** Read the `lidarseg` table through `t4_devkit` (`filename` per
       `sample_data`), load the referenced point cloud and its per-point label file, and log a
-      `SemanticSegmentation3D` per keyframe at `/ground_truth/points` with `frame_id` from the lidar
+      `SemanticPointCloud` per keyframe at `/ground_truth/points` with `frame_id` from the lidar
       channel and both `FRAME` and `TIMESTAMP` indexes, like the boxes. Decide the entity path
       convention next to `/ground_truth/objects` (`objects` vs `points`) and expose it as an
       `ImportOptions` field.
@@ -338,16 +338,16 @@ be validated on real data immediately.
         `TransformEntitySystem` need, so this is only worth it for visualization.
 - [ ] **Estimation side for lidarseg.** A model's output arrives as a per-point label array over a
       cloud that may be re-ordered or cropped; document (and if a common file format emerges,
-      import) how to log it as `SemanticSegmentation3D`, and point at `AlignPointsSystem` /
+      import) how to log it as `SemanticPointCloud`, and point at `AlignPointsSystem` /
       `FilterPointsByCoverageSystem` for the order and coverage questions.
 - [ ] **Rosbag `PointCloud2` with a label field.** Decode a segmentation topic (a cloud whose fields
       include a per-point class, as Autoware's lidar segmentation nodes publish) into
-      `SemanticSegmentation3D` on `TIMESTAMP`, reusing the `mcap` decoding path and the
+      `SemanticPointCloud` on `TIMESTAMP`, reusing the `mcap` decoding path and the
       `AUTOWARE_CLASS_NAMES`-style enum → name → registry-id mapping. Bags are large and clouds are
       dense, so this is also where the per-frame `range()` cost of the segmentation metrics gets
       measured on real sizes.
 - [ ] **2D label images.** Import a camera segmentation mask as
-      `SemanticSegmentation2D(class_id_image=...)`, `frame_id` = camera channel, from whatever the
+      `SemanticImage(class_id_image=...)`, `frame_id` = camera channel, from whatever the
       dataset provides (T4 has no 2D segmentation table today; a bag `Image` topic with class ids is
       the likely source). Confirm on a real image that a 2M-pixel image per frame is acceptable in
       memory and in `.t4eval` size (it is a dense `int32` fixed-size list in Arrow), or decide that
@@ -567,7 +567,7 @@ Done. `t4perceval.importer.t4`, plus the `Recording` boundary the importers conv
 - [x] `t4perceval.reconcile` — expressing one registry's class ids in another's.
 
 Deferred deliberately: segmentation (no system consumed `POINT`, and
-`SemanticSegmentation2D` carried its image size as a static sidecar — resolved in
+`SemanticImage` carried its image size as a static sidecar — resolved in
 [P2](#p2-segmentation-support)) and sensor data.
 
 ### MCAP / ROS bag importer

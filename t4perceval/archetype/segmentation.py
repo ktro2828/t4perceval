@@ -15,11 +15,11 @@ from t4perceval.component import BatchClassId, BatchPosition3D, ClassIdImage
 from t4perceval.core.archetype import Archetype
 from t4perceval.descriptors import CLASS_ID, CLASS_ID_IMAGE, POINT
 
-__all__ = ("SemanticSegmentation2D", "SemanticSegmentation3D")
+__all__ = ("SemanticImage", "SemanticPointCloud")
 
 
 @define(frozen=True, slots=True)
-class SemanticSegmentation2D(Archetype):
+class SemanticImage(Archetype):
     """A class per pixel of one image.
 
     The one component is a **mono** ``(H, W)`` class-id image: an entity holds one image
@@ -29,7 +29,7 @@ class SemanticSegmentation2D(Archetype):
     query that spans a resolution change fails in ``concat_chunks`` rather than misaligning
     pixels::
 
-        store.log(path, SemanticSegmentation2D(class_id_image=labels), at=..., frame_id="CAM_FRONT")
+        store.log(path, SemanticImage(class_id_image=labels), at=..., frame_id="CAM_FRONT")
 
     ``frame_id`` is the camera channel, as for every 2D archetype. ``latest_at`` reads one
     image back through ``materialize``; a ``range`` over several frames is a stack of
@@ -43,7 +43,7 @@ class SemanticSegmentation2D(Archetype):
 
 
 @define(frozen=True, slots=True)
-class SemanticSegmentation3D(Archetype):
+class SemanticPointCloud(Archetype):
     """A class per labelled point.
 
     ``point`` uses the ``POINT`` descriptor rather than ``POSITION``: a labelled point is

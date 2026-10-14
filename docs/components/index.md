@@ -38,7 +38,7 @@ depends on it.
 | `BatchTimestepValid`                                | `(N, M, T)`    | `bool`         |                                            |
 | `BatchTimeOffset`                                   | `(N, T)`       | `i64`          | nanoseconds, strictly increasing           |
 | `Position3D` / `Quaternion` / `FrameId`             | one value      | `f64` / `str`  | **mono** -- see [Transform](transform.md)  |
-| `ClassIdImage`                                      | one `(H, W)`   | `i32`          | **mono** -- `SemanticSegmentation2D`       |
+| `ClassIdImage`                                      | one `(H, W)`   | `i32`          | **mono** -- `SemanticImage`                |
 
 ## Naming rules
 

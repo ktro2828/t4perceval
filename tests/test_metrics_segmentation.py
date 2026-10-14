@@ -14,8 +14,8 @@ from t4perceval import (
     LabelRegistry,
     MetricValues,
     Recording,
-    SemanticSegmentation2D,
-    SemanticSegmentation3D,
+    SemanticImage,
+    SemanticPointCloud,
     Store,
     TimeColumn,
     TimePoint,
@@ -377,7 +377,7 @@ class TestPointOrder:
     ) -> None:
         store = Store()
         for path, image in (("/gt", [[ROAD, CAR]]), ("/est", [[CAR, ROAD]])):
-            store.log(path, SemanticSegmentation2D(class_id_image=image), at=TimePoint.at(frame=0))
+            store.log(path, SemanticImage(class_id_image=image), at=TimePoint.at(frame=0))
         iou = SegmentationIoUSystem.between("/est", "/gt")
         run(store, iou, labels=seg_labels)
         assert (
@@ -548,7 +548,7 @@ class TestPersistence:
         ):
             store.log(
                 path,
-                SemanticSegmentation2D(class_id_image=image),
+                SemanticImage(class_id_image=image),
                 at=TimePoint.at(frame=0),
                 frame_id="CAM_FRONT",
             )
@@ -565,7 +565,7 @@ class TestPersistence:
         reopened = restored.range("/ground_truth/pixels", timeline=FRAME, time_range=EVERYTHING)
         assert type(reopened.component(CLASS_ID_IMAGE)) is BatchClassIdImage, "registry resolves"
         assert restored.latest_at("/ground_truth/pixels", timeline=FRAME, at=0).materialize(
-            SemanticSegmentation2D
+            SemanticImage
         ).class_id_image.value.tolist() == [[ROAD, CAR, CAR], [CAR, CAR, ROAD]]
         assert MetricValues.from_chunk(
             restored.range(iou.targets[2], timeline=FRAME, time_range=EVERYTHING).to_chunk()
@@ -642,7 +642,7 @@ class TestDimensionalityParity:
         for path, names in (("/ground_truth/pixels", gt), ("/estimation/pixels", est)):
             store.log(
                 path,
-                SemanticSegmentation2D(class_id_image=seg_labels.encode(names).reshape(1, 3)),
+                SemanticImage(class_id_image=seg_labels.encode(names).reshape(1, 3)),
                 at=TimePoint.at(frame=0),
                 frame_id="CAM_FRONT",
             )
@@ -673,7 +673,7 @@ class TestDimensionalityParity:
             for path, image in (("/gt", gt), ("/est", est)):
                 store.log(
                     path,
-                    SemanticSegmentation2D(class_id_image=image),
+                    SemanticImage(class_id_image=image),
                     at=TimePoint.at(frame=frame),
                     frame_id="CAM_FRONT",
                 )
@@ -693,12 +693,12 @@ class TestDimensionalityParity:
         store = Store()
         store.log(
             "/gt",
-            SemanticSegmentation2D(class_id_image=np.zeros((2, 3), dtype=np.int32)),
+            SemanticImage(class_id_image=np.zeros((2, 3), dtype=np.int32)),
             at=TimePoint.at(frame=0),
         )
         store.log(
             "/est",
-            SemanticSegmentation2D(class_id_image=np.zeros((3, 3), dtype=np.int32)),
+            SemanticImage(class_id_image=np.zeros((3, 3), dtype=np.int32)),
             at=TimePoint.at(frame=0),
         )
         with pytest.raises(
@@ -710,12 +710,10 @@ class TestDimensionalityParity:
         self, seg_labels: LabelRegistry
     ) -> None:
         store = Store()
-        store.log(
-            "/gt", SemanticSegmentation2D(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0)
-        )
+        store.log("/gt", SemanticImage(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0))
         store.log(
             "/est",
-            SemanticSegmentation2D(class_id_image=np.zeros((3, 2))),
+            SemanticImage(class_id_image=np.zeros((3, 2))),
             at=TimePoint.at(frame=0),
         )
         with pytest.raises(ValueError, match=r"images of \(3, 2\) and \(2, 3\) pixels"):
@@ -727,12 +725,8 @@ class TestDimensionalityParity:
         # The resolution is the column's row shape, so it is an invariant of the entity:
         # a range over a change fails loudly instead of misaligning pixels.
         store = Store()
-        store.log(
-            "/gt", SemanticSegmentation2D(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0)
-        )
-        store.log(
-            "/gt", SemanticSegmentation2D(class_id_image=np.ones((3, 3))), at=TimePoint.at(frame=1)
-        )
+        store.log("/gt", SemanticImage(class_id_image=np.zeros((2, 3))), at=TimePoint.at(frame=0))
+        store.log("/gt", SemanticImage(class_id_image=np.ones((3, 3))), at=TimePoint.at(frame=1))
 
         with pytest.raises(
             ValueError,
@@ -740,7 +734,7 @@ class TestDimensionalityParity:
             r"\(2, 3\) and \(3, 3\)",
         ):
             store.range("/gt", timeline=FRAME, time_range=EVERYTHING)
-        latest = store.latest_at("/gt", timeline=FRAME, at=1).materialize(SemanticSegmentation2D)
+        latest = store.latest_at("/gt", timeline=FRAME, at=1).materialize(SemanticImage)
         assert latest.class_id_image.value.shape == (3, 3), "one partition still reads"
 
     def test_unknown_class_id_is_the_default_ignore(self, seg_labels: LabelRegistry) -> None:
@@ -749,6 +743,6 @@ class TestDimensionalityParity:
         assert iou_tables(store, seg_labels)["pixel_accuracy"].support.values.tolist() == [1]
 
     def test_a_3d_entity_is_untouched_by_the_2d_change(self) -> None:
-        segmentation = SemanticSegmentation3D(point=[[0.0, 0.0, 0.0]], class_id=[1])
-        assert SemanticSegmentation3D.required_descriptors() == (POINT, CLASS_ID)
+        segmentation = SemanticPointCloud(point=[[0.0, 0.0, 0.0]], class_id=[1])
+        assert SemanticPointCloud.required_descriptors() == (POINT, CLASS_ID)
         assert len(segmentation) == 1

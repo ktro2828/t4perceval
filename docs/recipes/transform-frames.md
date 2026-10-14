@@ -94,7 +94,7 @@ An entity that carries no index on the resolver's timeline is reported, naming t
 ## What moves and how
 
 The rule is keyed on the component, not on the archetype, so a `Detections3D`, a `Predictions3D`
-and a `SemanticSegmentation3D` all transform without any of them saying anything:
+and a `SemanticPointCloud` all transform without any of them saying anything:
 
 | Column                                    | Moves as                       |
 | :---------------------------------------- | :----------------------------- |

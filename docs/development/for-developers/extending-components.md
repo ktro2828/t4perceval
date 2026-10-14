@@ -110,7 +110,7 @@ class Acceleration(BatchAcceleration, MonoComponent):
 happens on the way into a chunk, so storage stays columnar either way.
 
 Only do this when "what if it has three rows?" is a question the type should not be able to be
-asked. Today that is true of `Transform3D` and of `SemanticSegmentation2D`, whose `ClassIdImage` is
+asked. Today that is true of `Transform3D` and of `SemanticImage`, whose `ClassIdImage` is
 one `(H, W)` image. A mono with wildcard dimensions is written as the bare value too: the converter
 matches the rank and the known dimensions, so `ClassIdImage(image)` takes the `(H, W)` array as is.
 
