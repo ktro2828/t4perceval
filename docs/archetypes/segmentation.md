@@ -12,6 +12,9 @@ points of one cloud, one per row, or the pixels of one image, one `(H, W)` image
 | `point`    | Required    | `(N, 3)` | `f64` | the labelled point, in the chunk's frame |
 | `class_id` | Required    | `(N,)`   | `i32` | semantic class                           |
 
+This is [`PointCloud`](point-cloud.md) plus `class_id`, by composition: `point` resolves to the
+same `POINT` descriptor, so every system that runs on a bare cloud runs on a labelled one.
+
 ```python
 from t4perceval import SemanticPointCloud
 

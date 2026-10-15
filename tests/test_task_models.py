@@ -7,6 +7,7 @@ from conftest import make_predictions
 from t4perceval import (
     FRAME,
     Detections3D,
+    PointCloud,
     Predictions3D,
     SemanticImage,
     SemanticPointCloud,
@@ -17,7 +18,7 @@ from t4perceval import (
     Trackings3D,
     TrajectoryMode3D,
 )
-from t4perceval.descriptors import CLASS_ID_IMAGE
+from t4perceval.descriptors import CLASS_ID_IMAGE, POINT
 from t4perceval.archetype import Detections3D as ArchetypeDetections3D
 from t4perceval.archetype import MatchResults
 from t4perceval.component import BatchClassIdImage, MatchStatus
@@ -47,6 +48,7 @@ class TestPublicApi:
             Trajectories3D,
             SemanticImage,
             SemanticPointCloud,
+            PointCloud,
             MatchResults,
         )
 
@@ -281,6 +283,55 @@ class TestSemanticImageAndPointCloud:
         )
 
         assert segmentation.select([2, 0]).class_id.values.tolist() == [2, 0]
+
+
+class TestPointCloud:
+    def test_the_one_component_is_the_point(self) -> None:
+        cloud = PointCloud(point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+
+        assert len(cloud) == 2
+        assert PointCloud.required_descriptors() == (POINT,)
+        assert PointCloud.optional_descriptors() == ()
+        with pytest.raises(TypeError):
+            PointCloud(point=[[0.0, 0.0, 0.0]], class_id=[0])  # type: ignore[call-arg]
+
+    def test_a_point_is_a_3d_vector(self) -> None:
+        with pytest.raises(ValueError, match=r"\(N, 3\)"):
+            PointCloud(point=[[0.0, 0.0]])
+
+    def test_a_labelled_cloud_is_a_cloud_by_composition(self) -> None:
+        # As Trackings3D satisfies Detections3D: the same POINT descriptor, so a system
+        # written against a bare cloud runs on a labelled one.
+        segmentation = SemanticPointCloud(point=[[0.0, 0.0, 0.0]], class_id=[1])
+
+        assert segmentation.has(*PointCloud.required_descriptors())
+        assert SemanticPointCloud.descriptor_of("point") == PointCloud.descriptor_of("point")
+
+    def test_it_round_trips_through_a_chunk(self) -> None:
+        cloud = PointCloud(point=[[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]])
+
+        chunk = cloud.to_chunk("/points", at=TimePoint.at(frame=0), frame_id="lidar")
+
+        assert chunk.frame_id == "lidar"
+        assert PointCloud.from_chunk(chunk) == cloud
+
+    def test_a_labelled_cloud_reads_back_as_a_bare_one(self) -> None:
+        store = Store()
+        store.log(
+            "/points",
+            SemanticPointCloud(point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]], class_id=[1, 2]),
+            at=TimePoint.at(frame=0),
+            frame_id="lidar",
+        )
+
+        view = store.latest_at("/points", timeline=FRAME, at=0)
+
+        assert view.materialize(PointCloud).point.values[:, 0].tolist() == [0.0, 1.0]
+
+    def test_supports_the_shared_selection_api(self) -> None:
+        cloud = PointCloud(point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+
+        assert cloud.select([2, 0]).point.values[:, 0].tolist() == [2.0, 0.0]
 
 
 class TestMatchResult:
