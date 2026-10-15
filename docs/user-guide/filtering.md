@@ -19,7 +19,7 @@ Every filter is built with `.on(source, **params)` and writes its mask to
 | System                          | Requires      | Parameters                                                              |
 | :------------------------------ | :------------ | :---------------------------------------------------------------------- |
 | `FilterByDistanceSystem`        | `position`    | `min_distance=0.0`, `max_distance=inf`, `bev=False`                     |
-| `FilterByRegionSystem`          | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`                              |
+| `FilterByRegionSystem`          | `position`    | `min_xy=(-inf, -inf)`, `max_xy=(inf, inf)`, `polygon=None`              |
 | `FilterByPolarGridSystem`       | `position`    | `min_distance=0.0`, `max_distance=inf`, `min_angle=-pi`, `max_angle=pi` |
 | `FilterByMapSystem`             | `position`    | `polygon=None`, `resolver=None`                                         |
 | `FilterPointsByDistanceSystem`  | `point`       | as `FilterByDistanceSystem`                                             |
@@ -63,15 +63,23 @@ FilterByDistanceSystem.on(path, max_distance=50.0)  # full 3D norm (t4-devkit's 
 FilterByDistanceSystem.on(path, max_distance=50.0, bev=True)  # xy plane only
 ```
 
-`FilterByRegionSystem` bounds an axis-aligned box in xy. Note the difference between the two
-constructors:
+`FilterByRegionSystem` bounds an axis-aligned box in xy, a polygon, or both. Note the difference
+between the three constructors:
 
 ```python
 FilterByRegionSystem.on(path, max_xy=(100.0, 50.0))  # upper bound only
 FilterByRegionSystem.symmetric(path, max_xy=(100.0, 50.0))  # ±100 by ±50, mirrored about the origin
+FilterByRegionSystem.inside(path, [[0.0, -5.0], [60.0, -5.0], [60.0, 5.0], [0.0, 5.0]])  # a polygon
 ```
 
 `symmetric` is the region the original package's `max_x_position` / `max_y_position` described.
+
+`inside` takes the same inputs as `FilterByMapSystem`'s `polygon`: a shapely `Polygon` or
+`MultiPolygon`, one ring of `(x, y)` points, or several rings, which are unioned. The polygon is
+stated in the frame the source declares, like the box, so the example above is "a 60 m corridor
+ahead of the ego" when the rows are in `base_link`. A point on the edge counts as inside. Pass
+`polygon=` together with `min_xy` / `max_xy` through `on()` to keep rows inside both. When the
+polygon is a fact about the world, such as a map region in `map`, use `FilterByMapSystem` instead.
 
 These, the polar grid and the map filter below judge an object's `position`. A point cloud such as
 `SemanticPointCloud` carries `point` instead, and the same predicates over it are
@@ -81,6 +89,9 @@ These, the polar grid and the map filter below judge an object's `position`. A p
 ```python
 FilterPointsByDistanceSystem.on("/ground_truth/points", max_distance=50.0)
 FilterPointsByRegionSystem.symmetric("/ground_truth/points", max_xy=(100.0, 50.0))
+FilterPointsByRegionSystem.inside(
+    "/ground_truth/points", [[0.0, -5.0], [60.0, -5.0], [60.0, 5.0], [0.0, 5.0]]
+)
 ```
 
 ## Polar grid

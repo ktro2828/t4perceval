@@ -420,6 +420,81 @@ class TestFilterByRegion:
         with pytest.raises(ValueError, match=r"max_xy\[y\] .* must not be below min_xy\[y\]"):
             FilterByRegionSystem.on(SOURCE, min_xy=(0.0, 10.0), max_xy=(1.0, 1.0))
 
+    #: A 10 m square about the origin; rich_store's rows (1,0), (50,0), (0,120), (3,4).
+    SQUARE = [[-5.0, -5.0], [5.0, -5.0], [5.0, 5.0], [-5.0, 5.0]]
+
+    def test_polygon_keeps_inside_and_excludes_outside(self, rich_context: SystemContext) -> None:
+        system = FilterByRegionSystem.on(SOURCE, polygon=self.SQUARE)
+
+        assert mask_of(system, rich_context) == [True, False, False, True]
+
+    def test_inside_builds_the_polygon_case(self, rich_context: SystemContext) -> None:
+        system = FilterByRegionSystem.inside(SOURCE, self.SQUARE)
+
+        assert str(system.target) == f"{SOURCE}/filter/region"
+        assert mask_of(system, rich_context) == [True, False, False, True]
+        assert str(FilterByRegionSystem.inside(SOURCE, self.SQUARE, name="zone").target) == (
+            f"{SOURCE}/filter/zone"
+        )
+
+    def test_accepts_a_shapely_polygon(self, rich_context: SystemContext) -> None:
+        from shapely.geometry import Polygon
+
+        system = FilterByRegionSystem.inside(SOURCE, Polygon(self.SQUARE))
+
+        assert mask_of(system, rich_context) == [True, False, False, True]
+
+    def test_several_rings_are_a_union(self, rich_context: SystemContext) -> None:
+        from shapely.geometry import MultiPolygon, Polygon
+
+        far = [[45.0, -1.0], [55.0, -1.0], [55.0, 1.0], [45.0, 1.0]]
+
+        rings = FilterByRegionSystem.inside(SOURCE, [self.SQUARE, far])
+        multi = FilterByRegionSystem.inside(
+            SOURCE, MultiPolygon([Polygon(self.SQUARE), Polygon(far)])
+        )
+
+        assert mask_of(rings, rich_context) == [True, True, False, True]
+        assert mask_of(multi, rich_context) == [True, True, False, True]
+
+    def test_polygon_is_anded_with_the_box(self, rich_context: SystemContext) -> None:
+        # (3, 4) is inside the square but x = 3 fails the box.
+        system = FilterByRegionSystem.on(SOURCE, polygon=self.SQUARE, max_xy=(2.0, 100.0))
+
+        assert mask_of(system, rich_context) == [True, False, False, False]
+
+    def test_polygon_edge_is_inclusive(self) -> None:
+        """A point on the edge is inside, like the box's bounds and the rest of the family."""
+        store = Store()
+        store.log(
+            SOURCE,
+            make_detections([[5.0, 0.0, 0.0], [5.0, 5.0, 0.0], [5.1, 0.0, 0.0]]),
+            at=TimePoint.at(frame=0),
+        )
+        system = FilterByRegionSystem.inside(SOURCE, self.SQUARE)
+
+        assert mask_of(system, SystemContext(store, FRAME)) == [True, True, False]
+
+    def test_polygon_ignores_the_z_axis(self) -> None:
+        store = Store()
+        store.log(SOURCE, make_detections([[0.0, 0.0, 999.0]]), at=TimePoint.at(frame=0))
+        system = FilterByRegionSystem.inside(SOURCE, self.SQUARE)
+
+        assert mask_of(system, SystemContext(store, FRAME)) == [True]
+
+    def test_rejects_a_non_polygon(self) -> None:
+        from shapely.geometry import LineString
+
+        with pytest.raises(TypeError, match="Polygon or MultiPolygon"):
+            FilterByRegionSystem.inside(SOURCE, LineString([(0, 0), (1, 1)]))
+
+    def test_polygon_is_in_the_source_frame(self, rich_context: SystemContext) -> None:
+        # rich_store is in base_link with no /tf: unlike FilterByMapSystem, nothing is
+        # looked up and the polygon is read in the frame the rows declare.
+        system = FilterByRegionSystem.inside(SOURCE, self.SQUARE)
+
+        assert mask_of(system, rich_context) == [True, False, False, True]
+
 
 class TestFilterByPolarGrid:
     """A cell in polar coordinates: a distance range crossed with an azimuth range."""
@@ -664,6 +739,11 @@ class TestPointPositionFilters:
         system = FilterPointsByRegionSystem.on(self.CLOUD, max_xy=(60.0, 1.0))
 
         assert mask_of(system, cloud_context) == [True, True, False, False]
+
+    def test_region_accepts_a_polygon(self, cloud_context: SystemContext) -> None:
+        system = FilterPointsByRegionSystem.inside(self.CLOUD, self.SQUARE)
+
+        assert mask_of(system, cloud_context) == [True, False, False, True]
 
     def test_polar_grid_bounds_distance_and_angle(self, cloud_context: SystemContext) -> None:
         system = FilterPointsByPolarGridSystem.on(
