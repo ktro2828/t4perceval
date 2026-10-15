@@ -11,6 +11,7 @@ from conftest import make_detections, make_ego_scene, make_segmentation
 from t4perceval import (
     FRAME,
     Detections3D,
+    PointCloud,
     SemanticPointCloud,
     Trackings3D,
     Chunk,
@@ -810,6 +811,22 @@ class TestPointPositionFilters:
 
         with pytest.raises(ValueError, match="missing required component"):
             list(system(cloud_context, 0))
+
+    def test_a_bare_cloud_is_enough(self, labels: LabelRegistry) -> None:
+        # The point filters need POINT only, so a PointCloud without labels is filtered
+        # exactly as a SemanticPointCloud is.
+        store = Store()
+        store.log(
+            self.CLOUD,
+            PointCloud(point=self.POINTS),
+            at=TimePoint.at(frame=0),
+            frame_id="base_link",
+        )
+        context = SystemContext(store, FRAME, labels=labels)
+
+        near = FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=10.0)
+
+        assert mask_of(near, context) == [True, False, False, True]
 
     def test_the_mask_applies_to_the_cloud(self, cloud_context: SystemContext) -> None:
         near = FilterPointsByDistanceSystem.on(self.CLOUD, max_distance=10.0)

@@ -46,6 +46,10 @@ class SemanticImage(Archetype):
 class SemanticPointCloud(Archetype):
     """A class per labelled point.
 
+    This is :class:`~t4perceval.archetype.PointCloud` plus ``class_id``, by composition:
+    ``point`` resolves to the same ``POINT`` descriptor, so every system that runs on a bare
+    cloud runs on a labelled one.
+
     ``point`` uses the ``POINT`` descriptor rather than ``POSITION``: a labelled point is
     not an object with a pose, and the separate name stops an object filter from being
     pointed at a point cloud and appearing to work. A coordinate transform still moves it

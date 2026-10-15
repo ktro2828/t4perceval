@@ -12,6 +12,8 @@ The concrete bundles. See [Archetypes](../../archetypes/index.md) for the schema
 
 ::: t4perceval.archetype.classification
 
+::: t4perceval.archetype.pointcloud
+
 ::: t4perceval.archetype.segmentation
 
 ::: t4perceval.archetype.transform

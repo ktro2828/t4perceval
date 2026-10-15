@@ -19,8 +19,9 @@ the others, not a reproduction of the Python signatures. For those, see the
 | `Predictions3D`      | [Prediction](prediction.md)         | `Trackings3D` plus multi-modal futures            |
 | `Trajectories3D`     | [Trajectory](trajectory.md)         | futures on their own, no box                      |
 | `Classifications2D`  | [Classification](classification.md) | a class and a confidence, no geometry             |
+| `PointCloud`         | [Point cloud](point-cloud.md)       | 3D points, nothing said about them                |
 | `SemanticImage`      | [Segmentation](segmentation.md)     | one class-id image per frame, mono                |
-| `SemanticPointCloud` | [Segmentation](segmentation.md)     | a class per labelled point                        |
+| `SemanticPointCloud` | [Segmentation](segmentation.md)     | `PointCloud` plus a class per point               |
 | `Transform3D`        | [Transform 3D](transform-3d.md)     | the pose of a child frame in its parent           |
 | `MatchResults`       | [Matching](matching.md)             | the outcome of matching two entities              |
 | `MetricValues`       | [Metrics](metrics.md)               | one metric's values, by class and threshold       |
@@ -34,6 +35,12 @@ The five object archetypes form a chain by **composition**, not inheritance:
 Detections2D  ──(+ instance_id)──▶  Trackings2D
 
 Detections3D  ──(+ instance_id)──▶  Trackings3D  ──(+ waypoints, mode_confidence)──▶  Predictions3D
+```
+
+The point family is the same shape, one step long:
+
+```text
+PointCloud  ──(+ class_id)──▶  SemanticPointCloud
 ```
 
 Each re-declares the components of the one before it, and they resolve to the **same descriptors**.

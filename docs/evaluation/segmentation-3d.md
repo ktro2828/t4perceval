@@ -138,7 +138,9 @@ SemanticPointCloud              SemanticImage
 └── class_id   required
 ```
 
-Neither archetype has optional components.
+Neither archetype has optional components. `SemanticPointCloud` is
+[`PointCloud`](../archetypes/point-cloud.md) plus `class_id`; a cloud that is not yet labelled is
+logged as the bare archetype.
 
 ## Filtering
 
