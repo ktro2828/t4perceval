@@ -152,11 +152,11 @@ class FilterPointsByDistanceSystem(FilterByDistanceSystem):
 
 @define(slots=True)
 class FilterPointsByRegionSystem(FilterByRegionSystem):
-    """Keep the points whose xy lies inside an axis-aligned region.
+    """Keep the points whose xy lies inside a region: a box, a polygon, or both.
 
     :class:`~t4perceval.system.filter.position.FilterByRegionSystem` over the ``point``
-    column; ``symmetric()`` builds the mirrored box as it does for objects. The mask is
-    written to ``<source>/filter/region``.
+    column; ``symmetric()`` builds the mirrored box and ``inside()`` the polygon, as they
+    do for objects. The mask is written to ``<source>/filter/region``.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POINT,)

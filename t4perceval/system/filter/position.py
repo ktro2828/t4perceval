@@ -1,4 +1,4 @@
-"""Filters on where an object is: distance from the ego, a box, a polar grid, a map region.
+"""Filters on where an object is: distance from the ego, a box or polygon, a polar grid, a map region.
 
 Each filter reads the column named by its :attr:`COLUMN`, ``POSITION`` here. The same
 predicates over the points of a cloud -- the ``POINT`` column -- are the
@@ -74,12 +74,36 @@ class FilterByDistanceSystem(MaskSystem):
         return (distance >= self.min_distance) & (distance <= self.max_distance)
 
 
+def _as_geometry(value: Any) -> BaseGeometry | None:
+    """Accept a shapely polygon, or one ring / several rings of ``(x, y)`` points."""
+    if value is None or isinstance(value, (Polygon, MultiPolygon)):
+        return value
+    if isinstance(value, shapely.geometry.base.BaseGeometry):
+        raise TypeError(f"polygon must be a Polygon or MultiPolygon, got {type(value).__name__}")
+    rings = list(value)
+    if rings and not isinstance(rings[0], (list, tuple, np.ndarray)):
+        raise TypeError("polygon must be a shapely geometry or a sequence of (x, y) rings")
+    if rings and np.ndim(rings[0]) == 1:
+        rings = [rings]
+    return shapely.union_all([Polygon(ring) for ring in rings])
+
+
 @define(slots=True)
 class FilterByRegionSystem(MaskSystem):
-    """Keep objects whose xy position lies inside an axis-aligned region.
+    """Keep objects whose xy position lies inside a region: a box, a polygon, or both.
 
-    The original package's symmetric ``max_x_position`` / ``max_y_position`` is
-    :meth:`symmetric`.
+    The box is ``[min_xy, max_xy]``, inclusive on every edge. :attr:`polygon` is a shapely
+    ``Polygon`` / ``MultiPolygon`` or one or more rings of ``(x, y)`` points, and a point on
+    its edge counts as inside. When both are given a row must pass both.
+
+    Like the box, the polygon is stated in the frame the source chunk declares -- it is a
+    claim about that frame, so "the corridor ahead of the ego" needs the rows in
+    ``base_link``. A polygon that is a fact about the world, such as a map region, belongs to
+    :class:`FilterByMapSystem`, which is always in ``map`` and moves the positions there
+    itself.
+
+    :meth:`symmetric` builds the box the original package's ``max_x_position`` /
+    ``max_y_position`` described; :meth:`inside` builds the polygon case.
     """
 
     REQUIRES: ClassVar[tuple[ComponentDescriptor, ...]] = (POSITION,)
@@ -97,6 +121,7 @@ class FilterByRegionSystem(MaskSystem):
         converter=lambda value: (float(value[0]), float(value[1])),
         kw_only=True,
     )
+    polygon: BaseGeometry | None = field(default=None, kw_only=True, converter=_as_geometry)
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
@@ -107,6 +132,8 @@ class FilterByRegionSystem(MaskSystem):
                 low_name=f"min_xy[{name}]",
                 high_name=f"max_xy[{name}]",
             )
+        if self.polygon is not None:
+            shapely.prepare(self.polygon)
 
     @classmethod
     def symmetric(
@@ -130,11 +157,30 @@ class FilterByRegionSystem(MaskSystem):
             max_xy=max_xy,
         )
 
+    @classmethod
+    def inside(
+        cls,
+        source: EntityPathLike,
+        polygon: Any,
+        *,
+        name: str | None = None,
+    ) -> Self:
+        """Keep rows whose xy lies in ``polygon``, stated in the source frame.
+
+        Same as ``on(source, polygon=polygon)``; pass ``min_xy`` / ``max_xy`` through
+        :meth:`on` to clip the polygon to a box as well.
+        """
+        return cls.on(source, name=name, polygon=polygon)
+
     def keep(self, view: EntityView, ctx: SystemContext) -> NDArrayBool:
         xy = view.component(self.COLUMN).values[:, :2]
         lower = np.asarray(self.min_xy, dtype=np.float64)
         upper = np.asarray(self.max_xy, dtype=np.float64)
-        return np.all((xy >= lower) & (xy <= upper), axis=1)
+        keep = np.all((xy >= lower) & (xy <= upper), axis=1)
+        if self.polygon is not None:
+            # intersects, not contains: a point on the edge is inside, like the box's bounds.
+            keep &= shapely.intersects_xy(self.polygon, xy[:, 0], xy[:, 1])
+        return keep
 
 
 @define(slots=True)
@@ -212,20 +258,6 @@ class FilterByPolarGridSystem(MaskSystem):
         relative = np.mod(np.arctan2(xy[:, 1], xy[:, 0]) - self.min_angle, 2.0 * np.pi)
         relative = np.where(relative >= 2.0 * np.pi - angle_tolerance, 0.0, relative)
         return in_distance & (relative <= self.span + angle_tolerance)
-
-
-def _as_geometry(value: Any) -> BaseGeometry | None:
-    """Accept a shapely polygon, or one ring / several rings of ``(x, y)`` points."""
-    if value is None or isinstance(value, (Polygon, MultiPolygon)):
-        return value
-    if isinstance(value, shapely.geometry.base.BaseGeometry):
-        raise TypeError(f"polygon must be a Polygon or MultiPolygon, got {type(value).__name__}")
-    rings = list(value)
-    if rings and not isinstance(rings[0], (list, tuple, np.ndarray)):
-        raise TypeError("polygon must be a shapely geometry or a sequence of (x, y) rings")
-    if rings and np.ndim(rings[0]) == 1:
-        rings = [rings]
-    return shapely.union_all([Polygon(ring) for ring in rings])
 
 
 @define(slots=True)
