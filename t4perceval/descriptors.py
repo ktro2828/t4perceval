@@ -29,12 +29,14 @@ __all__ = (
     "CHILD_FRAME_ID",
     "MODE_CONFIDENCE",
     "MODE_VALID",
+    "NEAREST_POINT",
     "NUM_POINTS",
     "POINT",
     "POSITION",
     "QUATERNION",
     "ROI",
     "ROTATION",
+    "SENSING_STATUS",
     "SIZE",
     "SIZE_2D",
     "SUPPORT",
@@ -97,6 +99,11 @@ GT_INDEX = ComponentDescriptor("gt_index", component_type="BatchRowIndex")
 MATCHING_SCORE = ComponentDescriptor("matching_score", component_type="BatchMatchingScore")
 MATCH_STATUS = ComponentDescriptor("match_status", component_type="BatchMatchStatus")
 THRESHOLD = ComponentDescriptor("threshold", component_type="BatchThreshold")
+# Sensing: per ground-truth box, the verdict and the inside point closest to the ego. The
+# count of inside points is NUM_POINTS -- the same meaning as the annotation's column, so
+# a filter on it works on the result entity too.
+SENSING_STATUS = ComponentDescriptor("sensing_status", component_type="BatchSensingStatus")
+NEAREST_POINT = ComponentDescriptor("nearest_point", component_type="BatchPosition3D")
 
 # --- metrics -------------------------------------------------------------------------
 GROUND_TRUTH_CLASS_ID = ComponentDescriptor("ground_truth_class_id", component_type="BatchClassId")

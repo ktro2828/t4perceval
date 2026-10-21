@@ -10,14 +10,15 @@ How to use them is in the [user guide](../user-guide/filtering.md); the Python s
 
 ## The catalogue
 
-| Family               | Page                           | Base class                 | Writes                                |
-| :------------------- | :----------------------------- | :------------------------- | :------------------------------------ |
-| Filters              | [Filters](filters.md)          | `MaskSystem`               | a `mask` at `<source>/filter/<name>`  |
-| Mask composition     | [Filters](filters.md)          | --                         | a `mask`, or the rows a mask kept     |
-| Matchers             | [Matchers](matchers.md)        | `MatchingSystem`           | `MatchResults` at `/matching/<mode>`  |
-| Metrics              | [Metrics](metrics.md)          | `MetricSystem`             | `MetricValues` at `/metrics/<name>`   |
-| Segmentation metrics | [Metrics](metrics.md)          | `SegmentationMetricSystem` | `MetricValues` / `ConfusionMatrix`    |
-| Frames and points    | [Frames and points](frames.md) | --                         | the source's rows, moved or reordered |
+| Family               | Page                           | Base class                 | Writes                                   |
+| :------------------- | :----------------------------- | :------------------------- | :--------------------------------------- |
+| Filters              | [Filters](filters.md)          | `MaskSystem`               | a `mask` at `<source>/filter/<name>`     |
+| Mask composition     | [Filters](filters.md)          | --                         | a `mask`, or the rows a mask kept        |
+| Matchers             | [Matchers](matchers.md)        | `MatchingSystem`           | `MatchResults` at `/matching/<mode>`     |
+| Metrics              | [Metrics](metrics.md)          | `MetricSystem`             | `MetricValues` at `/metrics/<name>`      |
+| Segmentation metrics | [Metrics](metrics.md)          | `SegmentationMetricSystem` | `MetricValues` / `ConfusionMatrix`       |
+| Frames and points    | [Frames and points](frames.md) | --                         | the source's rows, moved or reordered    |
+| Sensing              | [Sensing](sensing.md)          | --                         | `SensingResults`, a mask, `MetricValues` |
 
 ## Shared surface
 

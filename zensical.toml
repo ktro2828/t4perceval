@@ -44,6 +44,7 @@ nav = [
         { "Prediction" = "evaluation/prediction.md" },
         { "Segmentation" = "evaluation/segmentation-3d.md" },
         { "FP validation" = "evaluation/fp-validation.md" },
+        { "Sensing" = "evaluation/sensing.md" },
         { "Metric divergences" = "evaluation/metric-divergences.md" },
     ] },
     { "Recipes" = [
@@ -71,6 +72,7 @@ nav = [
         { "PointCloud" = "archetypes/point-cloud.md" },
         { "SemanticImage / SemanticPointCloud" = "archetypes/segmentation.md" },
         { "Transform3D" = "archetypes/transform-3d.md" },
+        { "SensingResults" = "archetypes/sensing.md" },
         { "MatchResults" = "archetypes/matching.md" },
         { "MetricValues / ConfusionMatrix" = "archetypes/metrics.md" },
     ] },
@@ -87,6 +89,7 @@ nav = [
         { "Matchers" = "systems/matchers.md" },
         { "Metrics" = "systems/metrics.md" },
         { "Frames and points" = "systems/frames.md" },
+        { "Sensing" = "systems/sensing.md" },
     ] },
     { "API reference" = [
         { "Overview" = "reference/api/index.md" },

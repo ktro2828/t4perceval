@@ -100,6 +100,7 @@ concatenates across frames without special handling, and it densifies on demand.
 | `FpValidationSystem`            | `/metrics/fp_validation`                                           | `MetricValues`    |
 | `ClassificationSystem`          | `/metrics/classification/accuracy`, `/precision`, `/recall`, `/f1` | `MetricValues`    |
 | `ConfusionMatrixSystem`         | `/metrics/confusion_matrix`                                        | `ConfusionMatrix` |
+| `SensingDetectionRateSystem`    | `/metrics/sensing/detection_rate`                                  | `MetricValues`    |
 
 ## Where to go next
 

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from scipy.spatial.transform import Rotation
 
 from t4perceval.geometry import (
     bev_area,
     bev_corners,
+    box_scale_at,
     canonical_bev_corners,
     corner_displacements,
     heading_errors,
@@ -17,6 +19,7 @@ from t4perceval.geometry import (
     pairwise_plane_distance,
     pairwise_roi_iou,
     pairwise_volume_iou,
+    points_in_boxes,
     volume,
 )
 
@@ -441,3 +444,95 @@ class TestHeadingErrors:
     def test_mismatched_lengths_are_rejected(self) -> None:
         with pytest.raises(ValueError, match="aligned rows"):
             heading_errors([yaw(0.0), yaw(0.0)], [yaw(0.0)])
+
+
+class TestBoxScale:
+    def test_is_linear_between_the_two_anchors(self) -> None:
+        assert box_scale_at([0.0, 50.0, 100.0, 200.0], 1.0, 1.5).tolist() == [1.0, 1.25, 1.5, 2.0]
+
+    def test_equal_anchors_mean_no_scaling(self) -> None:
+        assert box_scale_at([0.0, 37.0], 1.0, 1.0).tolist() == [1.0, 1.0]
+
+
+class TestPointsInBoxes:
+    #: Inside the unit box at the origin iff |x| <= 2, |y| <= 1, |z| <= 1.
+    POINTS = [
+        [1.9, 0.9, 0.9],
+        [2.1, 0.0, 0.0],
+        [0.0, 1.1, 0.0],
+        [0.0, 0.0, 1.1],
+        [2.0, 1.0, 1.0],
+    ]
+
+    def test_uses_the_dataset_size_convention(self) -> None:
+        inside = points_in_boxes(self.POINTS, ORIGIN, NO_ROTATION, SIZE)
+
+        assert inside.shape == (5, 1)
+        assert inside[:, 0].tolist() == [True, False, False, False, True], "faces are inside"
+
+    def test_a_quarter_turn_swaps_the_extents(self) -> None:
+        inside = points_in_boxes([[0.0, 1.9, 0.0], [1.9, 0.0, 0.0]], ORIGIN, [yaw(np.pi / 2)], SIZE)
+        assert inside[:, 0].tolist() == [True, False]
+
+    def test_follows_the_centre(self) -> None:
+        inside = points_in_boxes(
+            [[11.9, 0.0, 0.0], [0.0, 0.0, 0.0]], [[10.0, 0.0, 0.0]], NO_ROTATION, SIZE
+        )
+        assert inside[:, 0].tolist() == [True, False]
+
+    def test_the_scale_grows_the_footprint_only(self) -> None:
+        inside = points_in_boxes(
+            [[3.9, 0.0, 0.0], [0.0, 1.9, 0.0], [0.0, 0.0, 1.5]],
+            ORIGIN,
+            NO_ROTATION,
+            SIZE,
+            scale=2.0,
+        )
+        assert inside[:, 0].tolist() == [True, True, False]
+
+    def test_one_scale_per_box(self) -> None:
+        boxes = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0]]
+        inside = points_in_boxes(
+            [[3.0, 0.0, 0.0], [13.0, 0.0, 0.0]], boxes, NO_ROTATION * 2, SIZE * 2, scale=[1.0, 2.0]
+        )
+        assert inside.tolist() == [[False, False], [False, True]]
+
+    @pytest.mark.parametrize("scale", [0.0, -1.0])
+    def test_a_non_positive_scale_admits_nothing(self, scale: float) -> None:
+        # The centre line is the one place a zero-extent box could still claim.
+        assert not points_in_boxes(ORIGIN, ORIGIN, NO_ROTATION, SIZE, scale=scale).any()
+
+    def test_a_degenerate_size_admits_nothing(self) -> None:
+        assert not points_in_boxes(ORIGIN, ORIGIN, NO_ROTATION, [[2.0, 4.0, 0.0]]).any()
+
+    def test_only_the_yaw_is_applied(self) -> None:
+        # A box pitched nose-down by 30 degrees. The full rotation would move a point on
+        # the front face (x = 2) to local x = 2 cos 30 > 2 only after mixing in z; the box
+        # is read as its yaw-only footprint, so the face and the roof stay where annotated.
+        pitched = [Rotation.from_euler("xyz", [0.0, np.pi / 6, np.pi / 2]).as_quat().tolist()]
+        inside = points_in_boxes(
+            [[0.0, 2.0, 0.0], [0.0, 2.0, 1.0], [2.0, 0.0, 0.0], [0.0, 0.0, 1.1]],
+            ORIGIN,
+            pitched,
+            SIZE,
+        )
+        assert inside[:, 0].tolist() == [True, True, False, False]
+
+    def test_empty_inputs_keep_their_shape(self) -> None:
+        assert points_in_boxes(np.empty((0, 3)), ORIGIN, NO_ROTATION, SIZE).shape == (0, 1)
+        assert points_in_boxes(
+            self.POINTS, np.empty((0, 3)), np.empty((0, 4)), np.empty((0, 3))
+        ).shape == (5, 0)
+
+    def test_a_box_with_a_non_finite_pose_holds_nothing(self) -> None:
+        inside = points_in_boxes(
+            [[0.0, 0.0, 0.0]],
+            [[0.0, 0.0, 0.0], [np.nan, 0.0, 0.0]],
+            NO_ROTATION * 2,
+            SIZE * 2,
+        )
+        assert inside.tolist() == [[True, False]]
+
+    def test_rejects_mismatched_box_columns(self) -> None:
+        with pytest.raises(ValueError, match="one quaternion and one size per box"):
+            points_in_boxes(ORIGIN, ORIGIN, NO_ROTATION * 2, SIZE)

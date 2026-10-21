@@ -19,4 +19,6 @@ shapes and meanings.
 
 ::: t4perceval.component.matching
 
+::: t4perceval.component.sensing
+
 ::: t4perceval.component.metric

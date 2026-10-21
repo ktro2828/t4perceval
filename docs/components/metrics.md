@@ -66,6 +66,27 @@ Four columns make up [`MetricValues`](../archetypes/metrics.md).
 
 Descriptor: `COUNT`, alongside `GROUND_TRUTH_CLASS_ID` and `ESTIMATION_CLASS_ID`.
 
+## Sensing columns
+
+The verdict of [`SensingDetectionSystem`](../systems/sensing.md) on one ground-truth box, written as a
+[`SensingResults`](../archetypes/sensing.md) row aligned with the box.
+
+| Component            | Descriptor       | Shape    | dtype | Meaning                                                 |
+| :------------------- | :--------------- | :------- | :---- | :------------------------------------------------------ |
+| `BatchNumPoints`     | `NUM_POINTS`     | `(N,)`   | `i32` | points inside the scaled box -- the annotation's column |
+| `BatchSensingStatus` | `SENSING_STATUS` | `(N,)`   | `i8`  | a `SensingStatus`                                       |
+| `BatchPosition3D`    | `NEAREST_POINT`  | `(N, 3)` | `f64` | the inside point closest to the origin; `NaN` if none   |
+
+| `SensingStatus` | Value | Meaning                                                     |
+| :-------------- | ----: | :---------------------------------------------------------- |
+| `DETECTED`      |   `0` | at least the required number of points inside               |
+| `FAILED`        |   `1` | fewer                                                       |
+| `WARNING`       |   `2` | the box is annotated fully occluded; the count says nothing |
+
+```python
+from t4perceval.component import BatchSensingStatus, SensingStatus
+```
+
 ## Sentinel class ids
 
 | Value | Constant                           | Where it appears                                                                 |

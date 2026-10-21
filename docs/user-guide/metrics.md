@@ -30,6 +30,7 @@ ap.target  # /metrics/ap
 | `ConfusionMatrixSystem`             | `/metrics/confusion_matrix`                                        | `class_id`                                                |
 | `SegmentationIoUSystem`             | `/metrics/segmentation/iou`, `/accuracy`, `/pixel_accuracy`        | `class_id` (no matching stage)                            |
 | `SegmentationConfusionMatrixSystem` | `/metrics/segmentation/confusion_matrix`                           | `class_id` (no matching stage)                            |
+| `SensingDetectionRateSystem`        | `/metrics/sensing/detection_rate`                                  | `class_id`, joined to a `SensingResults` (no matching)    |
 
 A metric that produces several results from one shared computation -- MOTA, MOTP and ID switches all
 come out of the same identity tracking -- writes **one entity per result** and lists them all in

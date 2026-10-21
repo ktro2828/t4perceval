@@ -126,6 +126,15 @@ since the annotation's own label says nothing about the object's size. The task 
 one threshold here. `perception_fp_validation_lsim.py` configures the same value for every label,
 so its numbers are unaffected; a per-label `matching_threshold_list` is not reproducible.
 
+### Sensing box membership
+
+`points_in_boxes` in `t4perceval/geometry.py` tests a point against the scaled box with closed
+intervals, so a point exactly on a face is inside. `perception_eval`'s `crop_pointcloud` runs a
+winding-number test that is half-open in xy (a point on one edge is inside, on the opposite edge
+outside) and closed in z. The two agree on every point not on a face. A scale that comes out zero or
+negative -- `box_scale_100m` below `box_scale_0m` and a box far enough away -- admits nothing here,
+where `perception_eval` crops with an inverted footprint; both scales must be positive.
+
 ### Prediction miss rate
 
 The current prediction miss rate is the fraction of all mode/timestep distances that exceed the tolerance.
