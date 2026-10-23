@@ -30,6 +30,9 @@ How `autoware_perception_evaluation` (`perception_eval`) maps onto `t4perceval`.
 | the `object_matching` functions                            | the `*MatchingSystem` family                                                                                                                      | the geometry is vectorized in `t4perceval.geometry`                     |
 | `PassFailResult` / `CriticalObjectFilterConfig`            | N/A                                                                                                                                               |                                                                         |
 | `PerceptionEvaluationManager`                              | `Pipeline` plus `SystemContext`                                                                                                                   |                                                                         |
+| `SensingEvaluationManager` / `SensingFrameConfig`          | `SensingDetectionSystem` + `SensingNonDetectionSystem` in a `Pipeline`                                                                            | the config keys become the systems' parameters                          |
+| `DynamicObjectWithSensingResult` / `SensingFrameResult`    | `SensingResults` rows at `<objects>/sensing` plus the mask at `<points>/filter/non_detection`                                                     | row-aligned with the boxes and the cloud; storable                      |
+| `non_detection_areas` (lower + upper plane corners)        | `NonDetectionArea.from_vertices(...)`                                                                                                             | an xy polygon with a height range                                       |
 | `perception_analyzer3d` / `visualization/`                 | queries against the store (a visualization layer comes later)                                                                                     | possible precisely because intermediates are kept                       |
 | `class_to_dict` + `json.dump`                              | `write_parquet` / `chunk_to_table`                                                                                                                | dtypes and shapes are pinned by the schema                              |
 
@@ -49,31 +52,34 @@ How `autoware_perception_evaluation` (`perception_eval`) maps onto `t4perceval`.
 
 ## Tasks
 
-| Old `evaluation_task` | New expression                                           |
-| :-------------------- | :------------------------------------------------------- |
-| `detection`           | `Detections3D`'s components + matching + mAP             |
-| `tracking`            | as above + `INSTANCE_ID` + CLEAR                         |
-| `prediction`          | as above + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE   |
-| `detection2d`         | `Detections2D`'s components + ROI IoU matching + mAP     |
-| `tracking2d`          | as above + `INSTANCE_ID` + CLEAR                         |
-| `classification2d`    | `Classifications2D`'s components + classification        |
-| `fp_validation`       | a matcher with `agnostic_classes` + `FpValidationSystem` |
+| Old `evaluation_task` | New expression                                                        |
+| :-------------------- | :-------------------------------------------------------------------- |
+| `detection`           | `Detections3D`'s components + matching + mAP                          |
+| `tracking`            | as above + `INSTANCE_ID` + CLEAR                                      |
+| `prediction`          | as above + `WAYPOINTS` / `MODE_CONFIDENCE` + ADE / FDE                |
+| `detection2d`         | `Detections2D`'s components + ROI IoU matching + mAP                  |
+| `tracking2d`          | as above + `INSTANCE_ID` + CLEAR                                      |
+| `classification2d`    | `Classifications2D`'s components + classification                     |
+| `fp_validation`       | a matcher with `agnostic_classes` + `FpValidationSystem`              |
+| `sensing`             | `PointCloud` + `SensingDetectionSystem` / `SensingNonDetectionSystem` |
 
 The branches disappear because a system only asks whether the components it needs are present:
 tracking data runs through a detection pipeline unchanged.
 
 ## Config keys
 
-| Old `evaluation_config_dict` key      | New parameter                                                   |
-| :------------------------------------ | :-------------------------------------------------------------- |
-| `max_distance` / `min_distance`       | `FilterByDistanceSystem(max_distance=, min_distance=)`          |
-| `max_x_position` / `max_y_position`   | `FilterByRegionSystem.symmetric(max_xy=)`                       |
-| `target_labels` / `ignore_attributes` | `FilterByLabelSystem(labels=, exclude=)`                        |
-| `confidence_threshold`                | `FilterByConfidenceSystem(min_confidence=)`                     |
-| `target_uuids`                        | `FilterByInstanceSystem(instances=)`                            |
-| `min_point_numbers: [5, 0, 0]`        | per-class `FilterByNumPointsSystem` + `CombineMasksSystem`      |
-| `center_distance_thresholds` etc.     | `Thresholds(default, by_class=)` on the matcher                 |
-| `iou_2d_thresholds`                   | `IoUBEVMatchingSystem` (3D tasks) / `IoURoiMatchingSystem` (2D) |
+| Old `evaluation_config_dict` key      | New parameter                                                            |
+| :------------------------------------ | :----------------------------------------------------------------------- |
+| `max_distance` / `min_distance`       | `FilterByDistanceSystem(max_distance=, min_distance=)`                   |
+| `max_x_position` / `max_y_position`   | `FilterByRegionSystem.symmetric(max_xy=)`                                |
+| `target_labels` / `ignore_attributes` | `FilterByLabelSystem(labels=, exclude=)`                                 |
+| `confidence_threshold`                | `FilterByConfidenceSystem(min_confidence=)`                              |
+| `target_uuids`                        | `FilterByInstanceSystem(instances=)`                                     |
+| `min_point_numbers: [5, 0, 0]`        | per-class `FilterByNumPointsSystem` + `CombineMasksSystem`               |
+| `center_distance_thresholds` etc.     | `Thresholds(default, by_class=)` on the matcher                          |
+| `iou_2d_thresholds`                   | `IoUBEVMatchingSystem` (3D tasks) / `IoURoiMatchingSystem` (2D)          |
+| `box_scale_0m` / `box_scale_100m`     | the same names on `SensingDetectionSystem` / `SensingNonDetectionSystem` |
+| `min_points_threshold`                | `SensingDetectionSystem(min_num_points=)`                                |
 
 ## Code
 

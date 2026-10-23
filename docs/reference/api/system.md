@@ -16,6 +16,8 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 
 ::: t4perceval.system.filter.point
 
+::: t4perceval.system.filter.sensing
+
 ::: t4perceval.system.points
 
 ::: t4perceval.system.transform
@@ -49,5 +51,9 @@ Filters, matchers, metrics and `Pipeline` -- the "S" of ECS.
 ::: t4perceval.system.metric.confusion
 
 ::: t4perceval.system.metric.segmentation
+
+::: t4perceval.system.metric.sensing
+
+::: t4perceval.system.sensing
 
 ::: t4perceval.system.preset

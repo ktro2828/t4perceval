@@ -11,6 +11,7 @@ from t4perceval import (
     Predictions3D,
     SemanticImage,
     SemanticPointCloud,
+    SensingResults,
     Store,
     TimePoint,
     TimeRange,
@@ -49,6 +50,7 @@ class TestPublicApi:
             SemanticImage,
             SemanticPointCloud,
             PointCloud,
+            SensingResults,
             MatchResults,
         )
 

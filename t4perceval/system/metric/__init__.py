@@ -24,6 +24,7 @@ from t4perceval.system.metric.fp_validation import (
 )
 from t4perceval.system.metric.heading_flip_rate import HeadingFlipRateSystem
 from t4perceval.system.metric.prediction import PathDisplacementSystem
+from t4perceval.system.metric.sensing import SensingDetectionRateSystem
 from t4perceval.system.metric.segmentation import (
     SegmentationConfusionMatrixSystem,
     SegmentationIoUSystem,
@@ -48,6 +49,7 @@ __all__ = (
     "SegmentationConfusionMatrixSystem",
     "SegmentationIoUSystem",
     "SegmentationMetricSystem",
+    "SensingDetectionRateSystem",
     "fp_validation_by_instance",
     "latest_time",
     "nan_mean",

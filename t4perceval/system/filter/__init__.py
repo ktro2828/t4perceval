@@ -42,6 +42,7 @@ from t4perceval.system.filter.quality import (
     FilterBySpeedSystem,
     FilterByVisibilitySystem,
 )
+from t4perceval.system.filter.sensing import NonDetectionArea, SensingNonDetectionSystem
 from t4perceval.system.filter.position import (
     FilterByDistanceSystem,
     FilterByMapSystem,
@@ -68,6 +69,8 @@ __all__ = (
     "FilterPointsByPolarGridSystem",
     "FilterPointsByRegionSystem",
     "MaskSystem",
+    "NonDetectionArea",
+    "SensingNonDetectionSystem",
     "masked_view",
     "resolve_class_ids",
 )

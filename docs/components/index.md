@@ -7,38 +7,39 @@ share memory with a writable array you passed in.
 This section is a **schema catalogue**: what each column means, what shape it has, and what
 depends on it.
 
-| Page                      | Covers                                                      |
-| :------------------------ | :---------------------------------------------------------- |
-| [Geometry](geometry.md)   | positions, rotations, sizes, velocities, ROIs, label images |
-| [Object](object.md)       | class, confidence, instance, quality, trajectories          |
-| [Transform](transform.md) | translation, rotation and frame names -- mono components    |
-| [Metrics](metrics.md)     | masks, match verdicts, metric values, counts                |
+| Page                      | Covers                                                         |
+| :------------------------ | :------------------------------------------------------------- |
+| [Geometry](geometry.md)   | positions, rotations, sizes, velocities, ROIs, label images    |
+| [Object](object.md)       | class, confidence, instance, quality, trajectories             |
+| [Transform](transform.md) | translation, rotation and frame names -- mono components       |
+| [Metrics](metrics.md)     | masks, match verdicts, sensing verdicts, metric values, counts |
 
 ## Every column at a glance
 
-| Component                                           | Shape          | dtype          | Notes                                      |
-| :-------------------------------------------------- | :------------- | :------------- | :----------------------------------------- |
-| `BatchPosition3D` / `BatchVelocity` / `BatchSize3D` | `(N, 3)`       | `f64`          | `BatchSize3D` is `(width, length, height)` |
-| `BatchPosition2D` / `BatchSize2D`                   | `(N, 2)`       | `f64`          |                                            |
-| `BatchQuaternion`                                   | `(N, 4)`       | `f64`          | `xyzw` order (SciPy's convention)          |
-| `BatchRoi`                                          | `(N, 4)`       | `i32`          | `(x_min, y_min, height, width)`            |
-| `BatchClassId`                                      | `(N,)`         | `i32`          | meaning comes from `LabelRegistry`         |
-| `BatchConfidence`                                   | `(N,)`         | `f64`          | constrained to `[0, 1]`                    |
-| `BatchInstanceId`                                   | `(N,)`         | `i64`          | interned by `InstanceRegistry`             |
-| `BatchNumPoints`                                    | `(N,)`         | `i32`          |                                            |
-| `BatchClassIdImage`                                 | `(N, H, W)`    | `i32`          | one label image per row; `H, W` per column |
-| `BatchVisibility` / `BatchMatchStatus`              | `(N,)`         | `i8`           | ordered enums                              |
-| `BatchMask`                                         | `(N,)`         | `bool`         | a filter's verdict                         |
-| `BatchRowIndex`                                     | `(N,)`         | `i64`          | `-1` means "no counterpart"                |
-| `BatchMatchingScore` / `BatchThreshold`             | `(N,)`         | `f64`          |                                            |
-| `BatchMetricValue`                                  | `(N,)`         | `f64`          | `NaN` when undefined                       |
-| `BatchSupport` / `BatchCount`                       | `(N,)`         | `i64`          | non-negative                               |
-| `BatchWaypoints3D`                                  | `(N, M, T, 3)` | `f64`          | `M` modes, `T` timesteps                   |
-| `BatchModeConfidence` / `BatchModeValid`            | `(N, M)`       | `f64` / `bool` |                                            |
-| `BatchTimestepValid`                                | `(N, M, T)`    | `bool`         |                                            |
-| `BatchTimeOffset`                                   | `(N, T)`       | `i64`          | nanoseconds, strictly increasing           |
-| `Position3D` / `Quaternion` / `FrameId`             | one value      | `f64` / `str`  | **mono** -- see [Transform](transform.md)  |
-| `ClassIdImage`                                      | one `(H, W)`   | `i32`          | **mono** -- `SemanticImage`                |
+| Component                                           | Shape          | dtype          | Notes                                        |
+| :-------------------------------------------------- | :------------- | :------------- | :------------------------------------------- |
+| `BatchPosition3D` / `BatchVelocity` / `BatchSize3D` | `(N, 3)`       | `f64`          | `BatchSize3D` is `(width, length, height)`   |
+| `BatchPosition2D` / `BatchSize2D`                   | `(N, 2)`       | `f64`          |                                              |
+| `BatchQuaternion`                                   | `(N, 4)`       | `f64`          | `xyzw` order (SciPy's convention)            |
+| `BatchRoi`                                          | `(N, 4)`       | `i32`          | `(x_min, y_min, height, width)`              |
+| `BatchClassId`                                      | `(N,)`         | `i32`          | meaning comes from `LabelRegistry`           |
+| `BatchConfidence`                                   | `(N,)`         | `f64`          | constrained to `[0, 1]`                      |
+| `BatchInstanceId`                                   | `(N,)`         | `i64`          | interned by `InstanceRegistry`               |
+| `BatchNumPoints`                                    | `(N,)`         | `i32`          |                                              |
+| `BatchClassIdImage`                                 | `(N, H, W)`    | `i32`          | one label image per row; `H, W` per column   |
+| `BatchVisibility` / `BatchMatchStatus`              | `(N,)`         | `i8`           | ordered enums                                |
+| `BatchSensingStatus`                                | `(N,)`         | `i8`           | `SensingStatus`: detected / failed / warning |
+| `BatchMask`                                         | `(N,)`         | `bool`         | a filter's verdict                           |
+| `BatchRowIndex`                                     | `(N,)`         | `i64`          | `-1` means "no counterpart"                  |
+| `BatchMatchingScore` / `BatchThreshold`             | `(N,)`         | `f64`          |                                              |
+| `BatchMetricValue`                                  | `(N,)`         | `f64`          | `NaN` when undefined                         |
+| `BatchSupport` / `BatchCount`                       | `(N,)`         | `i64`          | non-negative                                 |
+| `BatchWaypoints3D`                                  | `(N, M, T, 3)` | `f64`          | `M` modes, `T` timesteps                     |
+| `BatchModeConfidence` / `BatchModeValid`            | `(N, M)`       | `f64` / `bool` |                                              |
+| `BatchTimestepValid`                                | `(N, M, T)`    | `bool`         |                                              |
+| `BatchTimeOffset`                                   | `(N, T)`       | `i64`          | nanoseconds, strictly increasing             |
+| `Position3D` / `Quaternion` / `FrameId`             | one value      | `f64` / `str`  | **mono** -- see [Transform](transform.md)    |
+| `ClassIdImage`                                      | one `(H, W)`   | `i32`          | **mono** -- `SemanticImage`                  |
 
 ## Naming rules
 

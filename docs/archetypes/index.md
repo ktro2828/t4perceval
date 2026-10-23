@@ -23,6 +23,7 @@ the others, not a reproduction of the Python signatures. For those, see the
 | `SemanticImage`      | [Segmentation](segmentation.md)     | one class-id image per frame, mono                |
 | `SemanticPointCloud` | [Segmentation](segmentation.md)     | `PointCloud` plus a class per point               |
 | `Transform3D`        | [Transform 3D](transform-3d.md)     | the pose of a child frame in its parent           |
+| `SensingResults`     | [Sensing](sensing.md)               | what the sensor saw of each box, row-aligned      |
 | `MatchResults`       | [Matching](matching.md)             | the outcome of matching two entities              |
 | `MetricValues`       | [Metrics](metrics.md)               | one metric's values, by class and threshold       |
 | `ConfusionMatrix`    | [Metrics](metrics.md)               | long-form detection confusion matrix              |

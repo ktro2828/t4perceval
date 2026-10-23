@@ -72,6 +72,10 @@ The four `FilterPointsBy*` systems are the [position](#position) predicates over
 column, with the same parameters, the same inclusive bounds and the same targets
 (`<source>/filter/distance`, `/region`, `/polar_grid`, `/map`); `symmetric()`, `inside()` and
 `on_lanelet()` work the same.
+`SensingNonDetectionSystem` in `t4perceval.system.filter.sensing` ([Sensing](sensing.md)) is also a
+two-source mask over a cloud, built with `.between(points, objects, areas=...)`, but not a filter: its
+mask marks the points that offend.
+
 They are separate classes rather than the object filters pointed at a cloud because
 [`POINT` is not `POSITION`](../archetypes/segmentation.md#point-not-position): a filter has to say
 which of the two it judges, and each refuses the other.

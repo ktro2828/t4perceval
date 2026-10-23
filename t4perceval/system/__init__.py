@@ -28,6 +28,8 @@ from t4perceval.system.filter import (
     FilterPointsByPolarGridSystem,
     FilterPointsByRegionSystem,
     MaskSystem,
+    NonDetectionArea,
+    SensingNonDetectionSystem,
     masked_view,
 )
 from t4perceval.system.matching.join import MatchJoin
@@ -56,10 +58,12 @@ from t4perceval.system.metric import (
     SegmentationConfusionMatrixSystem,
     SegmentationIoUSystem,
     SegmentationMetricSystem,
+    SensingDetectionRateSystem,
     fp_validation_by_instance,
 )
 from t4perceval.system.points import AlignPointsSystem
 from t4perceval.system.preset import average_precision_sweep
+from t4perceval.system.sensing import SensingDetectionSystem
 from t4perceval.system.matching.threshold import Thresholds
 from t4perceval.system.transform import TransformEntitySystem
 
@@ -102,6 +106,7 @@ __all__ = (
     "MatchingSystem",
     "MeanAveragePrecisionSystem",
     "MetricSystem",
+    "NonDetectionArea",
     "Passthrough",
     "PathDisplacementSystem",
     "Pipeline",
@@ -109,6 +114,9 @@ __all__ = (
     "SegmentationConfusionMatrixSystem",
     "SegmentationIoUSystem",
     "SegmentationMetricSystem",
+    "SensingDetectionRateSystem",
+    "SensingDetectionSystem",
+    "SensingNonDetectionSystem",
     "System",
     "SystemContext",
     "Thresholds",

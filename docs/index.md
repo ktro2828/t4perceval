@@ -104,14 +104,15 @@ construction; two recordings that disagree about class ids raise.
 
 ## Supported evaluation tasks
 
-| Task                                          | Matching                                  | Metrics                                   |
-| :-------------------------------------------- | :---------------------------------------- | :---------------------------------------- |
-| [Detection 3D](evaluation/detection-3d.md)    | centre distance, BEV, plane, IoU BEV / 3D | AP, APH, mAP, mAPH, confusion matrix      |
-| [Detection 2D](evaluation/detection-2d.md)    | ROI IoU                                   | AP, mAP, classification, confusion matrix |
-| [Tracking](evaluation/tracking.md)            | any 3D or 2D matcher                      | MOTA, MOTP, ID switches                   |
-| [Prediction](evaluation/prediction.md)        | any 3D matcher, on the current pose       | ADE, FDE, miss rate                       |
-| [Segmentation](evaluation/segmentation-3d.md) | _not applicable_ (rows are aligned)       | IoU, mIoU, accuracy, confusion matrix     |
-| [FP validation](evaluation/fp-validation.md)  | any matcher, with `agnostic_classes`      | pass rate of annotated false positives    |
+| Task                                          | Matching                                  | Metrics                                                 |
+| :-------------------------------------------- | :---------------------------------------- | :------------------------------------------------------ |
+| [Detection 3D](evaluation/detection-3d.md)    | centre distance, BEV, plane, IoU BEV / 3D | AP, APH, mAP, mAPH, confusion matrix                    |
+| [Detection 2D](evaluation/detection-2d.md)    | ROI IoU                                   | AP, mAP, classification, confusion matrix               |
+| [Tracking](evaluation/tracking.md)            | any 3D or 2D matcher                      | MOTA, MOTP, ID switches                                 |
+| [Prediction](evaluation/prediction.md)        | any 3D matcher, on the current pose       | ADE, FDE, miss rate                                     |
+| [Segmentation](evaluation/segmentation-3d.md) | _not applicable_ (rows are aligned)       | IoU, mIoU, accuracy, confusion matrix                   |
+| [FP validation](evaluation/fp-validation.md)  | any matcher, with `agnostic_classes`      | pass rate of annotated false positives                  |
+| [Sensing](evaluation/sensing.md)              | _not applicable_ (points inside boxes)    | verdict per box, non-detection failures, detection rate |
 
 Inputs come from your own arrays, from a [T4 dataset](user-guide/dataset-importers.md#t4-dataset),
 or from an [MCAP ROS bag](user-guide/dataset-importers.md#mcap-ros-bag).

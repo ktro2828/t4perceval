@@ -21,6 +21,7 @@ from t4perceval import (
     PointCloud,
     Predictions3D,
     SemanticPointCloud,
+    SensingResults,
     Trackings2D,
     Trackings3D,
     Trajectories3D,
@@ -48,6 +49,7 @@ def empty_archetypes() -> dict[str, Callable[[], Archetype]]:
         # Transform3D and SemanticImage are mono: one value, so no zero-row form.
         "PointCloud": lambda: PointCloud(point=[]),
         "SemanticPointCloud": lambda: SemanticPointCloud(point=[], class_id=[]),
+        "SensingResults": SensingResults.empty,
         "Trajectories3D": lambda: Trajectories3D.empty(num_modes=2, num_timesteps=3),
         "MatchResults": MatchResults.empty,
     }
@@ -84,6 +86,11 @@ def populated_archetypes() -> dict[str, Callable[[], Archetype]]:
         "SemanticPointCloud": lambda: SemanticPointCloud(
             point=[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
             class_id=[0, 1, 2],
+        ),
+        "SensingResults": lambda: SensingResults(
+            num_points=[3, 0, 1],
+            sensing_status=[0, 1, 2],
+            nearest_point=[[1.0, 0.0, 0.0], [np.nan, np.nan, np.nan], [2.0, 0.0, 0.0]],
         ),
         "MatchResults": lambda: MatchResults(
             est_index=[0, 1, -1],

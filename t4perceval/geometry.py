@@ -19,11 +19,12 @@ from scipy.spatial import cKDTree
 from scipy.spatial.transform import Rotation
 
 if TYPE_CHECKING:
-    from t4perceval.typing import ArrayLike, NDArrayF64, NDArrayI32, NDArrayI64
+    from t4perceval.typing import ArrayLike, NDArrayBool, NDArrayF64, NDArrayI32, NDArrayI64
 
 __all__ = (
     "bev_area",
     "bev_corners",
+    "box_scale_at",
     "canonical_bev_corners",
     "corner_displacements",
     "heading_errors",
@@ -36,6 +37,7 @@ __all__ = (
     "pairwise_plane_distance",
     "pairwise_roi_iou",
     "pairwise_volume_iou",
+    "points_in_boxes",
     "volume",
 )
 
@@ -392,3 +394,102 @@ def nearest_points(points: NDArrayF64, reference: NDArrayF64) -> tuple[NDArrayF6
     """
     distances, indices = cKDTree(reference).query(points, k=1)
     return np.atleast_1d(distances), np.atleast_1d(indices).astype(np.int64)
+
+
+def box_scale_at(distance: ArrayLike, scale_0m: float, scale_100m: float) -> NDArrayF64:
+    """Return the footprint scale of a box at each ``distance`` from the ego, ``(N,)``.
+
+    The scale is linear in the distance, anchored at the two named ranges::
+
+        scale = scale_0m + (scale_100m - scale_0m) / 100 * distance
+
+    This is ``SensingFrameConfig.get_scale_factor`` of the original package: a box far
+    away is enlarged (or shrunk) to absorb the annotation and localization error that
+    grows with range. The line is not clamped, so beyond 100 m it keeps extrapolating.
+    """
+    distance = np.asarray(distance, dtype=np.float64)
+    return scale_0m + 0.01 * (scale_100m - scale_0m) * distance
+
+
+def points_in_boxes(
+    points: ArrayLike,
+    position: ArrayLike,
+    quaternion: ArrayLike,
+    size: ArrayLike,
+    *,
+    scale: ArrayLike | float | None = None,
+) -> NDArrayBool:
+    """Return which points lie inside which boxes, with shape ``(N, M)``.
+
+    Each point is moved into the box frame by the box's **yaw** -- the heading, as
+    :func:`heading_errors` reads it -- and tested against the half extents with **closed**
+    intervals: a point on a face is inside. Roll and pitch are ignored, so a box is the
+    yaw-only box perception annotations are, with its footprint in the xy plane and its
+    height test ``|z - centre_z| <= height / 2`` in the input frame. The ``scale``
+    multiplies the footprint -- width and length -- and leaves the height alone, as the
+    sensing evaluation of the original package scales its boxes.
+
+    Args:
+        points: ``(N, 3)`` points in the same frame as the boxes.
+        position: Box centres, ``(M, 3)``.
+        quaternion: Box rotations in ``xyzw`` order, ``(M, 4)``.
+        size: Box sizes as ``(width, length, height)``, ``(M, 3)``.
+        scale: One footprint scale for every box, or one per box, ``(M,)``. A scale of
+            zero or less admits nothing. Defaults to 1.
+
+    A box with a non-finite centre, rotation or size contains nothing, and so does one
+    whose width, length or height comes out at zero or less.
+    """
+    points = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    position = np.asarray(position, dtype=np.float64).reshape(-1, 3)
+    quaternion = np.asarray(quaternion, dtype=np.float64).reshape(-1, 4)
+    size = np.asarray(size, dtype=np.float64).reshape(-1, 3)
+    num_points, num_boxes = len(points), len(position)
+    if not (len(quaternion) == num_boxes and len(size) == num_boxes):
+        raise ValueError(
+            "points_in_boxes needs one quaternion and one size per box, "
+            f"got {num_boxes} positions, {len(quaternion)} quaternions and {len(size)} sizes"
+        )
+    scales = np.ones(num_boxes) if scale is None else np.broadcast_to(scale, (num_boxes,))
+    scales = np.asarray(scales, dtype=np.float64)
+
+    inside = np.zeros((num_points, num_boxes), dtype=np.bool_)
+    if num_points == 0 or num_boxes == 0:
+        return inside
+
+    half_width = 0.5 * size[:, 0] * scales
+    half_length = 0.5 * size[:, 1] * scales
+    half_height = 0.5 * size[:, 2]
+    finite = (
+        np.isfinite(position).all(axis=1)
+        & np.isfinite(quaternion).all(axis=1)
+        & np.isfinite(size).all(axis=1)
+        & np.isfinite(scales)
+    )
+    # Squared, and never rooted: a corner point must not fall out of the sphere to rounding.
+    radius_sq = half_width**2 + half_length**2 + half_height**2
+    # A zero extent must admit nothing, not the centre line, so the test is strict here.
+    extents_ok = (half_width > 0.0) & (half_length > 0.0) & (half_height > 0.0)
+
+    boxes = np.flatnonzero(finite & extents_ok)
+    if not boxes.size:
+        return inside
+    yaw = Rotation.from_quat(quaternion[boxes]).as_euler("xyz")[:, 2]
+    cos, sin = np.cos(yaw), np.sin(yaw)
+
+    for which, box in enumerate(boxes):
+        offset = points - position[box]
+        # Only points within the box's circumscribed sphere can be inside, so the rest are
+        # dropped before the rotation.
+        candidates = np.flatnonzero(np.einsum("ij,ij->i", offset, offset) <= radius_sq[box])
+        if not candidates.size:
+            continue
+        dx, dy, dz = offset[candidates].T
+        local_x = cos[which] * dx + sin[which] * dy
+        local_y = -sin[which] * dx + cos[which] * dy
+        inside[candidates, box] = (
+            (np.abs(local_x) <= half_length[box])
+            & (np.abs(local_y) <= half_width[box])
+            & (np.abs(dz) <= half_height[box])
+        )
+    return inside

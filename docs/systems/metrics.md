@@ -46,6 +46,13 @@ When both entities carry `point`, the coordinates are compared row by row within
 `point_tolerance`, so a reordered cloud is refused rather than scored against the wrong points;
 `AlignPointsSystem` puts the rows in order first.
 
+## Over a sensing result
+
+`SensingDetectionRateSystem` in `t4perceval.system.metric.sensing` ([Sensing](sensing.md)) reads a
+`SensingResults` entity and the objects it
+was computed over, joined by row, and writes the share of boxes the sensor saw per class to
+`/metrics/sensing/detection_rate`. There is no matching stage and no estimation.
+
 ## Where to go next
 
 - [Metrics](../user-guide/metrics.md) -- reading values back, per class and aggregate.
